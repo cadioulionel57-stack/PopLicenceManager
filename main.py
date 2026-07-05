@@ -1,13 +1,29 @@
 import sys
+import traceback
 
 from PySide6.QtWidgets import QApplication
 
-from ui.main_window import MainWindow
+try:
+    print("1")
+    from database.init_database import initialiser
 
+    print("2")
+    from ui.main_window import MainWindow
 
-app = QApplication(sys.argv)
+    print("3")
+    initialiser()
 
-window = MainWindow()
-window.show()
+    print("4")
+    app = QApplication(sys.argv)
 
-sys.exit(app.exec())
+    print("5")
+    window = MainWindow()
+
+    print("6")
+    window.show()
+
+    print("7")
+    sys.exit(app.exec())
+
+except Exception:
+    traceback.print_exc()
