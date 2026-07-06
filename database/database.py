@@ -10,6 +10,8 @@ class Database:
 
         db_path = Path(__file__).parent / "poplicence.db"
 
+        print("Base SQLite :", db_path)
+
         self.conn = sqlite3.connect(db_path)
 
         self.conn.row_factory = sqlite3.Row

@@ -5,16 +5,27 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QWidget,
     QPushButton,
+    QMessageBox,
 )
+
+from ui.tabs.tab_general import GeneralTab
+
+from modules.numerotation_manager import NumerotationManager
+from modules.product_manager import ProductManager
 
 
 class ProductDialogV2(QDialog):
 
-    def __init__(self):
+    def __init__(self, type_produit):
 
         super().__init__()
 
-        self.setWindowTitle("***** PRODUCT DIALOG V2 *****")
+        self.type_produit = type_produit
+
+        self.productManager = ProductManager()
+        self.numerotation = NumerotationManager()
+
+        self.setWindowTitle("📦 Nouveau produit")
         self.resize(1100, 750)
 
         self.setStyleSheet("""
@@ -57,21 +68,21 @@ class ProductDialogV2(QDialog):
         }
         """)
 
-        layout = QVBoxLayout(self)
+        ####################################################
+        # Layout principal
+        ####################################################
 
-        ####################################################
-        # Onglets
-        ####################################################
+        layout = QVBoxLayout(self)
 
         self.tabs = QTabWidget()
 
         layout.addWidget(self.tabs)
 
         ####################################################
-        # Général
+        # Onglet Général
         ####################################################
 
-        self.pageGeneral = QWidget()
+        self.pageGeneral = GeneralTab()
 
         self.tabs.addTab(
             self.pageGeneral,
@@ -79,70 +90,47 @@ class ProductDialogV2(QDialog):
         )
 
         ####################################################
-        # Caractéristiques
+        # Type de produit
         ####################################################
 
-        self.pageCaracteristiques = QWidget()
+        libelles = {
+            "stock": "📦 Produit en stock",
+            "dropshipping": "🚚 Direct fournisseur",
+            "precommande": "⏳ Précommande",
+            "bundle": "🎁 Bundle",
+        }
 
-        self.tabs.addTab(
-            self.pageCaracteristiques,
-            "📏 Caractéristiques"
+        self.pageGeneral.typeProduit.setText(
+            libelles[self.type_produit]
         )
 
         ####################################################
-        # Tarification
+        # Aperçu du SKU
         ####################################################
 
-        self.pageTarification = QWidget()
+        codes = {
+            "stock": "SKU_STOCK",
+            "dropshipping": "SKU_DROP",
+            "precommande": "SKU_PRECO",
+            "bundle": "SKU_BUNDLE",
+        }
 
-        self.tabs.addTab(
-            self.pageTarification,
-            "💰 Tarification"
+        self.codeNumerotation = codes[self.type_produit]
+
+        self.pageGeneral.sku.setText(
+            self.numerotation.apercu(self.codeNumerotation)
         )
 
         ####################################################
-        # SEO
+        # Autres onglets
         ####################################################
 
-        self.pageSEO = QWidget()
-
-        self.tabs.addTab(
-            self.pageSEO,
-            "🌐 SEO"
-        )
-
-        ####################################################
-        # Images
-        ####################################################
-
-        self.pageImages = QWidget()
-
-        self.tabs.addTab(
-            self.pageImages,
-            "🖼 Images"
-        )
-
-        ####################################################
-        # Publication
-        ####################################################
-
-        self.pagePublication = QWidget()
-
-        self.tabs.addTab(
-            self.pagePublication,
-            "🚀 Publication"
-        )
-
-        ####################################################
-        # Historique
-        ####################################################
-
-        self.pageHistorique = QWidget()
-
-        self.tabs.addTab(
-            self.pageHistorique,
-            "📜 Historique"
-        )
+        self.tabs.addTab(QWidget(), "📏 Caractéristiques")
+        self.tabs.addTab(QWidget(), "💰 Tarification")
+        self.tabs.addTab(QWidget(), "🌐 SEO")
+        self.tabs.addTab(QWidget(), "🖼 Images")
+        self.tabs.addTab(QWidget(), "🚀 Publication")
+        self.tabs.addTab(QWidget(), "📜 Historique")
 
         ####################################################
         # Boutons
@@ -161,4 +149,38 @@ class ProductDialogV2(QDialog):
         layout.addLayout(boutons)
 
         self.btnAnnuler.clicked.connect(self.reject)
-        self.btnEnregistrer.clicked.connect(self.accept)
+        self.btnEnregistrer.clicked.connect(self.enregistrer)
+
+    def enregistrer(self):
+
+        sku = self.numerotation.generer(
+            self.codeNumerotation
+        )
+
+        self.productManager.ajouter(
+
+            type_produit=self.type_produit,
+
+            ean=self.pageGeneral.ean.text(),
+
+            sku=sku,
+
+            nom=self.pageGeneral.nom.text(),
+
+            licence_id=self.pageGeneral.cboLicence.id(),
+
+            marque_id=self.pageGeneral.cboMarque.id(),
+
+            fournisseur_id=self.pageGeneral.cboFournisseur.id(),
+
+            reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+
+        )
+
+        QMessageBox.information(
+            self,
+            "Produit",
+            "Produit enregistré avec succès."
+        )
+
+        self.accept()

@@ -7,6 +7,8 @@ SCHEMA = {
         ("ean", "TEXT UNIQUE"),
         ("sku", "TEXT UNIQUE"),
 
+        ("type_produit", "TEXT"),
+
         ("nom", "TEXT"),
 
        ("licence_id", "INTEGER"),
@@ -105,16 +107,42 @@ SCHEMA["univers"] = [
 
     ("nom", "TEXT UNIQUE"),
 
+    ("description", "TEXT"),
+
     ("actif", "INTEGER DEFAULT 1")
 
 ]
 
+SCHEMA["collections"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT UNIQUE"),
+
+    ("description", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+SCHEMA["personnages"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT UNIQUE"),
+
+    ("description", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
 
 SCHEMA["marques"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
 
     ("nom", "TEXT UNIQUE"),
+
+    ("description", "TEXT"),
 
     ("actif", "INTEGER DEFAULT 1")
 
@@ -726,5 +754,20 @@ SCHEMA["sauvegardes"] = [
     ("type", "TEXT"),
 
     ("commentaire", "TEXT")
+
+]
+SCHEMA["numerotations"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("code", "TEXT UNIQUE"),
+
+    ("prefixe", "TEXT"),
+
+    ("dernier_numero", "INTEGER DEFAULT 0"),
+
+    ("longueur", "INTEGER DEFAULT 6"),
+
+    ("actif", "INTEGER DEFAULT 1")
 
 ]
