@@ -16,6 +16,7 @@ from ui.products import ProductsPage
 from ui.licences import LicencesPage
 from ui.marques import MarquesPage
 from ui.canaux import CanauxPage
+from ui.categories import CategoriesPage
 
 class MainWindow(QMainWindow):
 
@@ -118,6 +119,7 @@ class MainWindow(QMainWindow):
             "📦  Produits",
             "🏷️  Licences",
             "™️  Marques",
+            "📂  Catégories",
             "🚚  Fournisseurs",
             "🛒  Commandes",
             "📦  Stock",
@@ -229,11 +231,13 @@ class MainWindow(QMainWindow):
         self.pageLicences = LicencesPage()
         self.pageMarques = MarquesPage()
         self.pageCanaux = CanauxPage()
+        self.pageCategories = CategoriesPage()
 
         self.pages.addWidget(self.pageProduits)
         self.pages.addWidget(self.pageLicences)
         self.pages.addWidget(self.pageMarques)
         self.pages.addWidget(self.pageCanaux)
+        self.pages.addWidget(self.pageCategories)
 
                 #################################################
         # CONNEXIONS
@@ -254,6 +258,9 @@ class MainWindow(QMainWindow):
         )
         self.boutons["🌐  Canaux de vente"].clicked.connect(
             lambda: self.pages.setCurrentIndex(4)
+        )
+        self.boutons["📂  Catégories"].clicked.connect(
+            lambda: self.pages.setCurrentIndex(5)
         )
         #################################################
         # BARRE D'ETAT

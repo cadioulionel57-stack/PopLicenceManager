@@ -132,6 +132,12 @@ SCHEMA["categories"] = [
     # canal a son propre arbre de catégories.
     ("canal_id", "INTEGER"),
 
+    # Commission spécifique à cette catégorie, sur ce
+    # canal (ex : Amazon "Jouets" = 15 %). Si NULL,
+    # on utilise la commission par défaut du canal
+    # (ex : WiziShop = 1 % pour toutes les catégories).
+    ("commission_pourcentage", "REAL"),
+
     ("actif", "INTEGER DEFAULT 1")
 
 ]
