@@ -16,11 +16,16 @@ from modules.product_manager import ProductManager
 
 class ProductDialogV2(QDialog):
 
-    def __init__(self, type_produit):
+    def __init__(self, type_produit=None, produit=None):
 
         super().__init__()
 
-        self.type_produit = type_produit
+        self.produit = produit
+
+        if produit is not None:
+            self.type_produit = produit["type_produit"]
+        else:
+            self.type_produit = type_produit
 
         self.productManager = ProductManager()
         self.numerotation = NumerotationManager()
@@ -117,9 +122,43 @@ class ProductDialogV2(QDialog):
 
         self.codeNumerotation = codes[self.type_produit]
 
-        self.pageGeneral.sku.setText(
-            self.numerotation.apercu(self.codeNumerotation)
-        )
+        if self.produit is None:
+
+            self.pageGeneral.sku.setText(
+                self.numerotation.apercu(
+                    self.codeNumerotation
+                )
+            )
+
+        else:
+
+            self.pageGeneral.sku.setText(
+                self.produit["sku"]
+            )
+
+            self.pageGeneral.nom.setText(
+                self.produit["nom"] or ""
+            )
+
+            self.pageGeneral.ean.setText(
+                self.produit["ean"] or ""
+            )
+
+            self.pageGeneral.referenceFournisseur.setText(
+                self.produit["reference_fournisseur"] or ""
+            )
+
+            self.pageGeneral.cboLicence.selectionner(
+                self.produit["licence_id"]
+            )
+
+            self.pageGeneral.cboMarque.selectionner(
+                self.produit["marque_id"]
+            )
+
+            self.pageGeneral.cboFournisseur.selectionner(
+                self.produit["fournisseur_id"]
+            )
 
         ####################################################
         # Autres onglets
@@ -153,29 +192,53 @@ class ProductDialogV2(QDialog):
 
     def enregistrer(self):
 
-        sku = self.numerotation.generer(
-            self.codeNumerotation
-        )
+        if self.produit is None:
 
-        self.productManager.ajouter(
+            sku = self.numerotation.generer(
+                self.codeNumerotation
+            )
 
-            type_produit=self.type_produit,
+            self.productManager.ajouter(
 
-            ean=self.pageGeneral.ean.text(),
+                type_produit=self.type_produit,
 
-            sku=sku,
+                ean=self.pageGeneral.ean.text(),
 
-            nom=self.pageGeneral.nom.text(),
+                sku=sku,
 
-            licence_id=self.pageGeneral.cboLicence.id(),
+                nom=self.pageGeneral.nom.text(),
 
-            marque_id=self.pageGeneral.cboMarque.id(),
+                licence_id=self.pageGeneral.cboLicence.id(),
 
-            fournisseur_id=self.pageGeneral.cboFournisseur.id(),
+                marque_id=self.pageGeneral.cboMarque.id(),
 
-            reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+                fournisseur_id=self.pageGeneral.cboFournisseur.id(),
 
-        )
+                reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+
+            )
+
+        else:
+
+            self.productManager.modifier(
+
+                identifiant=self.produit["id"],
+
+                type_produit=self.type_produit,
+
+                ean=self.pageGeneral.ean.text(),
+
+                nom=self.pageGeneral.nom.text(),
+
+                licence_id=self.pageGeneral.cboLicence.id(),
+
+                marque_id=self.pageGeneral.cboMarque.id(),
+
+                fournisseur_id=self.pageGeneral.cboFournisseur.id(),
+
+                reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+
+            )
 
         QMessageBox.information(
             self,
