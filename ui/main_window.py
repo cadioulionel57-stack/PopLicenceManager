@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt
 from ui.products import ProductsPage
 from ui.licences import LicencesPage
 from ui.marques import MarquesPage
+from ui.canaux import CanauxPage
 
 class MainWindow(QMainWindow):
 
@@ -123,8 +124,7 @@ class MainWindow(QMainWindow):
             "💰  Tarification",
             "📈  Ventes",
             "📊  Statistiques",
-            "🌐  Amazon",
-            "🛍️  WiziShop",
+            "🌐  Canaux de vente",
             "⚙️  Paramètres",
         ]
 
@@ -228,10 +228,12 @@ class MainWindow(QMainWindow):
         self.pageProduits = ProductsPage()
         self.pageLicences = LicencesPage()
         self.pageMarques = MarquesPage()
+        self.pageCanaux = CanauxPage()
 
         self.pages.addWidget(self.pageProduits)
         self.pages.addWidget(self.pageLicences)
         self.pages.addWidget(self.pageMarques)
+        self.pages.addWidget(self.pageCanaux)
 
                 #################################################
         # CONNEXIONS
@@ -249,6 +251,9 @@ class MainWindow(QMainWindow):
         )
         self.boutons["™️  Marques"].clicked.connect(
             lambda: self.pages.setCurrentIndex(3)
+        )
+        self.boutons["🌐  Canaux de vente"].clicked.connect(
+            lambda: self.pages.setCurrentIndex(4)
         )
         #################################################
         # BARRE D'ETAT

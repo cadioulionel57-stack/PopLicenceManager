@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.tabs.tab_general import GeneralTab
+from ui.tabs.tab_caracteristiques import CaracteristiquesTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
@@ -30,7 +31,10 @@ class ProductDialogV2(QDialog):
         self.productManager = ProductManager()
         self.numerotation = NumerotationManager()
 
-        self.setWindowTitle("📦 Nouveau produit")
+        if self.produit is None:
+            self.setWindowTitle("📦 Nouveau produit")
+        else:
+            self.setWindowTitle("✏ Modifier le produit")
         self.resize(1100, 750)
 
         self.setStyleSheet("""
@@ -161,10 +165,31 @@ class ProductDialogV2(QDialog):
             )
 
         ####################################################
+        # Onglet Caractéristiques
+        ####################################################
+
+        self.pageCaracteristiques = CaracteristiquesTab()
+
+        self.tabs.addTab(
+            self.pageCaracteristiques,
+            "📏 Caractéristiques"
+        )
+
+        if self.produit is not None:
+
+            categories_canaux = self.productManager.categories_canaux(
+                self.produit["id"]
+            )
+
+            self.pageCaracteristiques.charger(
+                self.produit,
+                categories_canaux
+            )
+
+        ####################################################
         # Autres onglets
         ####################################################
 
-        self.tabs.addTab(QWidget(), "📏 Caractéristiques")
         self.tabs.addTab(QWidget(), "💰 Tarification")
         self.tabs.addTab(QWidget(), "🌐 SEO")
         self.tabs.addTab(QWidget(), "🖼 Images")
@@ -198,7 +223,7 @@ class ProductDialogV2(QDialog):
                 self.codeNumerotation
             )
 
-            self.productManager.ajouter(
+            identifiant_produit = self.productManager.ajouter(
 
                 type_produit=self.type_produit,
 
@@ -214,15 +239,35 @@ class ProductDialogV2(QDialog):
 
                 fournisseur_id=self.pageGeneral.cboFournisseur.id(),
 
-                reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+                reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
+
+                categorie_poplicence_id=self.pageCaracteristiques.categoriePop.id(),
+
+                longueur=self.pageCaracteristiques.longueur.value(),
+
+                largeur=self.pageCaracteristiques.largeur.value(),
+
+                hauteur=self.pageCaracteristiques.hauteur.value(),
+
+                poids=self.pageCaracteristiques.poids.value(),
+
+                matiere=self.pageCaracteristiques.matiere.text(),
+
+                couleur=self.pageCaracteristiques.couleur.text(),
+
+                age_minimum=self.pageCaracteristiques.age.value(),
+
+                pays_fabrication=self.pageCaracteristiques.fabrication.text()
 
             )
 
         else:
 
+            identifiant_produit = self.produit["id"]
+
             self.productManager.modifier(
 
-                identifiant=self.produit["id"],
+                identifiant=identifiant_produit,
 
                 type_produit=self.type_produit,
 
@@ -236,9 +281,32 @@ class ProductDialogV2(QDialog):
 
                 fournisseur_id=self.pageGeneral.cboFournisseur.id(),
 
-                reference_fournisseur=self.pageGeneral.referenceFournisseur.text()
+                reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
+
+                categorie_poplicence_id=self.pageCaracteristiques.categoriePop.id(),
+
+                longueur=self.pageCaracteristiques.longueur.value(),
+
+                largeur=self.pageCaracteristiques.largeur.value(),
+
+                hauteur=self.pageCaracteristiques.hauteur.value(),
+
+                poids=self.pageCaracteristiques.poids.value(),
+
+                matiere=self.pageCaracteristiques.matiere.text(),
+
+                couleur=self.pageCaracteristiques.couleur.text(),
+
+                age_minimum=self.pageCaracteristiques.age.value(),
+
+                pays_fabrication=self.pageCaracteristiques.fabrication.text()
 
             )
+
+        self.productManager.definir_categories_canaux(
+            identifiant_produit,
+            self.pageCaracteristiques.categories_canaux_selectionnees()
+        )
 
         QMessageBox.information(
             self,

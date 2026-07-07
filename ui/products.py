@@ -86,7 +86,7 @@ class ProductsPage(QWidget):
         self.recherche.setPlaceholderText("Rechercher un produit...")
 
         self.btnAjouter = QPushButton("➕ Nouveau produit")
-        self.btnModifier = QPushButton("✏ Ouvrir")
+        self.btnModifier = QPushButton("✏ Modifier")
         self.btnSupprimer = QPushButton("🗑 Supprimer")
 
         barre.addWidget(self.recherche)
@@ -196,11 +196,7 @@ class ProductsPage(QWidget):
 
     def ouvrirProduit(self):
 
-        print("ouvrirProduit appelée")
-
         ligne = self.table.currentRow()
-
-        print("Ligne sélectionnée :", ligne)
 
         if ligne < 0:
             return
@@ -209,13 +205,11 @@ class ProductsPage(QWidget):
             self.table.item(ligne, 0).text()
         )
 
-        print("ID :", identifiant)
-
         produit = self.manager.obtenir(identifiant)
 
         dialog = ProductDialogV2(
             produit=produit
-)
+        )
 
         if dialog.exec() == dialog.DialogCode.Accepted:
             self.charger()

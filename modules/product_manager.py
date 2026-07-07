@@ -16,10 +16,24 @@ class ProductManager:
         licence_id,
         marque_id,
         fournisseur_id,
-        reference_fournisseur
+        reference_fournisseur,
+        categorie_poplicence_id=None,
+        longueur=None,
+        largeur=None,
+        hauteur=None,
+        poids=None,
+        matiere=None,
+        couleur=None,
+        age_minimum=None,
+        pays_fabrication=None,
     ):
+        """
+        Crée un produit et renvoie son identifiant
+        (nécessaire ensuite pour enregistrer ses
+        catégories par canal de vente).
+        """
 
-        self.db.executer(
+        curseur = self.db.executer(
             """
             INSERT INTO produits
             (
@@ -31,11 +45,20 @@ class ProductManager:
                 marque_id,
                 fournisseur_id,
                 reference_fournisseur,
+                categorie_poplicence_id,
+                longueur,
+                largeur,
+                hauteur,
+                poids,
+                matiere,
+                couleur,
+                age_minimum,
+                pays_fabrication,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -46,9 +69,20 @@ class ProductManager:
                 licence_id,
                 marque_id,
                 fournisseur_id,
-                reference_fournisseur
+                reference_fournisseur,
+                categorie_poplicence_id,
+                longueur,
+                largeur,
+                hauteur,
+                poids,
+                matiere,
+                couleur,
+                age_minimum,
+                pays_fabrication,
             )
         )
+
+        return curseur.lastrowid
 
     def tous(self):
 
@@ -104,7 +138,16 @@ class ProductManager:
         licence_id,
         marque_id,
         fournisseur_id,
-        reference_fournisseur
+        reference_fournisseur,
+        categorie_poplicence_id=None,
+        longueur=None,
+        largeur=None,
+        hauteur=None,
+        poids=None,
+        matiere=None,
+        couleur=None,
+        age_minimum=None,
+        pays_fabrication=None,
     ):
 
         self.db.executer(
@@ -117,7 +160,16 @@ class ProductManager:
                 licence_id = ?,
                 marque_id = ?,
                 fournisseur_id = ?,
-                reference_fournisseur = ?
+                reference_fournisseur = ?,
+                categorie_poplicence_id = ?,
+                longueur = ?,
+                largeur = ?,
+                hauteur = ?,
+                poids = ?,
+                matiere = ?,
+                couleur = ?,
+                age_minimum = ?,
+                pays_fabrication = ?
             WHERE id = ?
             """,
             (
@@ -128,6 +180,15 @@ class ProductManager:
                 marque_id,
                 fournisseur_id,
                 reference_fournisseur,
+                categorie_poplicence_id,
+                longueur,
+                largeur,
+                hauteur,
+                poids,
+                matiere,
+                couleur,
+                age_minimum,
+                pays_fabrication,
                 identifiant
             )
         )
@@ -142,3 +203,68 @@ class ProductManager:
             """,
             (identifiant,)
         )
+
+    ########################################################
+    # Catégories par canal de vente
+    #
+    # Un produit peut avoir une catégorie différente pour
+    # chaque canal (Amazon, Cdiscount, WiziShop...). Cette
+    # liste n'est jamais figée : elle dépend simplement des
+    # canaux actifs au moment de l'enregistrement.
+    ########################################################
+
+    def categories_canaux(self, produit_id):
+        """
+        Renvoie {canal_id: categorie_id} pour un produit.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT canal_id, categorie_id
+            FROM produits_categories_canaux
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        return {
+            ligne["canal_id"]: ligne["categorie_id"]
+            for ligne in lignes
+        }
+
+    def definir_categories_canaux(self, produit_id, mapping):
+        """
+        Remplace les catégories par canal d'un produit.
+
+        mapping : {canal_id: categorie_id}
+        """
+
+        self.db.executer(
+            """
+            DELETE FROM produits_categories_canaux
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        for canal_id, categorie_id in mapping.items():
+
+            self.db.executer(
+                """
+                INSERT INTO produits_categories_canaux
+                (
+                    produit_id,
+                    canal_id,
+                    categorie_id
+                )
+                VALUES
+                (
+                    ?, ?, ?
+                )
+                """,
+                (
+                    produit_id,
+                    canal_id,
+                    categorie_id
+                )
+            )

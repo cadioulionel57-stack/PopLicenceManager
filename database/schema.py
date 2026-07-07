@@ -17,8 +17,6 @@ SCHEMA = {
 
        ("categorie_poplicence_id", "INTEGER"),
 
-       ("categorie_amazon_id", "INTEGER"),
-
        ("marque_id", "INTEGER"),
 
        ("fournisseur_id", "INTEGER"),
@@ -37,6 +35,11 @@ SCHEMA = {
         ("largeur", "REAL"),
         ("hauteur", "REAL"),
         ("poids", "REAL"),
+
+        ("matiere", "TEXT"),
+        ("couleur", "TEXT"),
+        ("age_minimum", "INTEGER"),
+        ("pays_fabrication", "TEXT"),
 
         ("tva", "REAL"),
 
@@ -121,9 +124,13 @@ SCHEMA["categories"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
 
-    ("nom", "TEXT UNIQUE"),
+    ("nom", "TEXT"),
 
-    ("type", "TEXT"),
+    # NULL = catégorie interne Pop Licence.
+    # Sinon, référence un canal de vente précis
+    # (Amazon, Cdiscount, WiziShop...) : chaque
+    # canal a son propre arbre de catégories.
+    ("canal_id", "INTEGER"),
 
     ("actif", "INTEGER DEFAULT 1")
 
@@ -201,8 +208,17 @@ SCHEMA["canaux_vente"] = [
 
     ("nom", "TEXT UNIQUE"),
 
-    # "site" (WiziShop) ou "marketplace" (Base.com, Amazon...)
+    # "site" (WiziShop) ou "marketplace" (Base.com, Amazon, Cdiscount...)
     ("type", "TEXT"),
+
+    ("commission_pourcentage", "REAL DEFAULT 0"),
+
+    ("frais_fixe_ht", "REAL DEFAULT 0"),
+
+    # 1 = les frais de port sont inclus dans le prix affiché
+    # (ex : marketplaces, "livraison gratuite")
+    # 0 = le client paye le port en plus (ex : WiziShop)
+    ("port_inclus", "INTEGER DEFAULT 0"),
 
     ("actif", "INTEGER DEFAULT 1"),
 
@@ -224,6 +240,17 @@ SCHEMA["produits_canaux"] = [
     ("reference_externe", "TEXT"),
 
     ("statut", "TEXT")
+
+]
+SCHEMA["produits_categories_canaux"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("produit_id", "INTEGER"),
+
+    ("canal_id", "INTEGER"),
+
+    ("categorie_id", "INTEGER")
 
 ]
 SCHEMA["images_produits"] = [

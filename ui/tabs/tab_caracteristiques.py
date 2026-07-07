@@ -3,11 +3,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QGroupBox,
     QFormLayout,
-    QComboBox,
     QDoubleSpinBox,
     QSpinBox,
     QLineEdit,
 )
+
+from ui.widgets.reference_combobox import ReferenceComboBox
+from modules.canal_manager import CanalManager
 
 
 class CaracteristiquesTab(QWidget):
@@ -21,18 +23,36 @@ class CaracteristiquesTab(QWidget):
         ####################################################
         # Catégories
         ####################################################
+        #
+        # Une catégorie interne Pop Licence (fixe), puis
+        # une ligne par canal de vente actif (dynamique,
+        # dépend entièrement de ce qui existe dans
+        # "Canaux de vente" : rien n'est codé en dur ici).
+        #
+        ####################################################
 
         categorie = QGroupBox("📂 Catégories")
 
-        form = QFormLayout(categorie)
+        self.formCategories = QFormLayout(categorie)
 
-        self.categoriePop = QComboBox()
-        self.categorieAmazon = QComboBox()
-        self.categorieWizi = QComboBox()
+        self.categoriePop = ReferenceComboBox(
+            "categories",
+            filtre_colonne="canal_id",
+            filtre_valeur=None
+        )
 
-        form.addRow("Catégorie Pop Licence", self.categoriePop)
-        form.addRow("Catégorie Amazon", self.categorieAmazon)
-        form.addRow("Catégorie WiziShop", self.categorieWizi)
+        self.formCategories.addRow(
+            "Catégorie Pop Licence",
+            self.categoriePop
+        )
+
+        # Une ligne par canal de vente actif, créée
+        # automatiquement. self.categoriesCanaux garde
+        # le lien {canal_id: menu déroulant} pour pouvoir
+        # ensuite lire/enregistrer les choix faits.
+        self.categoriesCanaux = {}
+
+        self._chargerCategoriesCanaux()
 
         layout.addWidget(categorie)
 
@@ -89,3 +109,80 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(infos)
 
         layout.addStretch()
+
+    def _chargerCategoriesCanaux(self):
+        """
+        Ajoute une ligne "Catégorie <nom du canal>" pour
+        chaque canal de vente actif (WiziShop, Amazon FBM,
+        Cdiscount, eBay, Leclerc, Rakuten, Fnac...).
+
+        Comme la liste vient entièrement de la table
+        canaux_vente, ajouter ou retirer un canal dans
+        l'écran "Canaux de vente" change automatiquement
+        ce qui s'affiche ici, sans toucher au code.
+        """
+
+        canaux = CanalManager().tous()
+
+        for canal in canaux:
+
+            combo = ReferenceComboBox(
+                "categories",
+                filtre_colonne="canal_id",
+                filtre_valeur=canal["id"]
+            )
+
+            self.categoriesCanaux[canal["id"]] = combo
+
+            self.formCategories.addRow(
+                f"Catégorie {canal['nom']}",
+                combo
+            )
+
+    def categories_canaux_selectionnees(self):
+        """
+        Renvoie {canal_id: categorie_id} pour tous les
+        canaux où une catégorie a été choisie.
+        """
+
+        resultat = {}
+
+        for canal_id, combo in self.categoriesCanaux.items():
+
+            categorie_id = combo.id()
+
+            if categorie_id is not None:
+                resultat[canal_id] = categorie_id
+
+        return resultat
+
+    def charger(self, produit, categories_canaux=None):
+        """
+        Pré-remplit l'onglet à partir d'un produit existant
+        (mode modification).
+
+        categories_canaux : {canal_id: categorie_id} déjà
+        enregistrés pour ce produit.
+        """
+
+        self.categoriePop.selectionner(
+            produit["categorie_poplicence_id"]
+        )
+
+        if categories_canaux:
+
+            for canal_id, combo in self.categoriesCanaux.items():
+
+                combo.selectionner(
+                    categories_canaux.get(canal_id)
+                )
+
+        self.longueur.setValue(produit["longueur"] or 0)
+        self.largeur.setValue(produit["largeur"] or 0)
+        self.hauteur.setValue(produit["hauteur"] or 0)
+        self.poids.setValue(produit["poids"] or 0)
+
+        self.matiere.setText(produit["matiere"] or "")
+        self.couleur.setText(produit["couleur"] or "")
+        self.age.setValue(produit["age_minimum"] or 0)
+        self.fabrication.setText(produit["pays_fabrication"] or "")

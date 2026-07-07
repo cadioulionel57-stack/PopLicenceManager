@@ -4,13 +4,24 @@ from modules.reference_manager import ReferenceManager
 
 
 class ReferenceComboBox(QComboBox):
+    """
+    Menu déroulant générique, alimenté automatiquement
+    depuis une table de référence (fournisseurs, licences,
+    marques, catégories, canaux de vente...).
 
-    def __init__(self, table):
+    filtre_colonne / filtre_valeur permettent de ne charger
+    qu'une partie des lignes d'une table (voir
+    ReferenceManager.tous pour le détail du comportement).
+    """
+
+    def __init__(self, table, filtre_colonne=None, filtre_valeur=None):
 
         super().__init__()
 
         self.manager = ReferenceManager()
         self.table = table
+        self.filtre_colonne = filtre_colonne
+        self.filtre_valeur = filtre_valeur
 
         self.charger()
 
@@ -20,7 +31,11 @@ class ReferenceComboBox(QComboBox):
 
         self.addItem("")
 
-        elements = self.manager.tous(self.table)
+        elements = self.manager.tous(
+            self.table,
+            self.filtre_colonne,
+            self.filtre_valeur
+        )
 
         for element in elements:
 
