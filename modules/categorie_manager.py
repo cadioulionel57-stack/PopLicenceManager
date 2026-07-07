@@ -17,6 +17,12 @@ class CategorieManager:
     elle est vide, c'est la commission du canal qui
     s'applique automatiquement.
 
+    Une catégorie peut aussi avoir plusieurs PALIERS de
+    commission selon le prix de vente (ex : Amazon
+    Vêtements : 5% jusqu'à 15€, 10% jusqu'à 20€, 17%
+    au-delà). Si des paliers existent, ils prennent le
+    dessus sur commission_pourcentage.
+
     Rien n'est figé : les catégories se créent librement
     depuis l'interface, pour n'importe quel canal existant.
     """
@@ -61,7 +67,7 @@ class CategorieManager:
 
     def ajouter(self, nom, canal_id=None, commission_pourcentage=None):
 
-        self.db.executer(
+        curseur = self.db.executer(
             """
             INSERT INTO categories
             (
@@ -81,6 +87,8 @@ class CategorieManager:
                 commission_pourcentage
             )
         )
+
+        return curseur.lastrowid
 
     def modifier(
         self,
@@ -118,12 +126,102 @@ class CategorieManager:
             (identifiant,)
         )
 
-    def commission_effective(self, categorie_id):
+    ########################################################
+    # Paliers de commission selon le prix de vente
+    ########################################################
+
+    def paliers(self, categorie_id):
+        """
+        Renvoie les paliers de commission d'une catégorie,
+        triés du seuil le plus bas au plus haut (le palier
+        "sans limite" toujours en dernier).
+        """
+
+        return self.db.lire(
+            """
+            SELECT *
+            FROM paliers_commission_categorie
+            WHERE categorie_id = ?
+            ORDER BY
+                CASE WHEN seuil_prix_max IS NULL THEN 1 ELSE 0 END,
+                seuil_prix_max ASC
+            """,
+            (categorie_id,)
+        )
+
+    def definir_paliers(self, categorie_id, paliers):
+        """
+        Remplace tous les paliers d'une catégorie.
+
+        paliers : liste de dictionnaires
+        {seuil_prix_max, commission_pourcentage}
+        (seuil_prix_max = None pour le dernier palier,
+        sans limite haute)
+        """
+
+        self.db.executer(
+            """
+            DELETE FROM paliers_commission_categorie
+            WHERE categorie_id = ?
+            """,
+            (categorie_id,)
+        )
+
+        for ordre, palier in enumerate(paliers):
+
+            self.db.executer(
+                """
+                INSERT INTO paliers_commission_categorie
+                (
+                    categorie_id,
+                    seuil_prix_max,
+                    commission_pourcentage,
+                    ordre
+                )
+                VALUES
+                (
+                    ?, ?, ?, ?
+                )
+                """,
+                (
+                    categorie_id,
+                    palier["seuil_prix_max"],
+                    palier["commission_pourcentage"],
+                    ordre
+                )
+            )
+
+    def commission_effective(self, categorie_id, prix_vente=None):
         """
         Renvoie la commission qui s'applique réellement
-        pour une catégorie : la sienne si elle en a une,
-        sinon celle par défaut de son canal.
+        pour une catégorie et (si fourni) un prix de vente
+        donné :
+
+        1. S'il existe des paliers pour cette catégorie,
+           on utilise le palier correspondant au prix de
+           vente (ou le premier palier si aucun prix n'est
+           fourni, à titre d'estimation de départ).
+        2. Sinon, la commission propre à la catégorie si
+           elle existe.
+        3. Sinon, la commission par défaut du canal.
         """
+
+        paliers = self.paliers(categorie_id)
+
+        if paliers:
+
+            if prix_vente is None:
+                return paliers[0]["commission_pourcentage"]
+
+            for palier in paliers:
+
+                if palier["seuil_prix_max"] is None:
+                    return palier["commission_pourcentage"]
+
+                if prix_vente <= palier["seuil_prix_max"]:
+                    return palier["commission_pourcentage"]
+
+            return paliers[-1]["commission_pourcentage"]
 
         ligne = self.db.lire_un(
             """

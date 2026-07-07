@@ -23,6 +23,29 @@ class CaracteristiquesTab(QWidget):
         layout = QVBoxLayout(self)
 
         ####################################################
+        # Famille de produit (coût)
+        ####################################################
+        #
+        # Détermine le coût d'emballage et le taux de
+        # retour utilisés pour calculer le coût de revient
+        # (identique quel que soit le canal de vente).
+        #
+        ####################################################
+
+        familleGroupe = QGroupBox("🏭 Famille de produit (coût)")
+
+        formFamille = QFormLayout(familleGroupe)
+
+        self.familleProduit = ReferenceComboBox("familles_produit")
+
+        formFamille.addRow(
+            "Famille de produit",
+            self.familleProduit
+        )
+
+        layout.addWidget(familleGroupe)
+
+        ####################################################
         # Catégories
         ####################################################
         #
@@ -170,6 +193,10 @@ class CaracteristiquesTab(QWidget):
         categories_canaux : {canal_id: categorie_id} déjà
         enregistrés pour ce produit.
         """
+
+        self.familleProduit.selectionner(
+            produit["famille_produit_id"]
+        )
 
         if categories_canaux:
 

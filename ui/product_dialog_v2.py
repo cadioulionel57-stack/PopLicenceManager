@@ -260,6 +260,8 @@ class ProductDialogV2(QDialog):
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
 
+                famille_produit_id=self.pageCaracteristiques.familleProduit.id(),
+
                 longueur=self.pageCaracteristiques.longueur.value(),
 
                 largeur=self.pageCaracteristiques.largeur.value(),
@@ -299,6 +301,8 @@ class ProductDialogV2(QDialog):
                 fournisseur_id=self.pageGeneral.cboFournisseur.id(),
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
+
+                famille_produit_id=self.pageCaracteristiques.familleProduit.id(),
 
                 longueur=self.pageCaracteristiques.longueur.value(),
 

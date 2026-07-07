@@ -53,8 +53,18 @@ class CategoriesPage(ListPage):
 
             self.table.insertRow(ligne)
 
+            paliers = self.manager.paliers(categorie["id"])
+
             if categorie["canal_id"] is None:
                 commission_affichee = "—"
+            elif paliers:
+                resume = " / ".join(
+                    f"≤{p['seuil_prix_max']}€:{p['commission_pourcentage']}%"
+                    if p["seuil_prix_max"] is not None
+                    else f">:{p['commission_pourcentage']}%"
+                    for p in paliers
+                )
+                commission_affichee = f"Paliers : {resume}"
             elif categorie["commission_pourcentage"] is not None:
                 commission_affichee = (
                     f"{categorie['commission_pourcentage']:.2f} % "
@@ -94,10 +104,15 @@ class CategoriesPage(ListPage):
         if nom == "":
             return
 
-        self.manager.ajouter(
+        identifiant = self.manager.ajouter(
             nom=nom,
             canal_id=dialog.canal_id(),
             commission_pourcentage=dialog.commission_pourcentage(),
+        )
+
+        self.manager.definir_paliers(
+            identifiant,
+            dialog.paliers_saisis()
         )
 
         self.charger()
@@ -120,12 +135,14 @@ class CategoriesPage(ListPage):
         )
 
         categorie = self.manager.obtenir(identifiant)
+        paliers_existants = self.manager.paliers(identifiant)
 
         dialog = CategorieDialog(
             "Modifier la catégorie",
             nom=categorie["nom"],
             canal_id=categorie["canal_id"],
             commission_pourcentage=categorie["commission_pourcentage"],
+            paliers=paliers_existants,
         )
 
         if dialog.exec() != CategorieDialog.DialogCode.Accepted:
@@ -141,6 +158,11 @@ class CategoriesPage(ListPage):
             nom=nom,
             canal_id=dialog.canal_id(),
             commission_pourcentage=dialog.commission_pourcentage(),
+        )
+
+        self.manager.definir_paliers(
+            identifiant,
+            dialog.paliers_saisis()
         )
 
         self.charger()

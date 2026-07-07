@@ -17,6 +17,8 @@ SCHEMA = {
 
        ("categorie_poplicence_id", "INTEGER"),
 
+       ("famille_produit_id", "INTEGER"),
+
        ("marque_id", "INTEGER"),
 
        ("fournisseur_id", "INTEGER"),
@@ -29,6 +31,7 @@ SCHEMA = {
 
 ("cout_revient", "REAL"),
 
+("marge_visee_pourcentage", "REAL"),
 
 
         ("longueur", "REAL"),
@@ -55,6 +58,27 @@ SCHEMA = {
     ]
 
 }
+SCHEMA["familles_produit"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT UNIQUE"),
+
+    # Coût d'emballage moyen pour cette famille de
+    # produits (ex : Textile & Mode, Chaussures...).
+    ("cout_emballage_ht", "REAL DEFAULT 0"),
+
+    # Taux de retour de cette famille, exprimé en
+    # pourcentage (ex : 0.18 pour 18 %). Utilisé pour
+    # provisionner la perte produit + emballage sur
+    # les retours dans le calcul du coût de revient.
+    ("taux_retour", "REAL DEFAULT 0"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
 SCHEMA["licences"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -136,9 +160,32 @@ SCHEMA["categories"] = [
     # canal (ex : Amazon "Jouets" = 15 %). Si NULL,
     # on utilise la commission par défaut du canal
     # (ex : WiziShop = 1 % pour toutes les catégories).
+    # Ignoré si des paliers existent dans
+    # paliers_commission_categorie pour cette catégorie.
     ("commission_pourcentage", "REAL"),
 
     ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["paliers_commission_categorie"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("categorie_id", "INTEGER"),
+
+    # Prix de vente jusqu'auquel ce taux s'applique.
+    # NULL = dernier palier, sans limite haute.
+    # Ex : Amazon Vêtements = 3 paliers :
+    #   jusqu'à 15€ -> 5%
+    #   jusqu'à 20€ -> 10%
+    #   sans limite -> 17%
+    ("seuil_prix_max", "REAL"),
+
+    ("commission_pourcentage", "REAL"),
+
+    ("ordre", "INTEGER")
 
 ]
 

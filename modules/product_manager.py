@@ -18,6 +18,8 @@ class ProductManager:
         fournisseur_id,
         reference_fournisseur,
         categorie_poplicence_id=None,
+        famille_produit_id=None,
+        marge_visee_pourcentage=None,
         longueur=None,
         largeur=None,
         hauteur=None,
@@ -46,6 +48,8 @@ class ProductManager:
                 fournisseur_id,
                 reference_fournisseur,
                 categorie_poplicence_id,
+                famille_produit_id,
+                marge_visee_pourcentage,
                 longueur,
                 largeur,
                 hauteur,
@@ -58,7 +62,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -71,6 +75,8 @@ class ProductManager:
                 fournisseur_id,
                 reference_fournisseur,
                 categorie_poplicence_id,
+                famille_produit_id,
+                marge_visee_pourcentage,
                 longueur,
                 largeur,
                 hauteur,
@@ -140,6 +146,8 @@ class ProductManager:
         fournisseur_id,
         reference_fournisseur,
         categorie_poplicence_id=None,
+        famille_produit_id=None,
+        marge_visee_pourcentage=None,
         longueur=None,
         largeur=None,
         hauteur=None,
@@ -162,6 +170,8 @@ class ProductManager:
                 fournisseur_id = ?,
                 reference_fournisseur = ?,
                 categorie_poplicence_id = ?,
+                famille_produit_id = ?,
+                marge_visee_pourcentage = ?,
                 longueur = ?,
                 largeur = ?,
                 hauteur = ?,
@@ -181,6 +191,8 @@ class ProductManager:
                 fournisseur_id,
                 reference_fournisseur,
                 categorie_poplicence_id,
+                famille_produit_id,
+                marge_visee_pourcentage,
                 longueur,
                 largeur,
                 hauteur,
