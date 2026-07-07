@@ -52,38 +52,6 @@ SCHEMA = {
     ]
 
 }
-SCHEMA["marketplaces"] = [
-
-    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-
-    ("nom", "TEXT UNIQUE"),
-
-    ("type", "TEXT"),
-
-    ("actif", "INTEGER DEFAULT 1"),
-
-    ("ordre", "INTEGER")
-
-]
-
-
-SCHEMA["produits_marketplaces"] = [
-
-    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-
-    ("produit_id", "INTEGER"),
-
-    ("marketplace_id", "INTEGER"),
-
-    ("publie", "INTEGER DEFAULT 0"),
-
-    ("prix_ht", "REAL"),
-
-    ("prix_ttc", "REAL"),
-
-    ("reference_marketplace", "TEXT")
-
-]
 SCHEMA["licences"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -233,9 +201,8 @@ SCHEMA["canaux_vente"] = [
 
     ("nom", "TEXT UNIQUE"),
 
+    # "site" (WiziShop) ou "marketplace" (Base.com, Amazon...)
     ("type", "TEXT"),
-
-    ("marketplace_id", "INTEGER"),
 
     ("actif", "INTEGER DEFAULT 1"),
 
