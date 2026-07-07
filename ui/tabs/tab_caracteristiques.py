@@ -14,9 +14,11 @@ from modules.canal_manager import CanalManager
 
 class CaracteristiquesTab(QWidget):
 
-    def __init__(self):
+    def __init__(self, type_produit=None):
 
         super().__init__()
+
+        self.type_produit = type_produit
 
         layout = QVBoxLayout(self)
 
@@ -24,8 +26,7 @@ class CaracteristiquesTab(QWidget):
         # Catégories
         ####################################################
         #
-        # Une catégorie interne Pop Licence (fixe), puis
-        # une ligne par canal de vente actif (dynamique,
+        # Une ligne par canal de vente actif (dynamique,
         # dépend entièrement de ce qui existe dans
         # "Canaux de vente" : rien n'est codé en dur ici).
         #
@@ -34,17 +35,6 @@ class CaracteristiquesTab(QWidget):
         categorie = QGroupBox("📂 Catégories")
 
         self.formCategories = QFormLayout(categorie)
-
-        self.categoriePop = ReferenceComboBox(
-            "categories",
-            filtre_colonne="canal_id",
-            filtre_valeur=None
-        )
-
-        self.formCategories.addRow(
-            "Catégorie Pop Licence",
-            self.categoriePop
-        )
 
         # Une ligne par canal de vente actif, créée
         # automatiquement. self.categoriesCanaux garde
@@ -120,11 +110,21 @@ class CaracteristiquesTab(QWidget):
         canaux_vente, ajouter ou retirer un canal dans
         l'écran "Canaux de vente" change automatiquement
         ce qui s'affiche ici, sans toucher au code.
+
+        Règle métier : les catégories des canaux de type
+        "marketplace" ne sont proposées que pour les
+        produits de type "stock" (même règle que l'onglet
+        Publication).
         """
 
         canaux = CanalManager().tous()
 
         for canal in canaux:
+
+            compatible = (
+                canal["type"] != "marketplace"
+                or self.type_produit == "stock"
+            )
 
             combo = ReferenceComboBox(
                 "categories",
@@ -132,10 +132,16 @@ class CaracteristiquesTab(QWidget):
                 filtre_valeur=canal["id"]
             )
 
+            libelle = f"Catégorie {canal['nom']}"
+
+            if not compatible:
+                combo.setEnabled(False)
+                libelle += " (produits en stock uniquement)"
+
             self.categoriesCanaux[canal["id"]] = combo
 
             self.formCategories.addRow(
-                f"Catégorie {canal['nom']}",
+                libelle,
                 combo
             )
 
@@ -164,10 +170,6 @@ class CaracteristiquesTab(QWidget):
         categories_canaux : {canal_id: categorie_id} déjà
         enregistrés pour ce produit.
         """
-
-        self.categoriePop.selectionner(
-            produit["categorie_poplicence_id"]
-        )
 
         if categories_canaux:
 

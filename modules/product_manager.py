@@ -268,3 +268,78 @@ class ProductManager:
                     categorie_id
                 )
             )
+
+    ########################################################
+    # Publication sur les canaux de vente
+    #
+    # Détermine sur quels canaux un produit est vendu
+    # (WiziShop, Amazon, Cdiscount...), avec sa référence
+    # externe et son statut sur ce canal précis.
+    ########################################################
+
+    def canaux_produit(self, produit_id):
+        """
+        Renvoie {canal_id: {publie, reference_externe, statut}}
+        pour un produit.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT canal_id, publie, reference_externe, statut
+            FROM produits_canaux
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        return {
+            ligne["canal_id"]: {
+                "publie": bool(ligne["publie"]),
+                "reference_externe": ligne["reference_externe"],
+                "statut": ligne["statut"],
+            }
+            for ligne in lignes
+        }
+
+    def definir_canaux_produit(self, produit_id, lignes):
+        """
+        Remplace les informations de publication d'un
+        produit pour tous les canaux.
+
+        lignes : liste de dictionnaires
+        {canal_id, publie, reference_externe, statut}
+        """
+
+        self.db.executer(
+            """
+            DELETE FROM produits_canaux
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        for ligne in lignes:
+
+            self.db.executer(
+                """
+                INSERT INTO produits_canaux
+                (
+                    produit_id,
+                    canal_id,
+                    publie,
+                    reference_externe,
+                    statut
+                )
+                VALUES
+                (
+                    ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    produit_id,
+                    ligne["canal_id"],
+                    1 if ligne["publie"] else 0,
+                    ligne["reference_externe"],
+                    ligne["statut"],
+                )
+            )

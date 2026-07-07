@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from ui.tabs.tab_general import GeneralTab
 from ui.tabs.tab_caracteristiques import CaracteristiquesTab
+from ui.tabs.tab_publication import PublicationTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
@@ -168,7 +169,7 @@ class ProductDialogV2(QDialog):
         # Onglet Caractéristiques
         ####################################################
 
-        self.pageCaracteristiques = CaracteristiquesTab()
+        self.pageCaracteristiques = CaracteristiquesTab(self.type_produit)
 
         self.tabs.addTab(
             self.pageCaracteristiques,
@@ -187,13 +188,31 @@ class ProductDialogV2(QDialog):
             )
 
         ####################################################
+        # Onglet Publication
+        ####################################################
+
+        self.pagePublication = PublicationTab(self.type_produit)
+
+        self.tabs.addTab(
+            self.pagePublication,
+            "🚀 Publication"
+        )
+
+        if self.produit is not None:
+
+            canaux_produit = self.productManager.canaux_produit(
+                self.produit["id"]
+            )
+
+            self.pagePublication.charger(canaux_produit)
+
+        ####################################################
         # Autres onglets
         ####################################################
 
         self.tabs.addTab(QWidget(), "💰 Tarification")
         self.tabs.addTab(QWidget(), "🌐 SEO")
         self.tabs.addTab(QWidget(), "🖼 Images")
-        self.tabs.addTab(QWidget(), "🚀 Publication")
         self.tabs.addTab(QWidget(), "📜 Historique")
 
         ####################################################
@@ -241,8 +260,6 @@ class ProductDialogV2(QDialog):
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
 
-                categorie_poplicence_id=self.pageCaracteristiques.categoriePop.id(),
-
                 longueur=self.pageCaracteristiques.longueur.value(),
 
                 largeur=self.pageCaracteristiques.largeur.value(),
@@ -283,8 +300,6 @@ class ProductDialogV2(QDialog):
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
 
-                categorie_poplicence_id=self.pageCaracteristiques.categoriePop.id(),
-
                 longueur=self.pageCaracteristiques.longueur.value(),
 
                 largeur=self.pageCaracteristiques.largeur.value(),
@@ -306,6 +321,11 @@ class ProductDialogV2(QDialog):
         self.productManager.definir_categories_canaux(
             identifiant_produit,
             self.pageCaracteristiques.categories_canaux_selectionnees()
+        )
+
+        self.productManager.definir_canaux_produit(
+            identifiant_produit,
+            self.pagePublication.canaux_selectionnes()
         )
 
         QMessageBox.information(
