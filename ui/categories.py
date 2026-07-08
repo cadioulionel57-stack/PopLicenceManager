@@ -1,10 +1,13 @@
 from PySide6.QtWidgets import (
     QMessageBox,
     QTableWidgetItem,
+    QHBoxLayout,
+    QPushButton,
 )
 
 from ui.list_page import ListPage
 from ui.categorie_dialog import CategorieDialog
+from ui.dupliquer_categories_dialog import DupliquerCategoriesDialog
 from modules.categorie_manager import CategorieManager
 
 
@@ -40,6 +43,27 @@ class CategoriesPage(ListPage):
         self.table.doubleClicked.connect(self.modifierCategorie)
 
         self.recherche.textChanged.connect(self.filtrer)
+
+        ####################################################
+        # Bouton "Dupliquer vers un canal"
+        #
+        # Utile par exemple pour recopier les catégories
+        # et commissions déjà saisies pour Amazon FBM vers
+        # Amazon FBA, sans tout ressaisir à la main.
+        ####################################################
+
+        barreDuplication = QHBoxLayout()
+
+        self.btnDupliquer = QPushButton(
+            "🔁 Dupliquer les catégories d'un canal vers un autre"
+        )
+
+        barreDuplication.addWidget(self.btnDupliquer)
+        barreDuplication.addStretch()
+
+        self.layout().insertLayout(2, barreDuplication)
+
+        self.btnDupliquer.clicked.connect(self.dupliquerCategories)
 
         self.charger()
 
@@ -194,6 +218,48 @@ class CategoriesPage(ListPage):
         )
 
         self.manager.supprimer(identifiant)
+
+        self.charger()
+
+    def dupliquerCategories(self):
+
+        dialog = DupliquerCategoriesDialog()
+
+        if dialog.exec() != DupliquerCategoriesDialog.DialogCode.Accepted:
+            return
+
+        canal_source_id = dialog.canal_source_id()
+        canal_cible_id = dialog.canal_cible_id()
+
+        if canal_source_id is None or canal_cible_id is None:
+
+            QMessageBox.information(
+                self,
+                "Information",
+                "Choisis un canal source et un canal cible."
+            )
+            return
+
+        if canal_source_id == canal_cible_id:
+
+            QMessageBox.information(
+                self,
+                "Information",
+                "Le canal source et le canal cible doivent "
+                "être différents."
+            )
+            return
+
+        nombre = self.manager.dupliquer_vers_canal(
+            canal_source_id,
+            canal_cible_id
+        )
+
+        QMessageBox.information(
+            self,
+            "Duplication terminée",
+            f"{nombre} catégorie(s) dupliquée(s) avec succès."
+        )
 
         self.charger()
 

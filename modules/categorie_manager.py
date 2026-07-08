@@ -245,3 +245,63 @@ class CategorieManager:
             return ligne["commission_categorie"]
 
         return ligne["commission_canal"]
+
+    ########################################################
+    # Duplication des catégories vers un autre canal
+    #
+    # Utile par exemple pour recopier les catégories et
+    # commissions déjà saisies pour Amazon FBM vers Amazon
+    # FBA, puisque la commission de vente (hors transport)
+    # est généralement identique entre les deux.
+    ########################################################
+
+    def dupliquer_vers_canal(self, canal_source_id, canal_cible_id):
+        """
+        Copie toutes les catégories actives d'un canal
+        source vers un canal cible, avec leur commission
+        et leurs éventuels paliers de prix.
+
+        Ne touche pas aux catégories déjà existantes sur
+        le canal cible : ajoute uniquement des copies.
+
+        Renvoie le nombre de catégories dupliquées.
+        """
+
+        categories_source = self.db.lire(
+            """
+            SELECT *
+            FROM categories
+            WHERE canal_id = ?
+            AND actif = 1
+            """,
+            (canal_source_id,)
+        )
+
+        compteur = 0
+
+        for categorie in categories_source:
+
+            nouvel_id = self.ajouter(
+                nom=categorie["nom"],
+                canal_id=canal_cible_id,
+                commission_pourcentage=categorie["commission_pourcentage"],
+            )
+
+            paliers = self.paliers(categorie["id"])
+
+            if paliers:
+
+                self.definir_paliers(
+                    nouvel_id,
+                    [
+                        {
+                            "seuil_prix_max": p["seuil_prix_max"],
+                            "commission_pourcentage": p["commission_pourcentage"],
+                        }
+                        for p in paliers
+                    ]
+                )
+
+            compteur += 1
+
+        return compteur

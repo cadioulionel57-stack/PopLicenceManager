@@ -180,8 +180,14 @@ class MoteurPrix:
         taux_tsn = (canal["taux_tsn_pourcentage"] or 0) / 100
         taux_tsn_effectif = taux_tsn * commission
 
-        # 7. Frais de paiement en pourcentage
-        taux_paiement = (canal["frais_paiement_pourcentage"] or 0) / 100
+        # 7. Frais de paiement en pourcentage.
+        #    Ils sont facturés sur le prix TTC (le
+        #    prestataire de paiement encaisse le montant
+        #    payé par le client, TVA comprise), donc on
+        #    doit "regonfler" le taux avant de l'inclure
+        #    dans une formule qui résout le prix HT.
+        taux_paiement_ttc = (canal["frais_paiement_pourcentage"] or 0) / 100
+        taux_paiement = taux_paiement_ttc * (1 + self.TAUX_TVA)
 
         # 8. Dénominateur
         denominateur = (
@@ -237,7 +243,7 @@ class MoteurPrix:
             "decision": decision,
             "commission_pourcentage": round(commission_pourcentage, 2),
             "taux_tsn_effectif": round(taux_tsn_effectif * 100, 3),
-            "taux_paiement_pourcentage": round(taux_paiement * 100, 2),
+            "taux_paiement_pourcentage": round(taux_paiement_ttc * 100, 2),
             "marge_pourcentage": round(marge * 100, 2),
             "prix_vente_ht": round(prix_vente_ht, 2),
             "prix_vente_ttc": round(prix_vente_ttc, 2),
@@ -267,7 +273,10 @@ class MoteurPrix:
 
             commission = commission_pourcentage / 100
             taux_tsn = (canal["taux_tsn_pourcentage"] or 0) / 100
-            taux_paiement = (canal["frais_paiement_pourcentage"] or 0) / 100
+            taux_paiement = (
+                (canal["frais_paiement_pourcentage"] or 0) / 100
+                * (1 + self.TAUX_TVA)
+            )
 
             denominateur = (
                 1 - marge - commission
