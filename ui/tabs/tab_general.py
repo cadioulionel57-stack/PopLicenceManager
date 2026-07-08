@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QComboBox,
+    QDoubleSpinBox,
 )
 
 from ui.widgets.reference_combobox import ReferenceComboBox
@@ -36,6 +37,12 @@ class GeneralTab(QWidget):
 
         self.referenceFournisseur = QLineEdit()
         formOrigine.addRow("Référence fournisseur", self.referenceFournisseur)
+
+        self.prixAchatHt = QDoubleSpinBox()
+        self.prixAchatHt.setDecimals(2)
+        self.prixAchatHt.setMaximum(99999)
+        self.prixAchatHt.setSuffix(" €")
+        formOrigine.addRow("Prix d'achat fournisseur (HT)", self.prixAchatHt)
 
         self.commandeFournisseur = QComboBox()
         formOrigine.addRow("Commande fournisseur", self.commandeFournisseur)

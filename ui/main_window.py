@@ -18,6 +18,9 @@ from ui.marques import MarquesPage
 from ui.canaux import CanauxPage
 from ui.categories import CategoriesPage
 from ui.familles_produit import FamillesProduitPage
+from ui.grille_transport import GrilleTransportPage
+from ui.grille_fba import GrilleFbaPage
+from ui.emballages import EmballagesPage
 
 class MainWindow(QMainWindow):
 
@@ -122,6 +125,9 @@ class MainWindow(QMainWindow):
             "™️  Marques",
             "📂  Catégories",
             "🏭  Familles de produit",
+            "🚚  Grille de transport",
+            "📦  Grille FBA",
+            "📮  Grille d'emballage",
             "🚚  Fournisseurs",
             "🛒  Commandes",
             "📦  Stock",
@@ -235,6 +241,9 @@ class MainWindow(QMainWindow):
         self.pageCanaux = CanauxPage()
         self.pageCategories = CategoriesPage()
         self.pageFamillesProduit = FamillesProduitPage()
+        self.pageGrilleTransport = GrilleTransportPage()
+        self.pageGrilleFba = GrilleFbaPage()
+        self.pageEmballages = EmballagesPage()
 
         self.pages.addWidget(self.pageProduits)
         self.pages.addWidget(self.pageLicences)
@@ -242,6 +251,9 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.pageCanaux)
         self.pages.addWidget(self.pageCategories)
         self.pages.addWidget(self.pageFamillesProduit)
+        self.pages.addWidget(self.pageGrilleTransport)
+        self.pages.addWidget(self.pageGrilleFba)
+        self.pages.addWidget(self.pageEmballages)
 
                 #################################################
         # CONNEXIONS
@@ -268,6 +280,15 @@ class MainWindow(QMainWindow):
         )
         self.boutons["🏭  Familles de produit"].clicked.connect(
             lambda: self.pages.setCurrentIndex(6)
+        )
+        self.boutons["🚚  Grille de transport"].clicked.connect(
+            lambda: self.pages.setCurrentIndex(7)
+        )
+        self.boutons["📦  Grille FBA"].clicked.connect(
+            lambda: self.pages.setCurrentIndex(8)
+        )
+        self.boutons["📮  Grille d'emballage"].clicked.connect(
+            lambda: self.pages.setCurrentIndex(9)
         )
         #################################################
         # BARRE D'ETAT

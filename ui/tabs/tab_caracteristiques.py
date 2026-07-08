@@ -99,6 +99,43 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(dimensions)
 
         ####################################################
+        # Dimensions d'expédition (carton plié)
+        ####################################################
+        #
+        # Pour les articles pliables (textile...), la taille
+        # du carton d'expédition est différente de la taille
+        # du produit déplié ci-dessus. Laisser à 0 pour les
+        # objets rigides : les dimensions du produit seront
+        # utilisées telles quelles.
+        #
+        ####################################################
+
+        expedition = QGroupBox(
+            "🚚 Dimensions d'expédition (carton plié/emballé "
+            "— laisser à 0 si identique au produit)"
+        )
+
+        formExpedition = QFormLayout(expedition)
+
+        self.longueurExpedition = QDoubleSpinBox()
+        self.largeurExpedition = QDoubleSpinBox()
+        self.hauteurExpedition = QDoubleSpinBox()
+
+        for champ in (
+            self.longueurExpedition,
+            self.largeurExpedition,
+            self.hauteurExpedition,
+        ):
+            champ.setDecimals(2)
+            champ.setMaximum(9999)
+
+        formExpedition.addRow("Longueur carton (cm)", self.longueurExpedition)
+        formExpedition.addRow("Largeur carton (cm)", self.largeurExpedition)
+        formExpedition.addRow("Hauteur carton (cm)", self.hauteurExpedition)
+
+        layout.addWidget(expedition)
+
+        ####################################################
         # Informations
         ####################################################
 
@@ -210,6 +247,16 @@ class CaracteristiquesTab(QWidget):
         self.largeur.setValue(produit["largeur"] or 0)
         self.hauteur.setValue(produit["hauteur"] or 0)
         self.poids.setValue(produit["poids"] or 0)
+
+        self.longueurExpedition.setValue(
+            produit["longueur_expedition"] or 0
+        )
+        self.largeurExpedition.setValue(
+            produit["largeur_expedition"] or 0
+        )
+        self.hauteurExpedition.setValue(
+            produit["hauteur_expedition"] or 0
+        )
 
         self.matiere.setText(produit["matiere"] or "")
         self.couleur.setText(produit["couleur"] or "")

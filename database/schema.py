@@ -39,6 +39,15 @@ SCHEMA = {
         ("hauteur", "REAL"),
         ("poids", "REAL"),
 
+        # Dimensions du carton d'expédition, une fois le
+        # produit plié/emballé — différentes des
+        # dimensions ci-dessus pour les articles pliables
+        # (textile...). Si vides, on utilise les dimensions
+        # du produit (cas des objets rigides).
+        ("longueur_expedition", "REAL"),
+        ("largeur_expedition", "REAL"),
+        ("hauteur_expedition", "REAL"),
+
         ("matiere", "TEXT"),
         ("couleur", "TEXT"),
         ("age_minimum", "INTEGER"),
@@ -64,15 +73,50 @@ SCHEMA["familles_produit"] = [
 
     ("nom", "TEXT UNIQUE"),
 
-    # Coût d'emballage moyen pour cette famille de
-    # produits (ex : Textile & Mode, Chaussures...).
+    # Coût d'emballage manuel, utilisé UNIQUEMENT si
+    # aucun emballage_id n'est renseigné ci-dessous
+    # (rétrocompatibilité). Sinon, le coût vient
+    # automatiquement de l'emballage lié.
     ("cout_emballage_ht", "REAL DEFAULT 0"),
+
+    # Emballage de la grille utilisé par défaut pour
+    # cette famille (ex : P1 pour Textile & Mode léger,
+    # C1 pour Mugs/bijoux/figurines...). Si renseigné,
+    # le coût d'emballage est calculé automatiquement.
+    ("emballage_id", "INTEGER"),
 
     # Taux de retour de cette famille, exprimé en
     # pourcentage (ex : 0.18 pour 18 %). Utilisé pour
     # provisionner la perte produit + emballage sur
     # les retours dans le calcul du coût de revient.
     ("taux_retour", "REAL DEFAULT 0"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["grille_emballage"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Code court (ex : P1, P2, C1, C2, C3, C4)
+    ("code", "TEXT UNIQUE"),
+
+    ("nom", "TEXT"),
+
+    ("longueur_ext_cm", "REAL"),
+    ("largeur_ext_cm", "REAL"),
+    ("hauteur_ext_cm", "REAL"),
+
+    ("poids_g", "REAL"),
+
+    # Coût de l'emballage lui-même (pochette/carton)
+    ("cout_ht", "REAL DEFAULT 0"),
+
+    # Coût du calage (papier bulle, kraft, chips de
+    # calage...), le carton seul ne suffit pas.
+    ("calage_ht", "REAL DEFAULT 0"),
 
     ("actif", "INTEGER DEFAULT 1")
 
@@ -218,6 +262,80 @@ SCHEMA["transporteurs"] = [
 ]
 
 
+SCHEMA["grille_transport"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("transporteur_id", "INTEGER"),
+
+    # Ex : "Point Relais", "Domicile Sans Signature",
+    # "Chrono 13", "Chrono 18"... un même transporteur
+    # (Chronopost par ex.) peut avoir plusieurs offres.
+    ("offre", "TEXT"),
+
+    # Prix HT applicable jusqu'à ce poids (en kg) inclus.
+    # Ex : 3.04€ jusqu'à 0.25kg, 3.14€ jusqu'à 0.5kg...
+    ("poids_max_kg", "REAL"),
+
+    ("prix_ht", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["grille_fba"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Nom du format de colis (ex : "Petit colis 1",
+    # "Colis moyen 2", "Grand colis 1"...). Purement
+    # informatif, sert à l'affichage.
+    ("format_colis", "TEXT"),
+
+    # Catégorie spéciale du produit (ex : "Linge de maison
+    # et tapis"), qui a ses propres tarifs chez Amazon.
+    # NULL = tarif standard, valable pour toutes les
+    # catégories non spécifiques.
+    ("categorie_speciale", "TEXT"),
+
+    # Dimensions maximales de la boîte pour ce format
+    # (en cm). Le format le plus petit qui contient le
+    # produit est choisi automatiquement.
+    ("longueur_max_cm", "REAL"),
+    ("largeur_max_cm", "REAL"),
+    ("hauteur_max_cm", "REAL"),
+
+    # Poids inclus dans le prix de base (en grammes).
+    ("poids_seuil_g", "REAL"),
+
+    ("prix_base_ht", "REAL"),
+
+    # Prix ajouté par tranche de poids supplémentaire
+    # au-delà du seuil (ex : +0,08€ par 100g).
+    ("prix_supplement_ht", "REAL"),
+    ("supplement_pas_g", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["canaux_transporteurs"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("canal_id", "INTEGER"),
+
+    ("transporteur_id", "INTEGER"),
+
+    ("offre", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
 SCHEMA["emballages"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -266,12 +384,34 @@ SCHEMA["canaux_vente"] = [
 
     ("commission_pourcentage", "REAL DEFAULT 0"),
 
+    # Frais fixes par vente sur ce canal (ex : Base.com +
+    # étiquette). Coûts directs uniquement — les charges
+    # de structure (logiciels, assurance d'entreprise...)
+    # ne sont volontairement pas incluses ici.
     ("frais_fixe_ht", "REAL DEFAULT 0"),
+
+    # Frais de paiement par défaut sur ce canal, en % du
+    # prix de vente HT (ex : PayPal 2,9%, CB 1%, 0% si la
+    # marketplace encaisse elle-même).
+    ("frais_paiement_pourcentage", "REAL DEFAULT 0"),
+
+    # Frais de paiement fixe par vente (ex : PayPal 0,35€
+    # HT par transaction).
+    ("frais_paiement_fixe_ht", "REAL DEFAULT 0"),
+
+    # Taxe sur les services numériques (ex : Amazon 3,5%
+    # de la commission). 0 pour les canaux non concernés.
+    ("taux_tsn_pourcentage", "REAL DEFAULT 0"),
 
     # 1 = les frais de port sont inclus dans le prix affiché
     # (ex : marketplaces, "livraison gratuite")
     # 0 = le client paye le port en plus (ex : WiziShop)
     ("port_inclus", "INTEGER DEFAULT 0"),
+
+    # 1 = ce canal calcule son "transport" via la grille
+    # FBA (format de colis selon dimensions + poids) au
+    # lieu de la grille transporteurs classique (Boxtal).
+    ("utilise_grille_fba", "INTEGER DEFAULT 0"),
 
     ("actif", "INTEGER DEFAULT 1"),
 
@@ -293,6 +433,34 @@ SCHEMA["produits_canaux"] = [
     ("reference_externe", "TEXT"),
 
     ("statut", "TEXT")
+
+]
+SCHEMA["produits_prix_marche"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("produit_id", "INTEGER"),
+
+    ("canal_id", "INTEGER"),
+
+    # Prix TTC observé chez la concurrence sur ce canal,
+    # saisi manuellement, pour comparer au prix minimum
+    # rentable calculé automatiquement.
+    ("prix_ttc", "REAL")
+
+]
+SCHEMA["produits_marges"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("produit_id", "INTEGER"),
+
+    ("canal_id", "INTEGER"),
+
+    # Marge visée spécifique à ce canal pour ce produit.
+    # Si absente, la marge par défaut du produit
+    # (marge_visee_pourcentage) s'applique.
+    ("marge_pourcentage", "REAL")
 
 ]
 SCHEMA["produits_categories_canaux"] = [

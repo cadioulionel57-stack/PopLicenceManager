@@ -94,13 +94,22 @@ class CanauxPage(ListPage):
         if nom == "":
             return
 
-        self.manager.ajouter(
+        identifiant_cree = self.manager.ajouter(
             nom=nom,
             type_canal=dialog.type_canal(),
             commission_pourcentage=dialog.commission.value(),
             frais_fixe_ht=dialog.fraisFixe.value(),
+            frais_paiement_pourcentage=dialog.fraisPaiementPourcentage.value(),
+            frais_paiement_fixe_ht=dialog.fraisPaiementFixe.value(),
+            taux_tsn_pourcentage=dialog.tauxTsn.value(),
             port_inclus=dialog.portInclus.isChecked(),
+            utilise_grille_fba=dialog.utilise_grille_fba_coche(),
             ordre=dialog.valeur_ordre(),
+        )
+
+        self.manager.definir_transporteurs_autorises(
+            identifiant_cree,
+            dialog.transporteurs_selectionnes()
         )
 
         self.charger()
@@ -123,6 +132,9 @@ class CanauxPage(ListPage):
         )
 
         canal = self.manager.obtenir(identifiant)
+        transporteurs_actuels = self.manager.transporteurs_autorises(
+            identifiant
+        )
 
         dialog = CanalDialog(
             "Modifier le canal de vente",
@@ -130,8 +142,13 @@ class CanauxPage(ListPage):
             type_canal=canal["type"] or "marketplace",
             commission_pourcentage=canal["commission_pourcentage"] or 0,
             frais_fixe_ht=canal["frais_fixe_ht"] or 0,
+            frais_paiement_pourcentage=canal["frais_paiement_pourcentage"] or 0,
+            frais_paiement_fixe_ht=canal["frais_paiement_fixe_ht"] or 0,
+            taux_tsn_pourcentage=canal["taux_tsn_pourcentage"] or 0,
             port_inclus=bool(canal["port_inclus"]),
+            utilise_grille_fba=bool(canal["utilise_grille_fba"]),
             ordre=canal["ordre"] or 0,
+            transporteurs_autorises=transporteurs_actuels,
         )
 
         if dialog.exec() != CanalDialog.DialogCode.Accepted:
@@ -148,8 +165,17 @@ class CanauxPage(ListPage):
             type_canal=dialog.type_canal(),
             commission_pourcentage=dialog.commission.value(),
             frais_fixe_ht=dialog.fraisFixe.value(),
+            frais_paiement_pourcentage=dialog.fraisPaiementPourcentage.value(),
+            frais_paiement_fixe_ht=dialog.fraisPaiementFixe.value(),
+            taux_tsn_pourcentage=dialog.tauxTsn.value(),
             port_inclus=dialog.portInclus.isChecked(),
+            utilise_grille_fba=dialog.utilise_grille_fba_coche(),
             ordre=dialog.valeur_ordre(),
+        )
+
+        self.manager.definir_transporteurs_autorises(
+            identifiant,
+            dialog.transporteurs_selectionnes()
         )
 
         self.charger()

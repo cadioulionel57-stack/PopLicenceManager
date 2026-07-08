@@ -17,6 +17,7 @@ class ProductManager:
         marque_id,
         fournisseur_id,
         reference_fournisseur,
+        prix_fournisseur_ht=None,
         categorie_poplicence_id=None,
         famille_produit_id=None,
         marge_visee_pourcentage=None,
@@ -24,6 +25,9 @@ class ProductManager:
         largeur=None,
         hauteur=None,
         poids=None,
+        longueur_expedition=None,
+        largeur_expedition=None,
+        hauteur_expedition=None,
         matiere=None,
         couleur=None,
         age_minimum=None,
@@ -47,6 +51,7 @@ class ProductManager:
                 marque_id,
                 fournisseur_id,
                 reference_fournisseur,
+                prix_fournisseur_ht,
                 categorie_poplicence_id,
                 famille_produit_id,
                 marge_visee_pourcentage,
@@ -54,6 +59,9 @@ class ProductManager:
                 largeur,
                 hauteur,
                 poids,
+                longueur_expedition,
+                largeur_expedition,
+                hauteur_expedition,
                 matiere,
                 couleur,
                 age_minimum,
@@ -62,7 +70,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -74,6 +82,7 @@ class ProductManager:
                 marque_id,
                 fournisseur_id,
                 reference_fournisseur,
+                prix_fournisseur_ht,
                 categorie_poplicence_id,
                 famille_produit_id,
                 marge_visee_pourcentage,
@@ -81,6 +90,9 @@ class ProductManager:
                 largeur,
                 hauteur,
                 poids,
+                longueur_expedition,
+                largeur_expedition,
+                hauteur_expedition,
                 matiere,
                 couleur,
                 age_minimum,
@@ -145,6 +157,7 @@ class ProductManager:
         marque_id,
         fournisseur_id,
         reference_fournisseur,
+        prix_fournisseur_ht=None,
         categorie_poplicence_id=None,
         famille_produit_id=None,
         marge_visee_pourcentage=None,
@@ -152,6 +165,9 @@ class ProductManager:
         largeur=None,
         hauteur=None,
         poids=None,
+        longueur_expedition=None,
+        largeur_expedition=None,
+        hauteur_expedition=None,
         matiere=None,
         couleur=None,
         age_minimum=None,
@@ -169,6 +185,7 @@ class ProductManager:
                 marque_id = ?,
                 fournisseur_id = ?,
                 reference_fournisseur = ?,
+                prix_fournisseur_ht = ?,
                 categorie_poplicence_id = ?,
                 famille_produit_id = ?,
                 marge_visee_pourcentage = ?,
@@ -176,6 +193,9 @@ class ProductManager:
                 largeur = ?,
                 hauteur = ?,
                 poids = ?,
+                longueur_expedition = ?,
+                largeur_expedition = ?,
+                hauteur_expedition = ?,
                 matiere = ?,
                 couleur = ?,
                 age_minimum = ?,
@@ -190,6 +210,7 @@ class ProductManager:
                 marque_id,
                 fournisseur_id,
                 reference_fournisseur,
+                prix_fournisseur_ht,
                 categorie_poplicence_id,
                 famille_produit_id,
                 marge_visee_pourcentage,
@@ -197,6 +218,9 @@ class ProductManager:
                 largeur,
                 hauteur,
                 poids,
+                longueur_expedition,
+                largeur_expedition,
+                hauteur_expedition,
                 matiere,
                 couleur,
                 age_minimum,
@@ -354,4 +378,135 @@ class ProductManager:
                     ligne["reference_externe"],
                     ligne["statut"],
                 )
+            )
+
+    ########################################################
+    # Prix de marché constaté par canal
+    #
+    # Table séparée de produits_canaux (qui est recréée à
+    # chaque enregistrement) pour ne jamais perdre cette
+    # saisie manuelle.
+    ########################################################
+
+    def prix_marche_par_canal(self, produit_id):
+        """
+        Renvoie {canal_id: prix_ttc} pour un produit.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT canal_id, prix_ttc
+            FROM produits_prix_marche
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        return {
+            ligne["canal_id"]: ligne["prix_ttc"]
+            for ligne in lignes
+        }
+
+    def definir_prix_marche(self, produit_id, canal_id, prix_ttc):
+        """
+        Enregistre (ou met à jour) le prix de marché
+        constaté pour un produit, sur un canal donné.
+        """
+
+        existe = self.db.lire_un(
+            """
+            SELECT id
+            FROM produits_prix_marche
+            WHERE produit_id = ?
+            AND canal_id = ?
+            """,
+            (produit_id, canal_id)
+        )
+
+        if existe is not None:
+
+            self.db.executer(
+                """
+                UPDATE produits_prix_marche
+                SET prix_ttc = ?
+                WHERE id = ?
+                """,
+                (prix_ttc, existe["id"])
+            )
+
+        else:
+
+            self.db.executer(
+                """
+                INSERT INTO produits_prix_marche
+                (produit_id, canal_id, prix_ttc)
+                VALUES (?, ?, ?)
+                """,
+                (produit_id, canal_id, prix_ttc)
+            )
+
+    ########################################################
+    # Marge visée par canal
+    #
+    # Si un produit n'a pas de marge spécifique pour un
+    # canal donné, sa marge par défaut
+    # (marge_visee_pourcentage) s'applique.
+    ########################################################
+
+    def marges_par_canal(self, produit_id):
+        """
+        Renvoie {canal_id: marge_pourcentage} pour un
+        produit.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT canal_id, marge_pourcentage
+            FROM produits_marges
+            WHERE produit_id = ?
+            """,
+            (produit_id,)
+        )
+
+        return {
+            ligne["canal_id"]: ligne["marge_pourcentage"]
+            for ligne in lignes
+        }
+
+    def definir_marge_canal(self, produit_id, canal_id, marge_pourcentage):
+        """
+        Enregistre (ou met à jour) la marge visée pour un
+        produit, sur un canal donné.
+        """
+
+        existe = self.db.lire_un(
+            """
+            SELECT id
+            FROM produits_marges
+            WHERE produit_id = ?
+            AND canal_id = ?
+            """,
+            (produit_id, canal_id)
+        )
+
+        if existe is not None:
+
+            self.db.executer(
+                """
+                UPDATE produits_marges
+                SET marge_pourcentage = ?
+                WHERE id = ?
+                """,
+                (marge_pourcentage, existe["id"])
+            )
+
+        else:
+
+            self.db.executer(
+                """
+                INSERT INTO produits_marges
+                (produit_id, canal_id, marge_pourcentage)
+                VALUES (?, ?, ?)
+                """,
+                (produit_id, canal_id, marge_pourcentage)
             )

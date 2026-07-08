@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from ui.tabs.tab_general import GeneralTab
 from ui.tabs.tab_caracteristiques import CaracteristiquesTab
 from ui.tabs.tab_publication import PublicationTab
+from ui.tabs.tab_tarification import TarificationTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
@@ -165,6 +166,10 @@ class ProductDialogV2(QDialog):
                 self.produit["fournisseur_id"]
             )
 
+            self.pageGeneral.prixAchatHt.setValue(
+                self.produit["prix_fournisseur_ht"] or 0
+            )
+
         ####################################################
         # Onglet Caractéristiques
         ####################################################
@@ -207,10 +212,77 @@ class ProductDialogV2(QDialog):
             self.pagePublication.charger(canaux_produit)
 
         ####################################################
+        # Onglet Tarification
+        ####################################################
+
+        self.pageTarification = TarificationTab(self.type_produit)
+
+        # Relie l'onglet Tarification aux vrais champs des
+        # autres onglets (prix d'achat, famille, poids,
+        # catégorie par canal), sans dépendance figée.
+        self.pageTarification._prix_achat_ht = (
+            lambda: self.pageGeneral.prixAchatHt.value()
+        )
+        self.pageTarification._famille_produit_id = (
+            lambda: self.pageCaracteristiques.familleProduit.id()
+        )
+        self.pageTarification._poids = (
+            lambda: self.pageCaracteristiques.poids.value()
+        )
+        self.pageTarification._longueur = (
+            lambda: self.pageCaracteristiques.longueur.value()
+        )
+        self.pageTarification._largeur = (
+            lambda: self.pageCaracteristiques.largeur.value()
+        )
+        self.pageTarification._hauteur = (
+            lambda: self.pageCaracteristiques.hauteur.value()
+        )
+        self.pageTarification._longueur_expedition = (
+            lambda: self.pageCaracteristiques.longueurExpedition.value()
+        )
+        self.pageTarification._largeur_expedition = (
+            lambda: self.pageCaracteristiques.largeurExpedition.value()
+        )
+        self.pageTarification._hauteur_expedition = (
+            lambda: self.pageCaracteristiques.hauteurExpedition.value()
+        )
+        self.pageTarification._categorie_pour_canal = (
+            lambda canal_id: self.pageCaracteristiques
+            .categoriesCanaux.get(canal_id).id()
+            if self.pageCaracteristiques.categoriesCanaux.get(canal_id)
+            else None
+        )
+
+        self.tabs.addTab(
+            self.pageTarification,
+            "💰 Tarification"
+        )
+
+        if self.produit is not None:
+
+            marche = self.productManager.prix_marche_par_canal(
+                self.produit["id"]
+            )
+
+            marges = self.productManager.marges_par_canal(
+                self.produit["id"]
+            )
+
+            self.pageTarification.charger(
+                self.produit,
+                marche=marche,
+                marges=marges
+            )
+
+        else:
+
+            self.pageTarification.calculer()
+
+        ####################################################
         # Autres onglets
         ####################################################
 
-        self.tabs.addTab(QWidget(), "💰 Tarification")
         self.tabs.addTab(QWidget(), "🌐 SEO")
         self.tabs.addTab(QWidget(), "🖼 Images")
         self.tabs.addTab(QWidget(), "📜 Historique")
@@ -260,7 +332,11 @@ class ProductDialogV2(QDialog):
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
 
+                prix_fournisseur_ht=self.pageGeneral.prixAchatHt.value(),
+
                 famille_produit_id=self.pageCaracteristiques.familleProduit.id(),
+
+                marge_visee_pourcentage=self.pageTarification.margeVisee.value(),
 
                 longueur=self.pageCaracteristiques.longueur.value(),
 
@@ -269,6 +345,12 @@ class ProductDialogV2(QDialog):
                 hauteur=self.pageCaracteristiques.hauteur.value(),
 
                 poids=self.pageCaracteristiques.poids.value(),
+
+                longueur_expedition=self.pageCaracteristiques.longueurExpedition.value(),
+
+                largeur_expedition=self.pageCaracteristiques.largeurExpedition.value(),
+
+                hauteur_expedition=self.pageCaracteristiques.hauteurExpedition.value(),
 
                 matiere=self.pageCaracteristiques.matiere.text(),
 
@@ -302,7 +384,11 @@ class ProductDialogV2(QDialog):
 
                 reference_fournisseur=self.pageGeneral.referenceFournisseur.text(),
 
+                prix_fournisseur_ht=self.pageGeneral.prixAchatHt.value(),
+
                 famille_produit_id=self.pageCaracteristiques.familleProduit.id(),
+
+                marge_visee_pourcentage=self.pageTarification.margeVisee.value(),
 
                 longueur=self.pageCaracteristiques.longueur.value(),
 
@@ -311,6 +397,12 @@ class ProductDialogV2(QDialog):
                 hauteur=self.pageCaracteristiques.hauteur.value(),
 
                 poids=self.pageCaracteristiques.poids.value(),
+
+                longueur_expedition=self.pageCaracteristiques.longueurExpedition.value(),
+
+                largeur_expedition=self.pageCaracteristiques.largeurExpedition.value(),
+
+                hauteur_expedition=self.pageCaracteristiques.hauteurExpedition.value(),
 
                 matiere=self.pageCaracteristiques.matiere.text(),
 
@@ -331,6 +423,24 @@ class ProductDialogV2(QDialog):
             identifiant_produit,
             self.pagePublication.canaux_selectionnes()
         )
+
+        for canal_id, champ in self.pageTarification.champsPrixMarche.items():
+
+            if champ.value() > 0:
+
+                self.productManager.definir_prix_marche(
+                    identifiant_produit,
+                    canal_id,
+                    champ.value()
+                )
+
+        for canal_id, marge in self.pageTarification.marges_saisies().items():
+
+            self.productManager.definir_marge_canal(
+                identifiant_produit,
+                canal_id,
+                marge
+            )
 
         QMessageBox.information(
             self,

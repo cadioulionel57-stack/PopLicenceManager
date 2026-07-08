@@ -27,7 +27,7 @@ class FamillesProduitPage(ListPage):
         self.table.setHorizontalHeaderLabels([
             "ID",
             "Nom",
-            "Coût emballage HT",
+            "Emballage / Coût",
             "Taux de retour",
         ])
 
@@ -53,10 +53,22 @@ class FamillesProduitPage(ListPage):
 
             self.table.insertRow(ligne)
 
+            cout_effectif = self.manager.cout_emballage_effectif(
+                famille["id"]
+            )
+
+            if famille["emballage_code"]:
+                libelle_emballage = (
+                    f"{famille['emballage_code']} — "
+                    f"{cout_effectif:.2f} € (auto)"
+                )
+            else:
+                libelle_emballage = f"{cout_effectif:.2f} € (manuel)"
+
             valeurs = [
                 str(famille["id"]),
                 famille["nom"] or "",
-                f"{famille['cout_emballage_ht'] or 0:.2f} €",
+                libelle_emballage,
                 f"{(famille['taux_retour'] or 0) * 100:.1f} %",
             ]
 
@@ -84,6 +96,7 @@ class FamillesProduitPage(ListPage):
             nom=nom,
             cout_emballage_ht=dialog.coutEmballage.value(),
             taux_retour=dialog.taux_retour_decimal(),
+            emballage_id=dialog.emballage_id_selectionne(),
         )
 
         self.charger()
@@ -112,6 +125,7 @@ class FamillesProduitPage(ListPage):
             nom=famille["nom"],
             cout_emballage_ht=famille["cout_emballage_ht"] or 0,
             taux_retour=famille["taux_retour"] or 0,
+            emballage_id=famille["emballage_id"],
         )
 
         if dialog.exec() != FamilleProduitDialog.DialogCode.Accepted:
@@ -127,6 +141,7 @@ class FamillesProduitPage(ListPage):
             nom=nom,
             cout_emballage_ht=dialog.coutEmballage.value(),
             taux_retour=dialog.taux_retour_decimal(),
+            emballage_id=dialog.emballage_id_selectionne(),
         )
 
         self.charger()
