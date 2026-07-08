@@ -207,6 +207,18 @@ class CanalDialog(QDialog):
 
         layout.addSpacing(10)
 
+        # En FBA, le port est TOUJOURS inclus dans le prix
+        # (c'est la définition même du FBA) : cocher cette
+        # case coche et verrouille automatiquement "Frais
+        # de port inclus", pour qu'il soit impossible
+        # d'activer la grille FBA sans le transport.
+        self.utiliseGrilleFba.toggled.connect(
+            self._synchroniserPortInclus
+        )
+        self._synchroniserPortInclus(utilise_grille_fba)
+
+        layout.addSpacing(10)
+
         layout.addWidget(QLabel("Ordre d'affichage"))
 
         self.ordre = QDoubleSpinBox()
@@ -284,6 +296,24 @@ class CanalDialog(QDialog):
 
     def utilise_grille_fba_coche(self):
         return self.utiliseGrilleFba.isChecked()
+
+    def _synchroniserPortInclus(self, fba_coche):
+        """
+        En FBA, le port est toujours inclus (Amazon ne
+        propose jamais de "frais de port en plus" côté
+        client). On coche et verrouille donc "Frais de
+        port inclus" automatiquement, pour empêcher une
+        configuration incohérente.
+        """
+
+        if fba_coche:
+
+            self.portInclus.setChecked(True)
+            self.portInclus.setEnabled(False)
+
+        else:
+
+            self.portInclus.setEnabled(True)
 
     def transporteurs_selectionnes(self):
         """

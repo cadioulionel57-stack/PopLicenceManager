@@ -145,12 +145,16 @@ class FamilleProduitManager:
 
         return famille["cout_emballage_ht"] or 0
 
-    def cout_produit(self, famille_id, prix_achat_ht):
+    def cout_produit(self, famille_id, prix_achat_ht, inclure_emballage=True):
         """
-        Calcule le coût de revient "produit" (indépendant
-        du canal de vente) :
+        Calcule le coût de revient "produit" :
 
         (Prix d'achat HT + Coût emballage) × (1 + Taux de retour)
+
+        inclure_emballage=False permet d'exclure le coût
+        d'emballage — utile pour les canaux FBA, où c'est
+        Amazon qui gère l'emballage dans ses entrepôts,
+        pas ta propre grille d'emballage (P1-C4).
         """
 
         if famille_id is None:
@@ -161,7 +165,11 @@ class FamilleProduitManager:
         if famille is None:
             return prix_achat_ht or 0
 
-        cout_emballage = self.cout_emballage_effectif(famille_id)
+        cout_emballage = (
+            self.cout_emballage_effectif(famille_id)
+            if inclure_emballage
+            else 0
+        )
 
         base = (prix_achat_ht or 0) + cout_emballage
 

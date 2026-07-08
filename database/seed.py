@@ -13,7 +13,99 @@ class Seeder:
         self._seed_grille_transport()
         self._corriger_chronopost()
         self._seed_grille_fba()
+        self._corriger_categories_fba()
         self._seed_grille_emballage()
+
+    def _corriger_categories_fba(self):
+        """
+        Ajoute automatiquement, une seule fois, les autres
+        catégories qui partagent officiellement la même
+        grille tarifaire FBA que "Linge de maison et
+        tapis" (confirmé par le PDF tarifaire Amazon en
+        vigueur au 1er février 2026, page 7 : ces 16
+        catégories utilisent toutes le même tableau).
+
+        Ne s'exécute que si "Vêtements et accessoires"
+        n'existe pas encore dans la grille FBA.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM grille_fba
+            WHERE categorie_speciale = 'Vêtements et accessoires'
+            LIMIT 1
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        lignes_reference = self.db.lire(
+            """
+            SELECT *
+            FROM grille_fba
+            WHERE categorie_speciale = 'Linge de maison et tapis'
+            """
+        )
+
+        if not lignes_reference:
+            return
+
+        autres_categories = [
+            "Poussettes et articles de sécurité bébé",
+            "Accessoires pour portes, fenêtres et douches",
+            "Lunettes de protection",
+            "Chaussures",
+            "Accessoires de meubles",
+            "Épicerie et gastronomie",
+            "Adhésifs et colliers de serrage pour la maison",
+            "Accessoires de bagages",
+            "Matelas",
+            "Matériel d'emballage",
+            "Vêtements et alimentation pour animaux",
+            "Accessoires pour imprimantes et scanners",
+            "Gants de travail et de sécurité réutilisables",
+            "Vêtements et accessoires",
+            "Sacs à dos et sacs à main",
+        ]
+
+        for categorie in autres_categories:
+
+            for ligne in lignes_reference:
+
+                self.db.executer(
+                    """
+                    INSERT INTO grille_fba
+                    (
+                        format_colis,
+                        categorie_speciale,
+                        longueur_max_cm,
+                        largeur_max_cm,
+                        hauteur_max_cm,
+                        poids_seuil_g,
+                        prix_base_ht,
+                        prix_supplement_ht,
+                        supplement_pas_g,
+                        actif
+                    )
+                    VALUES
+                    (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                    )
+                    """,
+                    (
+                        ligne["format_colis"],
+                        categorie,
+                        ligne["longueur_max_cm"],
+                        ligne["largeur_max_cm"],
+                        ligne["hauteur_max_cm"],
+                        ligne["poids_seuil_g"],
+                        ligne["prix_base_ht"],
+                        ligne["prix_supplement_ht"],
+                        ligne["supplement_pas_g"],
+                    )
+                )
 
     def _seed_grille_emballage(self):
         """
