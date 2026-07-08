@@ -107,10 +107,11 @@ class TarificationTab(QWidget):
         layoutCanaux.addWidget(self.btnCalculer)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
             "Canal",
             "Marge (%)",
+            "Gain net (€)",
             "Prix calculé TTC",
             "Seuil rentable TTC",
             "Prix marché constaté",
@@ -217,7 +218,7 @@ class TarificationTab(QWidget):
             )
 
             self.champsPrixMarche[canal["id"]] = champPrixMarche
-            self.table.setCellWidget(ligne, 4, champPrixMarche)
+            self.table.setCellWidget(ligne, 5, champPrixMarche)
 
             self._recalculerLigne(ligne)
 
@@ -264,17 +265,28 @@ class TarificationTab(QWidget):
 
             self.table.setItem(ligne, 2, QTableWidgetItem("—"))
             self.table.setItem(ligne, 3, QTableWidgetItem("—"))
+            self.table.setItem(ligne, 4, QTableWidgetItem("—"))
 
             itemErreur = QTableWidgetItem(resultat["erreur"])
             itemErreur.setForeground(QColor("#c0392b"))
-            self.table.setItem(ligne, 6, itemErreur)
+            self.table.setItem(ligne, 7, itemErreur)
 
-            self.table.setItem(ligne, 5, QTableWidgetItem(""))
+            self.table.setItem(ligne, 6, QTableWidgetItem(""))
 
             return
 
+        # Gain net en euros : la marge visée appliquée au
+        # prix de vente HT (ce qu'il te reste réellement,
+        # pas juste le pourcentage abstrait).
+        gain_net_ht = resultat["prix_vente_ht"] * (marge / 100)
+
         self.table.setItem(
             ligne, 2,
+            QTableWidgetItem(f"{gain_net_ht:.2f} €")
+        )
+
+        self.table.setItem(
+            ligne, 3,
             QTableWidgetItem(f"{resultat['prix_vente_ttc']:.2f} €")
         )
 
@@ -285,7 +297,7 @@ class TarificationTab(QWidget):
         )
 
         self.table.setItem(
-            ligne, 3,
+            ligne, 4,
             QTableWidgetItem(
                 f"{seuil_ttc:.2f} €" if seuil_ttc else "—"
             )
@@ -298,7 +310,7 @@ class TarificationTab(QWidget):
         else:
             itemDecision.setForeground(QColor("#1e7d32"))
 
-        self.table.setItem(ligne, 5, itemDecision)
+        self.table.setItem(ligne, 6, itemDecision)
 
         detail = ""
 
@@ -308,7 +320,7 @@ class TarificationTab(QWidget):
                 "du prix de vente HT"
             )
 
-        self.table.setItem(ligne, 6, QTableWidgetItem(detail))
+        self.table.setItem(ligne, 7, QTableWidgetItem(detail))
 
         # Si un prix marché est déjà saisi sur cette ligne,
         # on met à jour la décision en conséquence.
@@ -340,7 +352,7 @@ class TarificationTab(QWidget):
 
             itemDecision = QTableWidgetItem(resultat["decision"])
             itemDecision.setForeground(QColor("#c0392b"))
-            self.table.setItem(ligne, 5, itemDecision)
+            self.table.setItem(ligne, 6, itemDecision)
             return
 
         itemDecision = QTableWidgetItem()
@@ -360,7 +372,7 @@ class TarificationTab(QWidget):
             itemDecision.setText("⚠️ Prix marché trop bas")
             itemDecision.setForeground(QColor("#e67e22"))
 
-        self.table.setItem(ligne, 5, itemDecision)
+        self.table.setItem(ligne, 6, itemDecision)
 
     def _afficherDetail(self, ligne, colonne):
 

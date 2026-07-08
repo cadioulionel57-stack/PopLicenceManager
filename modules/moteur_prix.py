@@ -169,14 +169,22 @@ class MoteurPrix:
 
         # 5. Commission — calcul itératif si paliers de prix
         #    (la commission peut dépendre du prix de vente,
-        #    qui dépend lui-même de la commission)
+        #    qui dépend lui-même de la commission). Comme
+        #    les frais de paiement, elle est facturée sur
+        #    le prix TTC (confirmé : "la commission Amazon
+        #    est calculée sur le prix de vente TTC"), donc
+        #    on la regonfle avant de l'utiliser dans une
+        #    formule qui résout le prix HT.
         commission_pourcentage = self._resoudre_commission(
             categorie_id, canal, cout_fixe, marge
         )
 
-        commission = commission_pourcentage / 100
+        commission_ttc = commission_pourcentage / 100
+        commission = commission_ttc * (1 + self.TAUX_TVA)
 
         # 6. TSN, calculée sur le montant de la commission
+        #    (elle hérite donc aussi de la conversion TTC
+        #    ci-dessus, via "commission" déjà regonflée)
         taux_tsn = (canal["taux_tsn_pourcentage"] or 0) / 100
         taux_tsn_effectif = taux_tsn * commission
 
@@ -271,7 +279,9 @@ class MoteurPrix:
 
         for _ in range(3):
 
-            commission = commission_pourcentage / 100
+            commission_ttc = commission_pourcentage / 100
+            commission = commission_ttc * (1 + self.TAUX_TVA)
+
             taux_tsn = (canal["taux_tsn_pourcentage"] or 0) / 100
             taux_paiement = (
                 (canal["frais_paiement_pourcentage"] or 0) / 100
@@ -286,10 +296,14 @@ class MoteurPrix:
             if denominateur <= 0:
                 break
 
-            prix_estime = cout_fixe / denominateur
+            prix_estime_ht = cout_fixe / denominateur
+
+            # Les seuils de palier (ex : "jusqu'à 15€") sont
+            # exprimés en prix TTC, comme affichés au client.
+            prix_estime_ttc = prix_estime_ht * (1 + self.TAUX_TVA)
 
             nouvelle_commission = self.categories.commission_effective(
-                categorie_id, prix_vente=prix_estime
+                categorie_id, prix_vente=prix_estime_ttc
             )
 
             if nouvelle_commission is None:
