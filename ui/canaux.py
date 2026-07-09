@@ -103,6 +103,8 @@ class CanauxPage(ListPage):
             frais_paiement_fixe_ht=dialog.fraisPaiementFixe.value(),
             taux_tsn_pourcentage=dialog.tauxTsn.value(),
             port_inclus=dialog.portInclus.isChecked(),
+            tarif_port_client_ttc=dialog.tarif_port_client(),
+            seuil_gratuite_ttc=dialog.seuil_gratuite(),
             utilise_grille_fba=dialog.utilise_grille_fba_coche(),
             ordre=dialog.valeur_ordre(),
         )
@@ -146,6 +148,8 @@ class CanauxPage(ListPage):
             frais_paiement_fixe_ht=canal["frais_paiement_fixe_ht"] or 0,
             taux_tsn_pourcentage=canal["taux_tsn_pourcentage"] or 0,
             port_inclus=bool(canal["port_inclus"]),
+            tarif_port_client_ttc=canal["tarif_port_client_ttc"],
+            seuil_gratuite_ttc=canal["seuil_gratuite_ttc"],
             utilise_grille_fba=bool(canal["utilise_grille_fba"]),
             ordre=canal["ordre"] or 0,
             transporteurs_autorises=transporteurs_actuels,
@@ -169,6 +173,8 @@ class CanauxPage(ListPage):
             frais_paiement_fixe_ht=dialog.fraisPaiementFixe.value(),
             taux_tsn_pourcentage=dialog.tauxTsn.value(),
             port_inclus=dialog.portInclus.isChecked(),
+            tarif_port_client_ttc=dialog.tarif_port_client(),
+            seuil_gratuite_ttc=dialog.seuil_gratuite(),
             utilise_grille_fba=dialog.utilise_grille_fba_coche(),
             ordre=dialog.valeur_ordre(),
         )

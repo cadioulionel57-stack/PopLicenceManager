@@ -48,6 +48,8 @@ class CanalManager:
         frais_paiement_fixe_ht=0,
         taux_tsn_pourcentage=0,
         port_inclus=False,
+        tarif_port_client_ttc=None,
+        seuil_gratuite_ttc=None,
         utilise_grille_fba=False,
         ordre=0
     ):
@@ -64,13 +66,15 @@ class CanalManager:
                 frais_paiement_fixe_ht,
                 taux_tsn_pourcentage,
                 port_inclus,
+                tarif_port_client_ttc,
+                seuil_gratuite_ttc,
                 utilise_grille_fba,
                 ordre,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -82,6 +86,8 @@ class CanalManager:
                 frais_paiement_fixe_ht,
                 taux_tsn_pourcentage,
                 1 if port_inclus else 0,
+                tarif_port_client_ttc,
+                seuil_gratuite_ttc,
                 1 if utilise_grille_fba else 0,
                 ordre
             )
@@ -101,6 +107,8 @@ class CanalManager:
         frais_paiement_pourcentage=0,
         frais_paiement_fixe_ht=0,
         taux_tsn_pourcentage=0,
+        tarif_port_client_ttc=None,
+        seuil_gratuite_ttc=None,
         utilise_grille_fba=False,
     ):
 
@@ -116,6 +124,8 @@ class CanalManager:
                 frais_paiement_fixe_ht = ?,
                 taux_tsn_pourcentage = ?,
                 port_inclus = ?,
+                tarif_port_client_ttc = ?,
+                seuil_gratuite_ttc = ?,
                 utilise_grille_fba = ?,
                 ordre = ?
             WHERE id = ?
@@ -129,6 +139,8 @@ class CanalManager:
                 frais_paiement_fixe_ht,
                 taux_tsn_pourcentage,
                 1 if port_inclus else 0,
+                tarif_port_client_ttc,
+                seuil_gratuite_ttc,
                 1 if utilise_grille_fba else 0,
                 ordre,
                 identifiant

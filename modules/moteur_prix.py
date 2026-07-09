@@ -75,9 +75,14 @@ class MoteurPrix:
         marge = (produit["marge_visee_pourcentage"] or 0) / 100
         poids = produit["poids"] or 0
 
-        # 1. Coût produit (identique quel que soit le canal)
+        # 1. Coût produit. L'emballage n'est compté que si
+        #    c'est TOI qui expédies (FBM, Site...) — pas en
+        #    FBA, où c'est Amazon qui gère l'emballage dans
+        #    ses propres entrepôts.
         cout_produit = self.familles.cout_produit(
-            famille_id, prix_achat_ht
+            famille_id,
+            prix_achat_ht,
+            inclure_emballage=not canal["utilise_grille_fba"]
         )
 
         # 2. Frais fixes du canal
@@ -164,6 +169,42 @@ class MoteurPrix:
 
             cout_fixe += transport["prix_ht"]
 
+        elif canal["tarif_port_client_ttc"]:
+
+            # Cas FBM : le client paie un frais de port
+            # séparé, mais fixé par toi — pas forcément égal
+            # au vrai coût transporteur. Seul l'écart entre
+            # les deux s'ajoute au coût du produit.
+            transport = self.canaux.transport_le_moins_cher(
+                canal_id, poids
+            )
+
+            if transport is None:
+
+                return {
+                    "erreur": (
+                        "Aucun transporteur autorisé pour ce "
+                        "canal ne couvre ce poids ("
+                        f"{poids} kg)"
+                    )
+                }
+
+            tarif_client_ht = (
+                canal["tarif_port_client_ttc"] / (1 + self.TAUX_TVA)
+            )
+
+            ecart = transport["prix_ht"] - tarif_client_ht
+
+            cout_fixe += ecart
+
+            transport = {
+                "transporteur": transport["transporteur"],
+                "offre": transport["offre"],
+                "prix_ht": transport["prix_ht"],
+                "tarif_facture_client_ttc": canal["tarif_port_client_ttc"],
+                "ecart_absorbe_ht": round(ecart, 2),
+            }
+
         # 4. Frais de paiement fixes (ex : 0,35€ PayPal)
         cout_fixe += canal["frais_paiement_fixe_ht"] or 0
 
@@ -230,8 +271,16 @@ class MoteurPrix:
 
         if transport is not None and prix_vente_ht > 0:
 
+            # Si seul un écart est absorbé (cas FBM), c'est
+            # cet écart qui pèse réellement sur ton prix —
+            # pas le coût total du transport, dont une
+            # partie est payée par le client.
+            valeur_pesant_sur_le_prix = transport.get(
+                "ecart_absorbe_ht", transport["prix_ht"]
+            )
+
             ratio_transport = round(
-                (transport["prix_ht"] / prix_vente_ht) * 100, 1
+                (valeur_pesant_sur_le_prix / prix_vente_ht) * 100, 1
             )
 
             if ratio_transport > seuil_transport_max:

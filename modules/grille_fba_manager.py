@@ -232,7 +232,7 @@ class GrilleFbaManager:
                 SELECT *
                 FROM grille_fba
                 WHERE actif = 1
-                AND categorie_speciale = ?
+                AND TRIM(LOWER(categorie_speciale)) = TRIM(LOWER(?))
                 ORDER BY longueur_max_cm * largeur_max_cm * hauteur_max_cm
                 """,
                 (categorie_speciale,)

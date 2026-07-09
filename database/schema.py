@@ -404,9 +404,29 @@ SCHEMA["canaux_vente"] = [
     ("taux_tsn_pourcentage", "REAL DEFAULT 0"),
 
     # 1 = les frais de port sont inclus dans le prix affiché
-    # (ex : marketplaces, "livraison gratuite")
-    # 0 = le client paye le port en plus (ex : WiziShop)
+    # (ex : marketplaces "livraison gratuite" type FBA, où
+    # le vrai coût de transport est entièrement caché dans
+    # le prix produit)
+    # 0 = le client voit un frais de port séparé du prix
+    # produit (Site, ou marketplace FBM)
     ("port_inclus", "INTEGER DEFAULT 0"),
+
+    # Cas particulier du FBM : le client paie un frais de
+    # port SÉPARÉ du prix produit, mais ce montant est fixé
+    # par toi (pas forcément égal au vrai coût transporteur).
+    # Si renseigné, seul l'ÉCART entre le vrai coût et ce
+    # tarif est ajouté au coût du produit — pas le coût
+    # entier. Laisser vide si non applicable (Site : le
+    # client paie exactement le vrai coût, rien à absorber ;
+    # FBA : le port est déjà 100% dans "port_inclus").
+    ("tarif_port_client_ttc", "REAL"),
+
+    # Seuil de commande (TTC) au-delà duquel le port est
+    # gratuit pour le client. Informatif pour l'instant :
+    # le calcul du prix produit part du principe prudent
+    # que ce seuil n'est pas atteint (donc le port facturé
+    # s'applique), pour ne jamais sous-évaluer un prix.
+    ("seuil_gratuite_ttc", "REAL"),
 
     # 1 = ce canal calcule son "transport" via la grille
     # FBA (format de colis selon dimensions + poids) au

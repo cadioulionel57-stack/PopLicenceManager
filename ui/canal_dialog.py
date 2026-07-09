@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QListWidget,
     QListWidgetItem,
+    QScrollArea,
+    QWidget,
 )
 from PySide6.QtCore import Qt
 
@@ -30,6 +32,8 @@ class CanalDialog(QDialog):
         frais_paiement_fixe_ht=0.0,
         taux_tsn_pourcentage=0.0,
         port_inclus=False,
+        tarif_port_client_ttc=None,
+        seuil_gratuite_ttc=None,
         utilise_grille_fba=False,
         ordre=0,
         transporteurs_autorises=None,
@@ -38,7 +42,8 @@ class CanalDialog(QDialog):
         super().__init__()
 
         self.setWindowTitle(titre)
-        self.resize(520, 700)
+        self.resize(520, 620)
+        self.setMinimumSize(420, 300)
 
         self.setStyleSheet("""
             QDialog{
@@ -85,13 +90,23 @@ class CanalDialog(QDialog):
             QPushButton:hover{
                 background:#1d61b4;
             }
+
+            QScrollArea{
+                border:none;
+                background:transparent;
+            }
         """)
 
         principal = QVBoxLayout(self)
+        principal.setContentsMargins(15, 15, 15, 15)
+
+        zoneDefilante = QScrollArea()
+        zoneDefilante.setWidgetResizable(True)
+        principal.addWidget(zoneDefilante)
 
         carte = QFrame()
         carte.setObjectName("card")
-        principal.addWidget(carte)
+        zoneDefilante.setWidget(carte)
 
         layout = QVBoxLayout(carte)
 
@@ -197,6 +212,38 @@ class CanalDialog(QDialog):
 
         layout.addSpacing(10)
 
+        layout.addWidget(QLabel(
+            "Cas FBM : frais de port facturé séparément au "
+            "client (TTC) — laisser à 0 si non applicable "
+            "(Site : le client paie le vrai coût ; FBA : "
+            "déjà couvert par \"port inclus\" ci-dessus). "
+            "Si renseigné, seul l'écart avec le vrai coût "
+            "transporteur est ajouté au coût du produit."
+        ))
+
+        self.tarifPortClient = QDoubleSpinBox()
+        self.tarifPortClient.setDecimals(2)
+        self.tarifPortClient.setMaximum(999)
+        self.tarifPortClient.setSuffix(" € TTC")
+        self.tarifPortClient.setValue(tarif_port_client_ttc or 0)
+        layout.addWidget(self.tarifPortClient)
+
+        layout.addSpacing(10)
+
+        layout.addWidget(QLabel(
+            "Seuil de commande pour la livraison gratuite "
+            "(TTC) — informatif, laisser à 0 si non applicable"
+        ))
+
+        self.seuilGratuite = QDoubleSpinBox()
+        self.seuilGratuite.setDecimals(2)
+        self.seuilGratuite.setMaximum(9999)
+        self.seuilGratuite.setSuffix(" € TTC")
+        self.seuilGratuite.setValue(seuil_gratuite_ttc or 0)
+        layout.addWidget(self.seuilGratuite)
+
+        layout.addSpacing(10)
+
         self.utiliseGrilleFba = QCheckBox(
             "Ce canal utilise la grille FBA (Expédié par "
             "Amazon) — format de colis selon dimensions + "
@@ -283,7 +330,7 @@ class CanalDialog(QDialog):
         boutons.addWidget(self.btnAnnuler)
         boutons.addWidget(self.btnEnregistrer)
 
-        layout.addLayout(boutons)
+        principal.addLayout(boutons)
 
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self.accept)
@@ -296,6 +343,22 @@ class CanalDialog(QDialog):
 
     def utilise_grille_fba_coche(self):
         return self.utiliseGrilleFba.isChecked()
+
+    def tarif_port_client(self):
+        """
+        Renvoie None si à 0 (non applicable), sinon la
+        valeur saisie.
+        """
+        valeur = self.tarifPortClient.value()
+        return valeur if valeur > 0 else None
+
+    def seuil_gratuite(self):
+        """
+        Renvoie None si à 0 (non applicable), sinon la
+        valeur saisie.
+        """
+        valeur = self.seuilGratuite.value()
+        return valeur if valeur > 0 else None
 
     def _synchroniserPortInclus(self, fba_coche):
         """
