@@ -128,12 +128,22 @@ class FamilleProduitManager:
             (identifiant,)
         )
 
-    def cout_emballage_effectif(self, famille_id):
+    def cout_emballage_effectif(self, famille_id, emballage_id_produit=None):
         """
-        Renvoie le coût d'emballage réellement utilisé :
-        celui de l'emballage lié (emballage + calage) si
-        renseigné, sinon le coût manuel de la famille.
+        Renvoie le coût d'emballage réellement utilisé, par
+        ordre de priorité :
+
+        1. L'emballage sélectionné directement sur LA FICHE
+           PRODUIT (emballage_id_produit) — le plus précis,
+           choisi automatiquement selon les dimensions/poids
+           réels de ce produit précis.
+        2. Sinon, l'emballage lié à la famille du produit.
+        3. Sinon, le coût d'emballage manuel de la famille
+           (rétrocompatibilité).
         """
+
+        if emballage_id_produit is not None:
+            return self.emballages.cout_total(emballage_id_produit)
 
         famille = self.obtenir(famille_id)
 
@@ -145,7 +155,13 @@ class FamilleProduitManager:
 
         return famille["cout_emballage_ht"] or 0
 
-    def cout_produit(self, famille_id, prix_achat_ht, inclure_emballage=True):
+    def cout_produit(
+        self,
+        famille_id,
+        prix_achat_ht,
+        inclure_emballage=True,
+        emballage_id_produit=None,
+    ):
         """
         Calcule le coût de revient "produit" :
 
@@ -155,22 +171,27 @@ class FamilleProduitManager:
         d'emballage — utile pour les canaux FBA, où c'est
         Amazon qui gère l'emballage dans ses entrepôts,
         pas ta propre grille d'emballage (P1-C4).
+
+        emballage_id_produit : si renseigné (l'emballage
+        choisi sur la fiche produit elle-même), il prime
+        sur celui de la famille pour le calcul du coût.
         """
 
-        if famille_id is None:
+        if famille_id is None and emballage_id_produit is None:
             return prix_achat_ht or 0
 
-        famille = self.obtenir(famille_id)
+        famille = self.obtenir(famille_id) if famille_id else None
 
-        if famille is None:
-            return prix_achat_ht or 0
+        taux_retour = famille["taux_retour"] or 0 if famille else 0
 
         cout_emballage = (
-            self.cout_emballage_effectif(famille_id)
+            self.cout_emballage_effectif(
+                famille_id, emballage_id_produit
+            )
             if inclure_emballage
             else 0
         )
 
         base = (prix_achat_ht or 0) + cout_emballage
 
-        return base * (1 + (famille["taux_retour"] or 0))
+        return base * (1 + taux_retour)

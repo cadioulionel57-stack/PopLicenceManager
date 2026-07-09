@@ -16,6 +16,8 @@ class Seeder:
         self._corriger_categories_fba()
         self._seed_grille_emballage()
         self._corriger_poids_max_emballage()
+        self._corriger_regles_amazon_fbm()
+        self._seed_fnac()
 
     def _corriger_categories_fba(self):
         """
@@ -352,6 +354,241 @@ class Seeder:
                 VALUES (?, 'Chrono 18', ?, ?, 1)
                 """,
                 (chronopost_id, poids_max_kg, prix_ht)
+            )
+
+    def _corriger_regles_amazon_fbm(self):
+        """
+        Renseigne automatiquement, une seule fois, la
+        contribution transport minimale (2€ HT) et le prix
+        de vente minimum recommandé (29€ TTC) sur le canal
+        "Amazon FBM" — règles actées avec l'utilisateur.
+
+        Ne touche que les lignes où ces deux champs sont
+        encore à leur valeur neutre (0 ou NULL), pour ne
+        jamais écraser une valeur déjà modifiée manuellement
+        depuis l'écran "Canaux de vente".
+        """
+
+        self.db.executer(
+            """
+            UPDATE canaux_vente
+            SET contribution_transport_min_ht = 2.0
+            WHERE nom = 'Amazon FBM'
+            AND (
+                contribution_transport_min_ht IS NULL
+                OR contribution_transport_min_ht = 0
+            )
+            """
+        )
+
+        self.db.executer(
+            """
+            UPDATE canaux_vente
+            SET prix_vente_min_ttc = 29.0
+            WHERE nom = 'Amazon FBM'
+            AND prix_vente_min_ttc IS NULL
+            """
+        )
+
+    def _seed_fnac(self):
+        """
+        Crée le canal Fnac au complet, une seule fois :
+        - le canal lui-même (grille_tarif_client_active=1,
+          car le client choisit entre plusieurs transporteurs
+          à des tarifs différents selon le poids) ;
+        - les 4 catégories Fnac avec leurs commissions ;
+        - le coût réel (Boxtal négocié) de Relais Colis et
+          Colissimo Recommandé R1 dans grille_transport
+          (Chrono 18 y est déjà, transporteur Chronopost) ;
+        - le tarif facturé au client pour ces 3 offres, par
+          tranche de poids, dans grille_tarif_client ;
+        - l'éligibilité par tranche de prix de vente sur
+          canaux_transporteurs (25€-200€ pour Relais Colis
+          et Colissimo R1, +200€ pour Chrono 18 — sous 25€,
+          rien n'est éligible : le produit est exclu de Fnac,
+          conformément à la règle actée).
+
+        Poids couverts : jusqu'à 5kg uniquement (poids max
+        Fnac acté). Ne s'exécute que si "Fnac" n'existe pas
+        déjà comme canal de vente.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'Fnac'
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        colissimo_id = self._obtenir_ou_creer_transporteur(
+            "Colissimo"
+        )
+        chronopost_id = self._obtenir_ou_creer_transporteur(
+            "Chronopost"
+        )
+        relais_colis_id = self._obtenir_ou_creer_transporteur(
+            "Relais Colis"
+        )
+
+        # (poids_max_kg, coût réel HT, tarif client TTC)
+        grille_relais_colis = [
+            (0.5, 3.33, 4.20),
+            (1, 3.56, 4.50),
+            (2, 5.06, 6.40),
+            (3, 5.23, 6.60),
+            (5, 7.40, 9.35),
+        ]
+
+        grille_colissimo_r1 = [
+            (0.25, 7.73, 8.59),
+            (0.5, 8.57, 10.69),
+            (1, 10.15, 12.69),
+            (2, 11.26, 14.29),
+            (3, 12.24, 16.29),
+            (5, 14.23, 20.49),
+        ]
+
+        # Chrono 18 : coût réel déjà présent dans
+        # grille_transport (transporteur_id=chronopost_id,
+        # offre="Chrono 18") — seul le tarif client est à
+        # créer ici.
+        grille_chrono_18_client = [
+            (0.25, 9.90), (0.5, 9.90), (1, 9.90),
+            (2, 9.90), (3, 11.90), (5, 11.90),
+        ]
+
+        for poids_max_kg, cout_ht, tarif_ttc in grille_relais_colis:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_transport
+                (transporteur_id, offre, poids_max_kg, prix_ht, actif)
+                VALUES (?, 'Relais Colis', ?, ?, 1)
+                """,
+                (relais_colis_id, poids_max_kg, cout_ht)
+            )
+
+        for poids_max_kg, cout_ht, tarif_ttc in grille_colissimo_r1:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_transport
+                (transporteur_id, offre, poids_max_kg, prix_ht, actif)
+                VALUES (?, 'Recommandé R1', ?, ?, 1)
+                """,
+                (colissimo_id, poids_max_kg, cout_ht)
+            )
+
+        # Canal Fnac
+        curseur = self.db.executer(
+            """
+            INSERT INTO canaux_vente
+            (
+                nom,
+                type,
+                commission_pourcentage,
+                frais_fixe_ht,
+                frais_paiement_pourcentage,
+                frais_paiement_fixe_ht,
+                taux_tsn_pourcentage,
+                port_inclus,
+                grille_tarif_client_active,
+                utilise_grille_fba,
+                ordre,
+                actif
+            )
+            VALUES
+            (
+                'Fnac', 'marketplace', 12, 0, 0, 0, 0, 0, 1, 0, 0, 1
+            )
+            """
+        )
+
+        fnac_id = curseur.lastrowid
+
+        # Catégories Fnac (commissions actées)
+        categories_fnac = [
+            ("Jeux, jouets, figurines", 12.0),
+            ("Vêtements et diversification", 11.0),
+            ("Papeterie", 14.0),
+            ("Linge de maison", 15.0),
+        ]
+
+        for nom, commission in categories_fnac:
+
+            self.db.executer(
+                """
+                INSERT INTO categories
+                (nom, canal_id, commission_pourcentage, actif)
+                VALUES (?, ?, ?, 1)
+                """,
+                (nom, fnac_id, commission)
+            )
+
+        # Éligibilité par tranche de prix (canaux_transporteurs)
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, prix_min_ttc, prix_max_ttc, actif)
+            VALUES (?, ?, 'Relais Colis', 25, 200, 1)
+            """,
+            (fnac_id, relais_colis_id)
+        )
+
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, prix_min_ttc, prix_max_ttc, actif)
+            VALUES (?, ?, 'Recommandé R1', 25, 200, 1)
+            """,
+            (fnac_id, colissimo_id)
+        )
+
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, prix_min_ttc, prix_max_ttc, actif)
+            VALUES (?, ?, 'Chrono 18', 200, NULL, 1)
+            """,
+            (fnac_id, chronopost_id)
+        )
+
+        # Tarifs client par poids (grille_tarif_client)
+        for poids_max_kg, cout_ht, tarif_ttc in grille_relais_colis:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_tarif_client
+                (canal_id, transporteur_id, offre, poids_max_kg, tarif_ttc, actif)
+                VALUES (?, ?, 'Relais Colis', ?, ?, 1)
+                """,
+                (fnac_id, relais_colis_id, poids_max_kg, tarif_ttc)
+            )
+
+        for poids_max_kg, cout_ht, tarif_ttc in grille_colissimo_r1:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_tarif_client
+                (canal_id, transporteur_id, offre, poids_max_kg, tarif_ttc, actif)
+                VALUES (?, ?, 'Recommandé R1', ?, ?, 1)
+                """,
+                (fnac_id, colissimo_id, poids_max_kg, tarif_ttc)
+            )
+
+        for poids_max_kg, tarif_ttc in grille_chrono_18_client:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_tarif_client
+                (canal_id, transporteur_id, offre, poids_max_kg, tarif_ttc, actif)
+                VALUES (?, ?, 'Chrono 18', ?, ?, 1)
+                """,
+                (fnac_id, chronopost_id, poids_max_kg, tarif_ttc)
             )
 
     def _seed_tva(self):

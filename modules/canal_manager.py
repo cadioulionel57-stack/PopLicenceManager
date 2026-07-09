@@ -50,6 +50,8 @@ class CanalManager:
         port_inclus=False,
         tarif_port_client_ttc=None,
         seuil_gratuite_ttc=None,
+        contribution_transport_min_ht=0,
+        prix_vente_min_ttc=None,
         utilise_grille_fba=False,
         ordre=0
     ):
@@ -68,13 +70,15 @@ class CanalManager:
                 port_inclus,
                 tarif_port_client_ttc,
                 seuil_gratuite_ttc,
+                contribution_transport_min_ht,
+                prix_vente_min_ttc,
                 utilise_grille_fba,
                 ordre,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -88,6 +92,8 @@ class CanalManager:
                 1 if port_inclus else 0,
                 tarif_port_client_ttc,
                 seuil_gratuite_ttc,
+                contribution_transport_min_ht,
+                prix_vente_min_ttc,
                 1 if utilise_grille_fba else 0,
                 ordre
             )
@@ -109,6 +115,8 @@ class CanalManager:
         taux_tsn_pourcentage=0,
         tarif_port_client_ttc=None,
         seuil_gratuite_ttc=None,
+        contribution_transport_min_ht=0,
+        prix_vente_min_ttc=None,
         utilise_grille_fba=False,
     ):
 
@@ -126,6 +134,8 @@ class CanalManager:
                 port_inclus = ?,
                 tarif_port_client_ttc = ?,
                 seuil_gratuite_ttc = ?,
+                contribution_transport_min_ht = ?,
+                prix_vente_min_ttc = ?,
                 utilise_grille_fba = ?,
                 ordre = ?
             WHERE id = ?
@@ -141,6 +151,8 @@ class CanalManager:
                 1 if port_inclus else 0,
                 tarif_port_client_ttc,
                 seuil_gratuite_ttc,
+                contribution_transport_min_ht,
+                prix_vente_min_ttc,
                 1 if utilise_grille_fba else 0,
                 ordre,
                 identifiant
@@ -261,81 +273,94 @@ class CanalManager:
 
         return meilleur
 
-    ########################################################
-    # Modes d'expédition facturés au client
-    #
-    # Un canal peut proposer plusieurs modes (Suivi,
-    # Recommandé, Express...), chacun avec son propre tarif
-    # fixe facturé au client et son propre seuil de
-    # gratuité. Le moteur de prix retient automatiquement
-    # le moins cher pour calculer le prix produit.
-    ########################################################
+    def transport_eligible_prix(self, canal_id, poids_kg, prix_vente_ttc):
+        """
+        Cas des canaux avec grille_tarif_client_active=1
+        (ex : Fnac) : plusieurs transporteurs autorisés,
+        chacun éligible seulement sur une tranche de prix de
+        vente (ex : Relais Colis 25€-200€, Chrono 18 +200€),
+        avec un tarif client différent par transporteur ET
+        par poids.
 
-    def modes_expedition(self, canal_id):
+        Renvoie le transporteur éligible le moins cher pour
+        LE CLIENT (par défaut, cf. règle actée), parmi ceux
+        dont la tranche de prix couvre prix_vente_ttc et
+        dont la tranche de poids couvre poids_kg.
 
-        return self.db.lire(
+        Renvoie None si aucun transporteur n'est éligible
+        (produit hors tranche de prix, ou trop lourd) — le
+        produit doit alors être exclu de ce canal.
+        """
+
+        from modules.grille_transport_manager import (
+            GrilleTransportManager
+        )
+        from modules.grille_tarif_client_manager import (
+            GrilleTarifClientManager
+        )
+
+        gtm = GrilleTransportManager()
+        gtc = GrilleTarifClientManager()
+
+        autorises = self.db.lire(
             """
-            SELECT *
-            FROM modes_expedition_canal
-            WHERE canal_id = ?
-            AND actif = 1
-            ORDER BY tarif_client_ttc ASC
+            SELECT
+                ct.transporteur_id,
+                ct.offre,
+                ct.prix_min_ttc,
+                ct.prix_max_ttc,
+                t.nom AS transporteur
+            FROM canaux_transporteurs ct
+
+            LEFT JOIN transporteurs t
+                ON t.id = ct.transporteur_id
+
+            WHERE ct.canal_id = ?
+            AND ct.actif = 1
             """,
             (canal_id,)
         )
 
-    def definir_modes_expedition(self, canal_id, modes):
-        """
-        Remplace tous les modes d'expédition d'un canal.
+        meilleur = None
 
-        modes : liste de dictionnaires
-        {nom_mode, tarif_client_ttc, seuil_gratuite_ttc}
-        """
+        for option in autorises:
 
-        self.db.executer(
-            """
-            DELETE FROM modes_expedition_canal
-            WHERE canal_id = ?
-            """,
-            (canal_id,)
-        )
+            prix_min = option["prix_min_ttc"]
+            prix_max = option["prix_max_ttc"]
 
-        for mode in modes:
+            if prix_min is not None and prix_vente_ttc < prix_min:
+                continue
 
-            self.db.executer(
-                """
-                INSERT INTO modes_expedition_canal
-                (
-                    canal_id,
-                    nom_mode,
-                    tarif_client_ttc,
-                    seuil_gratuite_ttc,
-                    actif
-                )
-                VALUES
-                (
-                    ?, ?, ?, ?, 1
-                )
-                """,
-                (
-                    canal_id,
-                    mode["nom_mode"],
-                    mode["tarif_client_ttc"],
-                    mode.get("seuil_gratuite_ttc"),
-                )
+            if prix_max is not None and prix_vente_ttc > prix_max:
+                continue
+
+            tarif_client = gtc.tarif(
+                canal_id,
+                option["transporteur_id"],
+                option["offre"],
+                poids_kg
             )
 
-    def mode_expedition_moins_cher(self, canal_id):
-        """
-        Renvoie le mode d'expédition le moins cher parmi
-        ceux configurés pour ce canal, ou None si aucun
-        mode n'est configuré (dans ce cas, le tarif unique
-        du canal, tarif_port_client_ttc, s'applique).
-        """
+            if tarif_client is None:
+                continue
 
-        modes = self.modes_expedition(canal_id)
+            cout_reel_ht = gtm.tarif(
+                option["transporteur_id"],
+                option["offre"],
+                poids_kg
+            )
 
-        if not modes:
-            return None
+            if cout_reel_ht is None:
+                continue
 
-        return modes[0]
+            if meilleur is None or tarif_client < meilleur["tarif_client_ttc"]:
+
+                meilleur = {
+                    "transporteur": option["transporteur"],
+                    "transporteur_id": option["transporteur_id"],
+                    "offre": option["offre"],
+                    "tarif_client_ttc": tarif_client,
+                    "prix_ht": cout_reel_ht,
+                }
+
+        return meilleur

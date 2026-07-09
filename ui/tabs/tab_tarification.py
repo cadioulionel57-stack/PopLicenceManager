@@ -333,6 +333,7 @@ class TarificationTab(QWidget):
             "longueur_expedition": self._longueur_expedition(),
             "largeur_expedition": self._largeur_expedition(),
             "hauteur_expedition": self._hauteur_expedition(),
+            "emballage_id": self._emballage_id(),
         }
 
         categorie_id = self._categorie_pour_canal(canal_id)

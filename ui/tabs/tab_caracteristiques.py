@@ -188,3 +188,230 @@ class CaracteristiquesTab(QWidget):
             )
 
         ####################################################
+        # Informations
+        ####################################################
+
+        infos = QGroupBox("ℹ Informations")
+
+        form3 = QFormLayout(infos)
+
+        self.matiere = QLineEdit()
+        self.couleur = QLineEdit()
+        self.age = QSpinBox()
+
+        self.age.setMaximum(99)
+
+        self.fabrication = QLineEdit()
+
+        form3.addRow("Matière", self.matiere)
+        form3.addRow("Couleur", self.couleur)
+        form3.addRow("Âge minimum", self.age)
+        form3.addRow("Pays de fabrication", self.fabrication)
+
+        layout.addWidget(infos)
+
+        layout.addStretch()
+
+    def _dimensionsEffectives(self):
+        """
+        Renvoie (longueur, largeur, hauteur) à utiliser pour
+        la sélection d'emballage : les dimensions d'expédition
+        si elles sont renseignées (>0), sinon les dimensions
+        du produit — même règle que celle déjà utilisée pour
+        le calcul du transport.
+        """
+
+        if (
+            self.longueurExpedition.value() > 0
+            and self.largeurExpedition.value() > 0
+            and self.hauteurExpedition.value() > 0
+        ):
+            return (
+                self.longueurExpedition.value(),
+                self.largeurExpedition.value(),
+                self.hauteurExpedition.value(),
+            )
+
+        return (
+            self.longueur.value(),
+            self.largeur.value(),
+            self.hauteur.value(),
+        )
+
+    def _rafraichirEmballagesCompatibles(self):
+        """
+        Recalcule la liste des emballages compatibles à
+        chaque changement de dimension ou de poids, et met
+        à jour le menu déroulant + l'alerte en conséquence.
+        """
+
+        longueur, largeur, hauteur = self._dimensionsEffectives()
+        poids_g = self.poids.value() * 1000
+
+        emballage_id_actuel = self.emballageCombo.currentData()
+
+        self.emballageCombo.blockSignals(True)
+        self.emballageCombo.clear()
+
+        compatibles = self.emballageManager.compatibles(
+            longueur, largeur, hauteur, poids_g
+        )
+
+        for emballage in compatibles:
+            self.emballageCombo.addItem(
+                f"{emballage['code']} — {emballage['nom']}",
+                emballage["id"]
+            )
+
+        if compatibles:
+
+            self.emballageCombo.setEnabled(True)
+            self.emballageAlerte.setVisible(False)
+
+            index_a_selectionner = self.emballageCombo.findData(
+                emballage_id_actuel
+            )
+
+            if index_a_selectionner >= 0:
+                self.emballageCombo.setCurrentIndex(
+                    index_a_selectionner
+                )
+
+        else:
+
+            self.emballageCombo.setEnabled(False)
+            self.emballageAlerte.setVisible(True)
+
+        self.emballageCombo.blockSignals(False)
+
+    def emballage_id(self):
+        """
+        Renvoie l'id de l'emballage actuellement sélectionné,
+        ou None si aucun n'est disponible/sélectionné.
+        """
+
+        return self.emballageCombo.currentData()
+
+    def emballage_valide(self):
+        """
+        Renvoie False si aucun emballage compatible n'est
+        disponible pour les dimensions/poids actuels — utilisé
+        pour bloquer l'enregistrement du produit avec une
+        alerte explicite.
+        """
+
+        return self.emballageCombo.count() > 0
+
+    def _chargerCategoriesCanaux(self):
+        """
+        Ajoute une ligne "Catégorie <nom du canal>" pour
+        chaque canal de vente actif (WiziShop, Amazon FBM,
+        Cdiscount, eBay, Leclerc, Rakuten, Fnac...).
+
+        Comme la liste vient entièrement de la table
+        canaux_vente, ajouter ou retirer un canal dans
+        l'écran "Canaux de vente" change automatiquement
+        ce qui s'affiche ici, sans toucher au code.
+
+        Règle métier : les catégories des canaux de type
+        "marketplace" ne sont proposées que pour les
+        produits de type "stock" (même règle que l'onglet
+        Publication).
+        """
+
+        canaux = CanalManager().tous()
+
+        for canal in canaux:
+
+            compatible = (
+                canal["type"] != "marketplace"
+                or self.type_produit == "stock"
+            )
+
+            combo = ReferenceComboBox(
+                "categories",
+                filtre_colonne="canal_id",
+                filtre_valeur=canal["id"]
+            )
+
+            libelle = f"Catégorie {canal['nom']}"
+
+            if not compatible:
+                combo.setEnabled(False)
+                libelle += " (produits en stock uniquement)"
+
+            self.categoriesCanaux[canal["id"]] = combo
+
+            self.formCategories.addRow(
+                libelle,
+                combo
+            )
+
+    def categories_canaux_selectionnees(self):
+        """
+        Renvoie {canal_id: categorie_id} pour tous les
+        canaux où une catégorie a été choisie.
+        """
+
+        resultat = {}
+
+        for canal_id, combo in self.categoriesCanaux.items():
+
+            categorie_id = combo.id()
+
+            if categorie_id is not None:
+                resultat[canal_id] = categorie_id
+
+        return resultat
+
+    def charger(self, produit, categories_canaux=None):
+        """
+        Pré-remplit l'onglet à partir d'un produit existant
+        (mode modification).
+
+        categories_canaux : {canal_id: categorie_id} déjà
+        enregistrés pour ce produit.
+        """
+
+        self.familleProduit.selectionner(
+            produit["famille_produit_id"]
+        )
+
+        if categories_canaux:
+
+            for canal_id, combo in self.categoriesCanaux.items():
+
+                combo.selectionner(
+                    categories_canaux.get(canal_id)
+                )
+
+        self.longueur.setValue(produit["longueur"] or 0)
+        self.largeur.setValue(produit["largeur"] or 0)
+        self.hauteur.setValue(produit["hauteur"] or 0)
+        self.poids.setValue(produit["poids"] or 0)
+
+        self.longueurExpedition.setValue(
+            produit["longueur_expedition"] or 0
+        )
+        self.largeurExpedition.setValue(
+            produit["largeur_expedition"] or 0
+        )
+        self.hauteurExpedition.setValue(
+            produit["hauteur_expedition"] or 0
+        )
+
+        self.matiere.setText(produit["matiere"] or "")
+        self.couleur.setText(produit["couleur"] or "")
+        self.age.setValue(produit["age_minimum"] or 0)
+        self.fabrication.setText(produit["pays_fabrication"] or "")
+
+        self._rafraichirEmballagesCompatibles()
+
+        emballage_enregistre = produit["emballage_id"]
+
+        if emballage_enregistre is not None:
+
+            index = self.emballageCombo.findData(emballage_enregistre)
+
+            if index >= 0:
+                self.emballageCombo.setCurrentIndex(index)

@@ -34,6 +34,8 @@ class CanalDialog(QDialog):
         port_inclus=False,
         tarif_port_client_ttc=None,
         seuil_gratuite_ttc=None,
+        contribution_transport_min_ht=0.0,
+        prix_vente_min_ttc=None,
         utilise_grille_fba=False,
         ordre=0,
         transporteurs_autorises=None,
@@ -244,6 +246,42 @@ class CanalDialog(QDialog):
 
         layout.addSpacing(10)
 
+        layout.addWidget(QLabel(
+            "Contribution transport minimale (HT), ajoutée "
+            "systématiquement au coût du produit sur ce "
+            "canal avant calcul de la marge — en plus de "
+            "l'écart déjà absorbé ci-dessus. 0 = non "
+            "applicable."
+        ))
+
+        self.contributionTransportMin = QDoubleSpinBox()
+        self.contributionTransportMin.setDecimals(2)
+        self.contributionTransportMin.setMaximum(999)
+        self.contributionTransportMin.setSuffix(" € HT")
+        self.contributionTransportMin.setValue(
+            contribution_transport_min_ht or 0
+        )
+        layout.addWidget(self.contributionTransportMin)
+
+        layout.addSpacing(10)
+
+        layout.addWidget(QLabel(
+            "Prix de vente TTC minimum recommandé pour ce "
+            "canal — affiche une alerte sur la fiche produit "
+            "si le prix calculé est en dessous (n'empêche "
+            "pas l'enregistrement). Laisser à 0 si non "
+            "applicable."
+        ))
+
+        self.prixVenteMin = QDoubleSpinBox()
+        self.prixVenteMin.setDecimals(2)
+        self.prixVenteMin.setMaximum(9999)
+        self.prixVenteMin.setSuffix(" € TTC")
+        self.prixVenteMin.setValue(prix_vente_min_ttc or 0)
+        layout.addWidget(self.prixVenteMin)
+
+        layout.addSpacing(10)
+
         self.utiliseGrilleFba = QCheckBox(
             "Ce canal utilise la grille FBA (Expédié par "
             "Amazon) — format de colis selon dimensions + "
@@ -358,6 +396,22 @@ class CanalDialog(QDialog):
         valeur saisie.
         """
         valeur = self.seuilGratuite.value()
+        return valeur if valeur > 0 else None
+
+    def contribution_transport_min(self):
+        """
+        Renvoie 0 si non applicable, sinon la valeur
+        saisie (contrairement aux autres seuils, celle-ci
+        n'est jamais None : 0 est déjà sa valeur neutre).
+        """
+        return self.contributionTransportMin.value()
+
+    def prix_vente_min(self):
+        """
+        Renvoie None si à 0 (pas de seuil défini pour ce
+        canal), sinon la valeur saisie.
+        """
+        valeur = self.prixVenteMin.value()
         return valeur if valeur > 0 else None
 
     def _synchroniserPortInclus(self, fba_coche):

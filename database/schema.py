@@ -345,6 +345,41 @@ SCHEMA["canaux_transporteurs"] = [
 
     ("offre", "TEXT"),
 
+    # Tranche de prix de vente TTC pour laquelle ce
+    # transporteur/offre est éligible sur ce canal (ex :
+    # Fnac Relais Colis = 25€ à 200€ seulement). NULL sur
+    # les deux = aucune restriction de prix (comportement
+    # existant, inchangé, pour les canaux qui n'ont pas ce
+    # genre de règle).
+    ("prix_min_ttc", "REAL"),
+    ("prix_max_ttc", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["grille_tarif_client"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("canal_id", "INTEGER"),
+
+    ("transporteur_id", "INTEGER"),
+
+    # Doit correspondre exactement à l'"offre" utilisée
+    # dans grille_transport (coût réel) pour ce même
+    # transporteur, afin de calculer l'écart.
+    ("offre", "TEXT"),
+
+    # Prix facturé au client (TTC), applicable jusqu'à ce
+    # poids (en kg) inclus — même principe que
+    # grille_transport, mais côté prix client au lieu de
+    # coût réel.
+    ("poids_max_kg", "REAL"),
+
+    ("tarif_ttc", "REAL"),
+
     ("actif", "INTEGER DEFAULT 1")
 
 ]
@@ -441,6 +476,33 @@ SCHEMA["canaux_vente"] = [
     # que ce seuil n'est pas atteint (donc le port facturé
     # s'applique), pour ne jamais sous-évaluer un prix.
     ("seuil_gratuite_ttc", "REAL"),
+
+    # Contribution transport minimale (HT), ajoutée
+    # systématiquement au coût du produit sur ce canal,
+    # avant calcul de la marge — en plus de l'écart déjà
+    # absorbé via tarif_port_client_ttc. Sert à garantir
+    # qu'une part du transport réel est toujours couverte,
+    # même sur les produits légers/bon marché où l'écart
+    # seul serait insuffisant. 0 = non applicable.
+    ("contribution_transport_min_ht", "REAL DEFAULT 0"),
+
+    # Prix de vente TTC en dessous duquel ce canal est
+    # déconseillé pour ce produit (zone grise structurelle :
+    # port + commission trop lourds face au prix). Purement
+    # indicatif (n'empêche pas l'enregistrement), affiché
+    # comme alerte dans l'onglet Tarification. NULL = pas
+    # de seuil défini pour ce canal.
+    ("prix_vente_min_ttc", "REAL"),
+
+    # 1 = ce canal utilise la grille_tarif_client (tarif de
+    # port facturé au client variable selon le transporteur
+    # ET le poids — cas Fnac, où le client choisit entre
+    # plusieurs modes à des tarifs différents). Si actif,
+    # tarif_port_client_ttc (valeur unique) est ignoré : le
+    # moteur résout le transporteur éligible automatiquement
+    # (poids + tranche de prix), avec jusqu'à 3 passes
+    # itératives comme pour les paliers de commission.
+    ("grille_tarif_client_active", "INTEGER DEFAULT 0"),
 
     # 1 = ce canal calcule son "transport" via la grille
     # FBA (format de colis selon dimensions + poids) au

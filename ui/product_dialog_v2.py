@@ -247,6 +247,9 @@ class ProductDialogV2(QDialog):
         self.pageTarification._hauteur_expedition = (
             lambda: self.pageCaracteristiques.hauteurExpedition.value()
         )
+        self.pageTarification._emballage_id = (
+            lambda: self.pageCaracteristiques.emballage_id()
+        )
         self.pageTarification._categorie_pour_canal = (
             lambda canal_id: self.pageCaracteristiques
             .categoriesCanaux.get(canal_id).id()
