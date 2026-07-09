@@ -28,6 +28,7 @@ class ProductManager:
         longueur_expedition=None,
         largeur_expedition=None,
         hauteur_expedition=None,
+        emballage_id=None,
         matiere=None,
         couleur=None,
         age_minimum=None,
@@ -62,6 +63,7 @@ class ProductManager:
                 longueur_expedition,
                 largeur_expedition,
                 hauteur_expedition,
+                emballage_id,
                 matiere,
                 couleur,
                 age_minimum,
@@ -70,7 +72,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -93,6 +95,7 @@ class ProductManager:
                 longueur_expedition,
                 largeur_expedition,
                 hauteur_expedition,
+                emballage_id,
                 matiere,
                 couleur,
                 age_minimum,
@@ -168,6 +171,7 @@ class ProductManager:
         longueur_expedition=None,
         largeur_expedition=None,
         hauteur_expedition=None,
+        emballage_id=None,
         matiere=None,
         couleur=None,
         age_minimum=None,
@@ -196,6 +200,7 @@ class ProductManager:
                 longueur_expedition = ?,
                 largeur_expedition = ?,
                 hauteur_expedition = ?,
+                emballage_id = ?,
                 matiere = ?,
                 couleur = ?,
                 age_minimum = ?,
@@ -221,6 +226,7 @@ class ProductManager:
                 longueur_expedition,
                 largeur_expedition,
                 hauteur_expedition,
+                emballage_id,
                 matiere,
                 couleur,
                 age_minimum,

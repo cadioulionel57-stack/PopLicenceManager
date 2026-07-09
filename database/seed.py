@@ -15,6 +15,7 @@ class Seeder:
         self._seed_grille_fba()
         self._corriger_categories_fba()
         self._seed_grille_emballage()
+        self._corriger_poids_max_emballage()
 
     def _corriger_categories_fba(self):
         """
@@ -128,19 +129,19 @@ class Seeder:
         if existe_deja is not None:
             return
 
-        # (code, nom, L, l, h, poids_g, cout_ht, calage_ht)
+        # (code, nom, L, l, h, poids_g, poids_max_g, cout_ht, calage_ht)
         emballages = [
-            ("P1", "Pochette d'expédition S", 25, 20, 1, 20, 0.16, 0.00),
-            ("P2", "Pochette d'expédition M", 35, 25, 1, 35, 0.28, 0.00),
-            ("C1", "Petit carton simple cannelure", 20, 15, 10, 120, 0.52, 0.08),
-            ("C2", "Carton standard simple cannelure", 35, 25, 15, 260, 0.88, 0.12),
-            ("C3", "Grand carton double cannelure", 45, 35, 20, 480, 1.34, 0.18),
-            ("C4", "Très grand carton double cannelure", 60, 40, 30, 760, 2.08, 0.25),
+            ("P1", "Pochette d'expédition S", 25, 20, 1, 20, 500, 0.16, 0.00),
+            ("P2", "Pochette d'expédition M", 35, 25, 1, 35, 2000, 0.28, 0.00),
+            ("C1", "Petit carton simple cannelure", 20, 15, 10, 120, 2000, 0.52, 0.08),
+            ("C2", "Carton standard simple cannelure", 35, 25, 15, 260, 5000, 0.88, 0.12),
+            ("C3", "Grand carton double cannelure", 45, 35, 20, 480, 10000, 1.34, 0.18),
+            ("C4", "Très grand carton double cannelure", 60, 40, 30, 760, 20000, 2.08, 0.25),
         ]
 
         for (
             code, nom, l_max, larg_max, h_max,
-            poids, cout_ht, calage_ht
+            poids, poids_max, cout_ht, calage_ht
         ) in emballages:
 
             self.db.executer(
@@ -153,19 +154,54 @@ class Seeder:
                     largeur_ext_cm,
                     hauteur_ext_cm,
                     poids_g,
+                    poids_max_g,
                     cout_ht,
                     calage_ht,
                     actif
                 )
                 VALUES
                 (
-                    ?, ?, ?, ?, ?, ?, ?, ?, 1
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
                 )
                 """,
                 (
                     code, nom, l_max, larg_max, h_max,
-                    poids, cout_ht, calage_ht
+                    poids, poids_max, cout_ht, calage_ht
                 )
+            )
+
+    def _corriger_poids_max_emballage(self):
+        """
+        Renseigne automatiquement, une seule fois, le poids
+        maximum supporté par chacun des 6 emballages déjà
+        existants dans la base (ajout de la colonne
+        poids_max_g après leur création initiale).
+
+        Ne touche que les lignes où poids_max_g est encore
+        vide (NULL), pour ne jamais écraser une valeur que
+        tu aurais déjà modifiée manuellement depuis
+        l'interface.
+        """
+
+        poids_max_par_code = {
+            "P1": 500,
+            "P2": 2000,
+            "C1": 2000,
+            "C2": 5000,
+            "C3": 10000,
+            "C4": 20000,
+        }
+
+        for code, poids_max in poids_max_par_code.items():
+
+            self.db.executer(
+                """
+                UPDATE grille_emballage
+                SET poids_max_g = ?
+                WHERE code = ?
+                AND poids_max_g IS NULL
+                """,
+                (poids_max, code)
             )
 
     def _seed_grille_fba(self):

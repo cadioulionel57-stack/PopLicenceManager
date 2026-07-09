@@ -169,10 +169,12 @@ class MoteurPrix:
 
             cout_fixe += transport["prix_ht"]
 
-        elif canal["tarif_port_client_ttc"]:
+        elif self._tarif_port_effectif(categorie_id, canal):
 
-            # Cas FBM : le client paie un frais de port
-            # séparé, mais fixé par toi — pas forcément égal
+            # Cas FBM/Fnac : le client paie un frais de port
+            # séparé, mais fixé par toi (soit via un mode
+            # d'expédition nommé, soit un tarif unique du
+            # canal ou de la catégorie) — pas forcément égal
             # au vrai coût transporteur. Seul l'écart entre
             # les deux s'ajoute au coût du produit.
             transport = self.canaux.transport_le_moins_cher(
@@ -189,8 +191,14 @@ class MoteurPrix:
                     )
                 }
 
+            tarif_port = self._tarif_port_effectif(
+                categorie_id, canal
+            )
+
+            tarif_port_client_ttc = tarif_port["tarif_ttc"]
+
             tarif_client_ht = (
-                canal["tarif_port_client_ttc"] / (1 + self.TAUX_TVA)
+                tarif_port_client_ttc / (1 + self.TAUX_TVA)
             )
 
             ecart = transport["prix_ht"] - tarif_client_ht
@@ -199,9 +207,13 @@ class MoteurPrix:
 
             transport = {
                 "transporteur": transport["transporteur"],
-                "offre": transport["offre"],
+                "offre": (
+                    tarif_port["nom_mode"]
+                    if tarif_port["nom_mode"]
+                    else transport["offre"]
+                ),
                 "prix_ht": transport["prix_ht"],
-                "tarif_facture_client_ttc": canal["tarif_port_client_ttc"],
+                "tarif_facture_client_ttc": tarif_port_client_ttc,
                 "ecart_absorbe_ht": round(ecart, 2),
             }
 
@@ -254,6 +266,29 @@ class MoteurPrix:
                 )
             }
 
+        # 8bis. Sur les marketplaces, la commission (et les
+        # frais de paiement) portent sur le montant TOTAL payé
+        # par le client — produit + port — pas seulement sur
+        # le produit. Le port facturé étant un montant fixe
+        # connu à l'avance, le supplément de commission/frais
+        # qu'il engendre est un coût fixe supplémentaire, à
+        # ajouter avant la division finale (voir transport
+        # ci-dessus : "tarif_facture_client_ttc").
+        if transport is not None and transport.get("tarif_facture_client_ttc"):
+
+            port_ht = (
+                transport["tarif_facture_client_ttc"]
+                / (1 + self.TAUX_TVA)
+            )
+
+            commission_sur_port = port_ht * commission
+            tsn_sur_port = port_ht * taux_tsn_effectif
+            paiement_sur_port = port_ht * taux_paiement
+
+            cout_fixe += (
+                commission_sur_port + tsn_sur_port + paiement_sur_port
+            )
+
         prix_vente_ht = cout_fixe / denominateur
         prix_vente_ttc = prix_vente_ht * (1 + self.TAUX_TVA)
 
@@ -305,6 +340,53 @@ class MoteurPrix:
             "prix_vente_ht": round(prix_vente_ht, 2),
             "prix_vente_ttc": round(prix_vente_ttc, 2),
         }
+
+    def _tarif_port_effectif(self, categorie_id, canal):
+        """
+        Renvoie le tarif de port facturé au client : celui
+        de la catégorie si elle en a un propre, sinon celui
+        par défaut du canal, sinon None (non applicable).
+
+        Renvoie {tarif_ttc, nom_mode} — nom_mode est None
+        si ce n'est pas un mode d'expédition nommé (juste
+        le tarif unique du canal ou de la catégorie).
+        """
+
+        # Priorité 1 : les modes d'expédition du canal
+        # (Suivi/Recommandé/Express...), le moins cher
+        # est retenu automatiquement.
+        mode_moins_cher = self.canaux.mode_expedition_moins_cher(
+            canal["id"]
+        )
+
+        if mode_moins_cher is not None:
+
+            return {
+                "tarif_ttc": mode_moins_cher["tarif_client_ttc"],
+                "nom_mode": mode_moins_cher["nom_mode"],
+            }
+
+        # Priorité 2 : tarif spécifique à la catégorie
+        if categorie_id is not None:
+
+            categorie = self.categories.obtenir(categorie_id)
+
+            if categorie is not None and categorie["tarif_port_client_ttc"]:
+
+                return {
+                    "tarif_ttc": categorie["tarif_port_client_ttc"],
+                    "nom_mode": None,
+                }
+
+        # Priorité 3 : tarif unique par défaut du canal
+        if canal["tarif_port_client_ttc"]:
+
+            return {
+                "tarif_ttc": canal["tarif_port_client_ttc"],
+                "nom_mode": None,
+            }
+
+        return None
 
     def _resoudre_commission(self, categorie_id, canal, cout_fixe, marge):
         """

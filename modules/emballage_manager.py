@@ -146,3 +146,74 @@ class EmballageManager:
             return 0
 
         return (emballage["cout_ht"] or 0) + (emballage["calage_ht"] or 0)
+
+    def compatibles(
+        self,
+        longueur_cm,
+        largeur_cm,
+        hauteur_cm,
+        poids_g,
+        marge_cm=1,
+    ):
+        """
+        Renvoie la liste des emballages de la grille
+        compatibles avec les dimensions et le poids d'un
+        produit donné, triés du plus petit au plus grand
+        (par volume extérieur croissant).
+
+        Un emballage est compatible si :
+        - chacune de ses dimensions extérieures est
+          supérieure ou égale à la dimension du produit
+          correspondante + la marge de sécurité (1cm par
+          défaut, pour permettre calage/fermeture) ;
+        - son poids max supporté est supérieur ou égal au
+          poids du produit.
+
+        Renvoie une liste vide si aucun emballage ne
+        convient — dans ce cas, la création du produit doit
+        être bloquée côté interface, avec une alerte
+        invitant à ajouter un nouvel emballage à la grille.
+
+        Rien n'est présupposé sur l'orientation du produit
+        dans l'emballage (pas de rotation testée) : la
+        comparaison se fait dimension par dimension, dans
+        l'ordre où elles sont saisies (longueur avec
+        longueur, largeur avec largeur, hauteur avec
+        hauteur).
+        """
+
+        tous_les_emballages = self.tous()
+
+        compatibles = []
+
+        for emballage in tous_les_emballages:
+
+            if emballage["longueur_ext_cm"] is None:
+                continue
+            if emballage["largeur_ext_cm"] is None:
+                continue
+            if emballage["hauteur_ext_cm"] is None:
+                continue
+            if emballage["poids_max_g"] is None:
+                continue
+
+            if emballage["longueur_ext_cm"] < longueur_cm + marge_cm:
+                continue
+            if emballage["largeur_ext_cm"] < largeur_cm + marge_cm:
+                continue
+            if emballage["hauteur_ext_cm"] < hauteur_cm + marge_cm:
+                continue
+            if emballage["poids_max_g"] < poids_g:
+                continue
+
+            compatibles.append(emballage)
+
+        compatibles.sort(
+            key=lambda e: (
+                e["longueur_ext_cm"]
+                * e["largeur_ext_cm"]
+                * e["hauteur_ext_cm"]
+            )
+        )
+
+        return compatibles

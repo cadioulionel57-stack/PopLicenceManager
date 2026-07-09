@@ -48,6 +48,13 @@ SCHEMA = {
         ("largeur_expedition", "REAL"),
         ("hauteur_expedition", "REAL"),
 
+        # Emballage sélectionné pour ce produit, parmi ceux
+        # compatibles avec ses dimensions et son poids.
+        # Pré-rempli automatiquement quand un seul emballage
+        # convient, à choisir manuellement dans une liste
+        # quand plusieurs conviennent. Toujours modifiable.
+        ("emballage_id", "INTEGER"),
+
         ("matiere", "TEXT"),
         ("couleur", "TEXT"),
         ("age_minimum", "INTEGER"),
@@ -110,6 +117,13 @@ SCHEMA["grille_emballage"] = [
     ("hauteur_ext_cm", "REAL"),
 
     ("poids_g", "REAL"),
+
+    # Poids maximum du produit que cet emballage peut
+    # supporter (ex : une pochette souple ne doit pas
+    # recevoir un produit trop lourd même s'il rentre
+    # en dimensions). Utilisé pour la sélection
+    # automatique d'emballage sur la fiche produit.
+    ("poids_max_g", "REAL"),
 
     # Coût de l'emballage lui-même (pochette/carton)
     ("cout_ht", "REAL DEFAULT 0"),

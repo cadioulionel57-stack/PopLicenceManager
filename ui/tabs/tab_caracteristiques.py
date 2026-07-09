@@ -6,10 +6,13 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QSpinBox,
     QLineEdit,
+    QComboBox,
+    QLabel,
 )
 
 from ui.widgets.reference_combobox import ReferenceComboBox
 from modules.canal_manager import CanalManager
+from modules.emballage_manager import EmballageManager
 
 
 class CaracteristiquesTab(QWidget):
@@ -19,6 +22,8 @@ class CaracteristiquesTab(QWidget):
         super().__init__()
 
         self.type_produit = type_produit
+
+        self.emballageManager = EmballageManager()
 
         layout = QVBoxLayout(self)
 
@@ -136,129 +141,50 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(expedition)
 
         ####################################################
-        # Informations
+        # Emballage
+        ####################################################
+        #
+        # Liste automatiquement mise à jour selon les
+        # dimensions et le poids saisis ci-dessus : ne
+        # propose que les emballages de la grille qui
+        # conviennent réellement (dimensions + poids max
+        # supporté). Pré-sélectionne le plus petit compatible
+        # si un seul convient, sinon laisse le choix. Si
+        # aucun ne convient, la création est bloquée à
+        # l'enregistrement avec une alerte.
+        #
         ####################################################
 
-        infos = QGroupBox("ℹ Informations")
+        emballageGroupe = QGroupBox("📦 Emballage")
 
-        form3 = QFormLayout(infos)
+        formEmballage = QFormLayout(emballageGroupe)
 
-        self.matiere = QLineEdit()
-        self.couleur = QLineEdit()
-        self.age = QSpinBox()
+        self.emballageCombo = QComboBox()
 
-        self.age.setMaximum(99)
+        self.emballageAlerte = QLabel(
+            "⚠ Aucun emballage compatible avec ces dimensions/poids. "
+            "Ajoutez-en un dans la grille d'emballages."
+        )
+        self.emballageAlerte.setStyleSheet("color: red;")
+        self.emballageAlerte.setWordWrap(True)
+        self.emballageAlerte.setVisible(False)
 
-        self.fabrication = QLineEdit()
+        formEmballage.addRow("Emballage", self.emballageCombo)
+        formEmballage.addRow("", self.emballageAlerte)
 
-        form3.addRow("Matière", self.matiere)
-        form3.addRow("Couleur", self.couleur)
-        form3.addRow("Âge minimum", self.age)
-        form3.addRow("Pays de fabrication", self.fabrication)
+        layout.addWidget(emballageGroupe)
 
-        layout.addWidget(infos)
-
-        layout.addStretch()
-
-    def _chargerCategoriesCanaux(self):
-        """
-        Ajoute une ligne "Catégorie <nom du canal>" pour
-        chaque canal de vente actif (WiziShop, Amazon FBM,
-        Cdiscount, eBay, Leclerc, Rakuten, Fnac...).
-
-        Comme la liste vient entièrement de la table
-        canaux_vente, ajouter ou retirer un canal dans
-        l'écran "Canaux de vente" change automatiquement
-        ce qui s'affiche ici, sans toucher au code.
-
-        Règle métier : les catégories des canaux de type
-        "marketplace" ne sont proposées que pour les
-        produits de type "stock" (même règle que l'onglet
-        Publication).
-        """
-
-        canaux = CanalManager().tous()
-
-        for canal in canaux:
-
-            compatible = (
-                canal["type"] != "marketplace"
-                or self.type_produit == "stock"
+        for champ in (
+            self.longueur,
+            self.largeur,
+            self.hauteur,
+            self.poids,
+            self.longueurExpedition,
+            self.largeurExpedition,
+            self.hauteurExpedition,
+        ):
+            champ.valueChanged.connect(
+                self._rafraichirEmballagesCompatibles
             )
 
-            combo = ReferenceComboBox(
-                "categories",
-                filtre_colonne="canal_id",
-                filtre_valeur=canal["id"]
-            )
-
-            libelle = f"Catégorie {canal['nom']}"
-
-            if not compatible:
-                combo.setEnabled(False)
-                libelle += " (produits en stock uniquement)"
-
-            self.categoriesCanaux[canal["id"]] = combo
-
-            self.formCategories.addRow(
-                libelle,
-                combo
-            )
-
-    def categories_canaux_selectionnees(self):
-        """
-        Renvoie {canal_id: categorie_id} pour tous les
-        canaux où une catégorie a été choisie.
-        """
-
-        resultat = {}
-
-        for canal_id, combo in self.categoriesCanaux.items():
-
-            categorie_id = combo.id()
-
-            if categorie_id is not None:
-                resultat[canal_id] = categorie_id
-
-        return resultat
-
-    def charger(self, produit, categories_canaux=None):
-        """
-        Pré-remplit l'onglet à partir d'un produit existant
-        (mode modification).
-
-        categories_canaux : {canal_id: categorie_id} déjà
-        enregistrés pour ce produit.
-        """
-
-        self.familleProduit.selectionner(
-            produit["famille_produit_id"]
-        )
-
-        if categories_canaux:
-
-            for canal_id, combo in self.categoriesCanaux.items():
-
-                combo.selectionner(
-                    categories_canaux.get(canal_id)
-                )
-
-        self.longueur.setValue(produit["longueur"] or 0)
-        self.largeur.setValue(produit["largeur"] or 0)
-        self.hauteur.setValue(produit["hauteur"] or 0)
-        self.poids.setValue(produit["poids"] or 0)
-
-        self.longueurExpedition.setValue(
-            produit["longueur_expedition"] or 0
-        )
-        self.largeurExpedition.setValue(
-            produit["largeur_expedition"] or 0
-        )
-        self.hauteurExpedition.setValue(
-            produit["hauteur_expedition"] or 0
-        )
-
-        self.matiere.setText(produit["matiere"] or "")
-        self.couleur.setText(produit["couleur"] or "")
-        self.age.setValue(produit["age_minimum"] or 0)
-        self.fabrication.setText(produit["pays_fabrication"] or "")
+        ####################################################

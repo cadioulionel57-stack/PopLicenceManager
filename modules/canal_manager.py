@@ -260,3 +260,82 @@ class CanalManager:
                 }
 
         return meilleur
+
+    ########################################################
+    # Modes d'expédition facturés au client
+    #
+    # Un canal peut proposer plusieurs modes (Suivi,
+    # Recommandé, Express...), chacun avec son propre tarif
+    # fixe facturé au client et son propre seuil de
+    # gratuité. Le moteur de prix retient automatiquement
+    # le moins cher pour calculer le prix produit.
+    ########################################################
+
+    def modes_expedition(self, canal_id):
+
+        return self.db.lire(
+            """
+            SELECT *
+            FROM modes_expedition_canal
+            WHERE canal_id = ?
+            AND actif = 1
+            ORDER BY tarif_client_ttc ASC
+            """,
+            (canal_id,)
+        )
+
+    def definir_modes_expedition(self, canal_id, modes):
+        """
+        Remplace tous les modes d'expédition d'un canal.
+
+        modes : liste de dictionnaires
+        {nom_mode, tarif_client_ttc, seuil_gratuite_ttc}
+        """
+
+        self.db.executer(
+            """
+            DELETE FROM modes_expedition_canal
+            WHERE canal_id = ?
+            """,
+            (canal_id,)
+        )
+
+        for mode in modes:
+
+            self.db.executer(
+                """
+                INSERT INTO modes_expedition_canal
+                (
+                    canal_id,
+                    nom_mode,
+                    tarif_client_ttc,
+                    seuil_gratuite_ttc,
+                    actif
+                )
+                VALUES
+                (
+                    ?, ?, ?, ?, 1
+                )
+                """,
+                (
+                    canal_id,
+                    mode["nom_mode"],
+                    mode["tarif_client_ttc"],
+                    mode.get("seuil_gratuite_ttc"),
+                )
+            )
+
+    def mode_expedition_moins_cher(self, canal_id):
+        """
+        Renvoie le mode d'expédition le moins cher parmi
+        ceux configurés pour ce canal, ou None si aucun
+        mode n'est configuré (dans ce cas, le tarif unique
+        du canal, tarif_port_client_ttc, s'applique).
+        """
+
+        modes = self.modes_expedition(canal_id)
+
+        if not modes:
+            return None
+
+        return modes[0]

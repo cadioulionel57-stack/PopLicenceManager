@@ -308,6 +308,19 @@ class ProductDialogV2(QDialog):
 
     def enregistrer(self):
 
+        if not self.pageCaracteristiques.emballage_valide():
+
+            QMessageBox.warning(
+                self,
+                "Aucun emballage compatible",
+                "Aucun emballage de la grille ne convient aux "
+                "dimensions et au poids saisis pour ce produit.\n\n"
+                "Ajoutez un emballage adapté dans la grille "
+                "d'emballages avant d'enregistrer ce produit."
+            )
+
+            return
+
         if self.produit is None:
 
             sku = self.numerotation.generer(
@@ -351,6 +364,8 @@ class ProductDialogV2(QDialog):
                 largeur_expedition=self.pageCaracteristiques.largeurExpedition.value(),
 
                 hauteur_expedition=self.pageCaracteristiques.hauteurExpedition.value(),
+
+                emballage_id=self.pageCaracteristiques.emballage_id(),
 
                 matiere=self.pageCaracteristiques.matiere.text(),
 
@@ -403,6 +418,8 @@ class ProductDialogV2(QDialog):
                 largeur_expedition=self.pageCaracteristiques.largeurExpedition.value(),
 
                 hauteur_expedition=self.pageCaracteristiques.hauteurExpedition.value(),
+
+                emballage_id=self.pageCaracteristiques.emballage_id(),
 
                 matiere=self.pageCaracteristiques.matiere.text(),
 
