@@ -16,8 +16,16 @@ class Seeder:
         self._corriger_categories_fba()
         self._seed_grille_emballage()
         self._corriger_poids_max_emballage()
+        self._corriger_type_emballage()
         self._corriger_regles_amazon_fbm()
         self._seed_fnac()
+        self._corriger_categories_fnac()
+        self._seed_cdiscount()
+        self._corriger_mecanisme_cdiscount()
+        self._seed_categories_cdiscount()
+        self._seed_rakuten()
+        self._seed_ebay()
+        self._corriger_contribution_ebay()
 
     def _corriger_categories_fba(self):
         """
@@ -389,6 +397,603 @@ class Seeder:
             AND prix_vente_min_ttc IS NULL
             """
         )
+
+    def _corriger_categories_fnac(self):
+        """
+        Ajoute automatiquement, une seule fois, deux
+        catégories Fnac supplémentaires confirmées via les
+        CGV officielles Fnac Marketplace : Bagagerie (14%,
+        grille "Sports & Loisirs, bagagerie") et Décoration
+        (15%, grille "maison & lifestyle").
+
+        Ne s'exécute que si le canal Fnac existe déjà, et
+        n'ajoute que les catégories qui n'existent pas
+        encore pour ce canal (jamais de doublon).
+        """
+
+        fnac = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'Fnac'
+            """
+        )
+
+        if fnac is None:
+            return
+
+        fnac_id = fnac["id"]
+
+        nouvelles_categories = [
+            ("Bagagerie", 14.0),
+            ("Décoration", 15.0),
+        ]
+
+        for nom, commission in nouvelles_categories:
+
+            existe = self.db.lire_un(
+                """
+                SELECT id
+                FROM categories
+                WHERE nom = ?
+                AND canal_id = ?
+                """,
+                (nom, fnac_id)
+            )
+
+            if existe is None:
+
+                self.db.executer(
+                    """
+                    INSERT INTO categories
+                    (nom, canal_id, commission_pourcentage, actif)
+                    VALUES (?, ?, ?, 1)
+                    """,
+                    (nom, fnac_id, commission)
+                )
+
+    def _seed_cdiscount(self):
+        """
+        Crée le canal Cdiscount, une seule fois :
+        - commission flat 15% (aucune catégorie de ton
+          catalogue n'a de taux spécifique dans la grille
+          officielle Cdiscount — tout tombe dans "Toutes
+          catégories") ;
+        - port_inclus=1, sur le même principe que FBA : le
+          coût réel du Point Relais (Mondial Relay) est
+          intégré au prix produit, le client voit "livraison
+          gratuite" en point relais. Les options payantes
+          (Colissimo, Chrono Relais) sont gérées côté
+          Cdiscount lui-même, hors calcul de marge du
+          logiciel, comme acté avec l'utilisateur ;
+        - seul Mondial Relay/Point Relais est autorisé côté
+          calcul de prix (le moins cher, cohérent avec la
+          pratique observée chez les vendeurs indépendants
+          Cdiscount).
+
+        Ne s'exécute que si "Cdiscount" n'existe pas déjà.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'Cdiscount'
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        mondial_relay_id = self._obtenir_ou_creer_transporteur(
+            "Mondial Relay"
+        )
+
+        curseur = self.db.executer(
+            """
+            INSERT INTO canaux_vente
+            (
+                nom,
+                type,
+                commission_pourcentage,
+                frais_fixe_ht,
+                frais_paiement_pourcentage,
+                frais_paiement_fixe_ht,
+                taux_tsn_pourcentage,
+                port_inclus,
+                grille_tarif_client_active,
+                utilise_grille_fba,
+                ordre,
+                actif
+            )
+            VALUES
+            (
+                'Cdiscount', 'marketplace', 15, 0, 0, 0, 0, 1, 0, 0, 0, 1
+            )
+            """
+        )
+
+        cdiscount_id = curseur.lastrowid
+
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, actif)
+            VALUES (?, ?, 'Point Relais', 1)
+            """,
+            (cdiscount_id, mondial_relay_id)
+        )
+
+    def _seed_categories_cdiscount(self):
+        """
+        Crée les 3 catégories Cdiscount validées avec
+        l'utilisateur, taux "produits neufs" de la grille
+        officielle CGV Cdiscount :
+
+        - "Toutes catégories (hors liste ci-dessous)" 15%,
+          la catégorie par défaut pour l'essentiel du
+          catalogue (jouets, figurines, textile, décoration,
+          bagagerie, maroquinerie...) ;
+        - "Maison" 17%, pour le linge de maison (coussins,
+          parures de lit, oreillers, taies) ;
+        - "Mode - Montres" 16%, pour les montres.
+
+        Toutes les autres catégories de la grille officielle
+        (bijoux, électroménager, vin, pneus, parapharmacie...)
+        ont été explicitement écartées avec l'utilisateur,
+        car sans rapport avec son activité — ne pas les
+        rajouter sans revalidation.
+
+        Ne s'exécute que si le canal Cdiscount existe, et
+        n'ajoute que les catégories qui n'existent pas
+        encore (jamais de doublon).
+        """
+
+        cdiscount = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'Cdiscount'
+            """
+        )
+
+        if cdiscount is None:
+            return
+
+        cdiscount_id = cdiscount["id"]
+
+        categories_validees = [
+            ("Toutes catégories (hors liste ci-dessous)", 15.0),
+            ("Maison", 17.0),
+            ("Mode - Montres", 16.0),
+        ]
+
+        for nom, commission in categories_validees:
+
+            existe = self.db.lire_un(
+                """
+                SELECT id
+                FROM categories
+                WHERE nom = ?
+                AND canal_id = ?
+                """,
+                (nom, cdiscount_id)
+            )
+
+            if existe is None:
+
+                self.db.executer(
+                    """
+                    INSERT INTO categories
+                    (nom, canal_id, commission_pourcentage, actif)
+                    VALUES (?, ?, ?, 1)
+                    """,
+                    (nom, cdiscount_id, commission)
+                )
+
+    def _corriger_mecanisme_cdiscount(self):
+        """
+        CORRECTIF : le canal Cdiscount avait été codé avec
+        le mécanisme "port inclus" (coût réel complet du
+        transport absorbé, variable selon le poids — celui
+        de FBA), alors que la demande initiale était une
+        contribution FIXE de 3,49€ HT par produit, peu
+        importe le poids réel — exactement le même principe
+        qu'Amazon FBM et Rakuten.
+
+        Corrige : port_inclus désactivé, contribution
+        transport fixe à 3,49€ HT, port affiché au client à
+        0€ (gratuit). Les options payantes Colissimo (4,79€
+        TTC) et Chrono Relais (10,45€ TTC) restent gérées
+        directement dans les paramètres vendeur Cdiscount,
+        hors calcul de marge du logiciel — comme pour
+        l'option Colissimo Suivi sur Rakuten.
+
+        Ne s'exécute que si le canal Cdiscount existe, et ne
+        touche que les lignes où la contribution est encore
+        à 0 (valeur jamais modifiée depuis), pour ne pas
+        écraser un réglage que tu aurais déjà changé toi-même
+        après cette correction.
+        """
+
+        self.db.executer(
+            """
+            UPDATE canaux_vente
+            SET
+                port_inclus = 0,
+                contribution_transport_min_ht = 3.49,
+                tarif_port_client_ttc = 0
+            WHERE nom = 'Cdiscount'
+            AND (
+                contribution_transport_min_ht IS NULL
+                OR contribution_transport_min_ht = 0
+            )
+            """
+        )
+
+        # Seuil de prix minimum recommandé (25€ TTC, observé
+        # en comparant la marge Cdiscount à celle des autres
+        # canaux) — même mécanisme que les 29€ d'Amazon FBM.
+        self.db.executer(
+            """
+            UPDATE canaux_vente
+            SET prix_vente_min_ttc = 25.0
+            WHERE nom = 'Cdiscount'
+            AND prix_vente_min_ttc IS NULL
+            """
+        )
+
+    def _corriger_contribution_ebay(self):
+        """
+        CORRECTIF : la contribution transport eBay avait été
+        actée à 3,79€ HT dans un premier temps, puis
+        ajustée à 2,79€ HT (achat de l'étiquette Mondial
+        Relay directement via eBay, moins cher que via
+        Boxtal). Corrige uniquement si la valeur est encore
+        à l'ancien montant (3,79), pour ne pas écraser un
+        réglage que tu aurais changé depuis.
+        """
+
+        self.db.executer(
+            """
+            UPDATE canaux_vente
+            SET contribution_transport_min_ht = 2.79
+            WHERE nom = 'eBay'
+            AND contribution_transport_min_ht = 3.79
+            """
+        )
+
+    def _seed_ebay(self):
+        """
+        Crée le canal eBay au complet, une seule fois :
+
+        - le canal : pas de frais de paiement PayPal séparé
+          (eBay Managed Payments les inclut déjà dans la
+          commission), 0,35€ HT fixe par commande, 0,35% de
+          frais d'exploitation réglementaires (modélisés via
+          frais_paiement_pourcentage, mécaniquement identique
+          — un pourcentage du TTC déduit de la marge) ;
+        - contribution transport 3,79€ HT intégrée (Mondial
+          Relay, seul transporteur sous contrat), port
+          affiché au client à 0€ ("gratuit") ;
+        - 4 catégories validées, dont 2 à paliers de prix
+          (9%/2% et 12%/2% au-delà de 990€, comme les paliers
+          déjà utilisés pour Amazon Vêtements).
+
+        Colissimo domicile sans signature (4,90€ TTC) et
+        Chrono Relais (7,90€ TTC) restent des options
+        informatives, gérées côté paramètres vendeur eBay,
+        hors calcul de marge du logiciel — même principe que
+        Colissimo sur Rakuten et Cdiscount.
+
+        Ne s'exécute que si "eBay" n'existe pas déjà.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'eBay'
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        curseur = self.db.executer(
+            """
+            INSERT INTO canaux_vente
+            (
+                nom,
+                type,
+                commission_pourcentage,
+                frais_fixe_ht,
+                frais_paiement_pourcentage,
+                frais_paiement_fixe_ht,
+                taux_tsn_pourcentage,
+                port_inclus,
+                contribution_transport_min_ht,
+                tarif_port_client_ttc,
+                grille_tarif_client_active,
+                utilise_grille_fba,
+                ordre,
+                actif
+            )
+            VALUES
+            (
+                'eBay', 'marketplace', 9, 0.35, 0.35, 0, 0,
+                0, 2.79, 0, 0, 0, 0, 1
+            )
+            """
+        )
+
+        ebay_id = curseur.lastrowid
+
+        # Catégories à taux flat
+        categories_flat = [
+            ("Mode (vêtements)", 12.0),
+            ("Maison (déco, linge de maison)", 9.0),
+        ]
+
+        for nom, commission in categories_flat:
+
+            self.db.executer(
+                """
+                INSERT INTO categories
+                (nom, canal_id, commission_pourcentage, actif)
+                VALUES (?, ?, ?, 1)
+                """,
+                (nom, ebay_id, commission)
+            )
+
+        # Catégories à paliers de prix (9%/2% et 12%/2%,
+        # bascule à 990€)
+        categories_paliers = [
+            ("Collection (jouets, figurines)", 9.0),
+            ("Sacs et bagagerie", 12.0),
+        ]
+
+        for nom, taux_principal in categories_paliers:
+
+            curseur_cat = self.db.executer(
+                """
+                INSERT INTO categories
+                (nom, canal_id, commission_pourcentage, actif)
+                VALUES (?, ?, ?, 1)
+                """,
+                (nom, ebay_id, taux_principal)
+            )
+
+            categorie_id = curseur_cat.lastrowid
+
+            self.db.executer(
+                """
+                INSERT INTO paliers_commission_categorie
+                (categorie_id, seuil_prix_max, commission_pourcentage, ordre)
+                VALUES (?, 990, ?, 0)
+                """,
+                (categorie_id, taux_principal)
+            )
+
+            self.db.executer(
+                """
+                INSERT INTO paliers_commission_categorie
+                (categorie_id, seuil_prix_max, commission_pourcentage, ordre)
+                VALUES (?, NULL, 2.0, 1)
+                """,
+                (categorie_id,)
+            )
+
+    def _seed_rakuten(self):
+        """
+        Crée le canal Rakuten au complet, une seule fois :
+
+        - le canal (pack Expert : commission par catégorie,
+          contribution transport 1,25€ HT intégrée à chaque
+          produit, grille_tarif_client_active=1 pour la
+          bascule automatique de transporteur selon le prix) ;
+        - 2 catégories validées avec l'utilisateur ;
+        - transport : Point Relais Mondial Relay en mode de
+          base (≤200€, tarif client 3,99€ TTC), bascule
+          automatique vers Chrono 18 (+200€, tarif client
+          11,81€ TTC — obligation de signature Rakuten sur
+          les commandes de cette valeur) ;
+        - frais de gestion par palier de prix de vente
+          (grille officielle Rakuten, 0,15€ à 5€).
+
+        Le mode Colissimo Suivi (option intermédiaire
+        proposée au client) n'est volontairement pas modélisé
+        ici : il reste géré directement dans les paramètres
+        vendeur Rakuten, hors calcul de marge du logiciel,
+        comme validé avec l'utilisateur — ne pas l'ajouter
+        sans revalidation, ça changerait le calcul de marge.
+
+        L'abonnement mensuel (49€ HT, pack Expert) n'est pas
+        inclus dans le coût produit : comme pour Amazon FBM,
+        c'est un coût fixe mensuel, pas un coût par vente.
+
+        Ne s'exécute que si "Rakuten" n'existe pas déjà.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM canaux_vente
+            WHERE nom = 'Rakuten'
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        mondial_relay_id = self._obtenir_ou_creer_transporteur(
+            "Mondial Relay"
+        )
+        chronopost_id = self._obtenir_ou_creer_transporteur(
+            "Chronopost"
+        )
+
+        curseur = self.db.executer(
+            """
+            INSERT INTO canaux_vente
+            (
+                nom,
+                type,
+                commission_pourcentage,
+                frais_fixe_ht,
+                frais_paiement_pourcentage,
+                frais_paiement_fixe_ht,
+                taux_tsn_pourcentage,
+                port_inclus,
+                contribution_transport_min_ht,
+                grille_tarif_client_active,
+                utilise_grille_fba,
+                ordre,
+                actif
+            )
+            VALUES
+            (
+                'Rakuten', 'marketplace', 15, 0, 0, 0, 0, 0, 1.25, 1, 0, 0, 1
+            )
+            """
+        )
+
+        rakuten_id = curseur.lastrowid
+
+        # Catégories validées avec l'utilisateur
+        categories_rakuten = [
+            ("Bricolage, jeux vidéo, livres, musique", 12.0),
+            (
+                "Papeterie, Mode, Jouets et puériculture, "
+                "Décoration, Arts de la table, Linge de "
+                "maison, Art et collection, Bijoux",
+                15.0,
+            ),
+        ]
+
+        for nom, commission in categories_rakuten:
+
+            self.db.executer(
+                """
+                INSERT INTO categories
+                (nom, canal_id, commission_pourcentage, actif)
+                VALUES (?, ?, ?, 1)
+                """,
+                (nom, rakuten_id, commission)
+            )
+
+        # Éligibilité par tranche de prix
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, prix_min_ttc, prix_max_ttc, actif)
+            VALUES (?, ?, 'Point Relais', NULL, 200, 1)
+            """,
+            (rakuten_id, mondial_relay_id)
+        )
+
+        self.db.executer(
+            """
+            INSERT INTO canaux_transporteurs
+            (canal_id, transporteur_id, offre, prix_min_ttc, prix_max_ttc, actif)
+            VALUES (?, ?, 'Chrono 18', 200, NULL, 1)
+            """,
+            (rakuten_id, chronopost_id)
+        )
+
+        # Tarifs client (flat, sur tous les paliers de poids
+        # existants pour ces offres dans grille_transport)
+        poids_point_relais = [
+            0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30
+        ]
+        poids_chrono_18 = [
+            0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30
+        ]
+
+        for poids_max_kg in poids_point_relais:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_tarif_client
+                (canal_id, transporteur_id, offre, poids_max_kg, tarif_ttc, actif)
+                VALUES (?, ?, 'Point Relais', ?, 3.99, 1)
+                """,
+                (rakuten_id, mondial_relay_id, poids_max_kg)
+            )
+
+        for poids_max_kg in poids_chrono_18:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_tarif_client
+                (canal_id, transporteur_id, offre, poids_max_kg, tarif_ttc, actif)
+                VALUES (?, ?, 'Chrono 18', ?, 11.81, 1)
+                """,
+                (rakuten_id, chronopost_id, poids_max_kg)
+            )
+
+        # Frais de gestion par palier de prix (grille
+        # officielle Rakuten)
+        paliers_gestion = [
+            (10, 0.15, 1),
+            (50, 0.50, 2),
+            (100, 1.00, 3),
+            (200, 2.00, 4),
+            (300, 3.00, 5),
+            (400, 4.00, 6),
+            (None, 5.00, 7),
+        ]
+
+        for seuil, montant, ordre in paliers_gestion:
+
+            self.db.executer(
+                """
+                INSERT INTO paliers_frais_gestion
+                (canal_id, seuil_prix_max, frais_gestion_ht, ordre)
+                VALUES (?, ?, ?, ?)
+                """,
+                (rakuten_id, seuil, montant, ordre)
+            )
+
+    def _corriger_type_emballage(self):
+        """
+        Classe P1/P2 en "souple" (pochette, pas de marge de
+        sécurité nécessaire) et C1-C4 en "rigide" (carton,
+        marge +1cm nécessaire).
+
+        Attention : contrairement aux autres corrections de
+        ce fichier, celle-ci s'applique à chaque lancement
+        du logiciel sur ces 6 codes précis — si tu modifies
+        manuellement le type de P1, P2, C1, C2, C3 ou C4
+        depuis l'interface, ce changement sera écrasé au
+        prochain lancement. Pour tout nouvel emballage que tu
+        crées toi-même (autre code), rien n'est touché ici.
+        """
+
+        souples = ["P1", "P2"]
+        rigides = ["C1", "C2", "C3", "C4"]
+
+        for code in souples:
+
+            self.db.executer(
+                """
+                UPDATE grille_emballage
+                SET type_emballage = 'souple'
+                WHERE code = ?
+                """,
+                (code,)
+            )
+
+        for code in rigides:
+
+            self.db.executer(
+                """
+                UPDATE grille_emballage
+                SET type_emballage = 'rigide'
+                WHERE code = ?
+                """,
+                (code,)
+            )
 
     def _seed_fnac(self):
         """

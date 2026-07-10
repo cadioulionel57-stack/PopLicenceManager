@@ -197,11 +197,20 @@ class EmballageManager:
             if emballage["poids_max_g"] is None:
                 continue
 
-            if emballage["longueur_ext_cm"] < longueur_cm + marge_cm:
+            # Les pochettes souples (P1/P2) enveloppent le
+            # produit au plus près : pas besoin de marge de
+            # sécurité. Seuls les cartons rigides (C1-C4) en
+            # ont réellement besoin (fermeture, calage).
+            if emballage["type_emballage"] == "souple":
+                marge_reelle = 0
+            else:
+                marge_reelle = marge_cm
+
+            if emballage["longueur_ext_cm"] < longueur_cm + marge_reelle:
                 continue
-            if emballage["largeur_ext_cm"] < largeur_cm + marge_cm:
+            if emballage["largeur_ext_cm"] < largeur_cm + marge_reelle:
                 continue
-            if emballage["hauteur_ext_cm"] < hauteur_cm + marge_cm:
+            if emballage["hauteur_ext_cm"] < hauteur_cm + marge_reelle:
                 continue
             if emballage["poids_max_g"] < poids_g:
                 continue

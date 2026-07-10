@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 
 from modules.canal_manager import CanalManager
 from modules.moteur_prix import MoteurPrix
@@ -121,6 +121,7 @@ class TarificationTab(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
         )
+        self.table.verticalHeader().setDefaultSectionSize(34)
         self.table.setMinimumHeight(300)
 
         layoutCanaux.addWidget(self.table)
@@ -262,6 +263,9 @@ class TarificationTab(QWidget):
                     "canal_id": canal["id"],
                     "nom": canal["nom"],
                     "prix_ttc": resultat["prix_vente_ttc"],
+                    "utilise_grille_fba": bool(
+                        canal["utilise_grille_fba"]
+                    ),
                 })
 
         for mot, membres in groupes.items():
@@ -301,6 +305,47 @@ class TarificationTab(QWidget):
                 self.table.setItem(
                     ligne, 7, QTableWidgetItem(texteFinal)
                 )
+
+                # Cas spécifique FBA plus cher que FBM : pas
+                # juste une note discrète en colonne Détail,
+                # une vraie alerte visible en colonne Décision
+                # — c'est l'info la plus utile pour savoir si
+                # ce produit a intérêt à passer en FBA.
+                if membre.get("utilise_grille_fba"):
+
+                    itemDecision = QTableWidgetItem(
+                        f"⚠️ FBA plus cher que FBM (+{ecart:.2f}€)"
+                    )
+                    self._appliquerStyleAlerte(itemDecision, "attention")
+                    self.table.setItem(ligne, 6, itemDecision)
+
+    def _appliquerStyleAlerte(self, item, niveau):
+        """
+        Applique un style "badge" fort à une cellule de
+        décision : fond plein et saturé + texte blanc en
+        gras — pas un simple fond pastel avec texte coloré,
+        trop discret pour se remarquer d'un coup d'œil dans
+        un tableau dense.
+
+        niveau : "erreur" (rouge, canal non recommandé ou
+        décision bloquante), "attention" (orange, comparaison
+        défavorable mais pas rédhibitoire), "ok" (vert).
+        """
+
+        police = QFont()
+        police.setBold(True)
+        police.setPointSize(police.pointSize() + 1)
+        item.setFont(police)
+
+        item.setTextAlignment(Qt.AlignCenter)
+        item.setForeground(QColor("#ffffff"))
+
+        if niveau == "erreur":
+            item.setBackground(QColor("#e74c3c"))
+        elif niveau == "attention":
+            item.setBackground(QColor("#f39c12"))
+        else:
+            item.setBackground(QColor("#27ae60"))
 
     def _recalculerLigne(self, ligne):
         """
@@ -348,11 +393,13 @@ class TarificationTab(QWidget):
             self.table.setItem(ligne, 3, QTableWidgetItem("—"))
             self.table.setItem(ligne, 4, QTableWidgetItem("—"))
 
-            itemErreur = QTableWidgetItem(resultat["erreur"])
-            itemErreur.setForeground(QColor("#c0392b"))
-            self.table.setItem(ligne, 7, itemErreur)
+            itemDecision = QTableWidgetItem("🚫 CANAL NON RECOMMANDÉ")
+            self._appliquerStyleAlerte(itemDecision, "erreur")
+            self.table.setItem(ligne, 6, itemDecision)
 
-            self.table.setItem(ligne, 6, QTableWidgetItem(""))
+            itemDetail = QTableWidgetItem(resultat["erreur"])
+            itemDetail.setForeground(QColor("#c0392b"))
+            self.table.setItem(ligne, 7, itemDetail)
 
             return
 
@@ -387,9 +434,11 @@ class TarificationTab(QWidget):
         itemDecision = QTableWidgetItem(resultat["decision"])
 
         if resultat["decision"].startswith("❌"):
-            itemDecision.setForeground(QColor("#c0392b"))
+            self._appliquerStyleAlerte(itemDecision, "erreur")
+        elif resultat["decision"].startswith("⚠️"):
+            self._appliquerStyleAlerte(itemDecision, "attention")
         else:
-            itemDecision.setForeground(QColor("#1e7d32"))
+            self._appliquerStyleAlerte(itemDecision, "ok")
 
         self.table.setItem(ligne, 6, itemDecision)
 
@@ -437,7 +486,7 @@ class TarificationTab(QWidget):
         if resultat["decision"].startswith("❌"):
 
             itemDecision = QTableWidgetItem(resultat["decision"])
-            itemDecision.setForeground(QColor("#c0392b"))
+            self._appliquerStyleAlerte(itemDecision, "erreur")
             self.table.setItem(ligne, 6, itemDecision)
             return
 
@@ -446,17 +495,17 @@ class TarificationTab(QWidget):
         if prix_marche <= 0:
 
             itemDecision.setText(resultat["decision"])
-            itemDecision.setForeground(QColor("#1e7d32"))
+            self._appliquerStyleAlerte(itemDecision, "ok")
 
         elif prix_marche >= resultat["prix_vente_ttc"]:
 
             itemDecision.setText("✅ Recommandé (vs marché)")
-            itemDecision.setForeground(QColor("#1e7d32"))
+            self._appliquerStyleAlerte(itemDecision, "ok")
 
         else:
 
             itemDecision.setText("⚠️ Prix marché trop bas")
-            itemDecision.setForeground(QColor("#e67e22"))
+            self._appliquerStyleAlerte(itemDecision, "attention")
 
         self.table.setItem(ligne, 6, itemDecision)
 

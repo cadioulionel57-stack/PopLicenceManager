@@ -364,3 +364,50 @@ class CanalManager:
                 }
 
         return meilleur
+
+    def paliers_frais_gestion(self, canal_id):
+        """
+        Renvoie les paliers de frais de gestion (montant HT
+        fixe par tranche de prix de vente) pour ce canal,
+        triés par ordre croissant.
+        """
+
+        return self.db.lire(
+            """
+            SELECT seuil_prix_max, frais_gestion_ht, ordre
+            FROM paliers_frais_gestion
+            WHERE canal_id = ?
+            ORDER BY ordre ASC
+            """,
+            (canal_id,)
+        )
+
+    def frais_gestion_effectif(self, canal_id, prix_vente_ttc=None):
+        """
+        Renvoie le montant de frais de gestion (HT) qui
+        s'applique pour ce canal, selon le prix de vente TTC
+        donné (ex : Rakuten, de 0,15€ jusqu'à 10€ à 5€ au-delà
+        de 400€).
+
+        Renvoie 0 si ce canal n'a pas de paliers de frais de
+        gestion définis (comportement neutre, inchangé pour
+        tous les canaux qui n'utilisent pas ce mécanisme).
+        """
+
+        paliers = self.paliers_frais_gestion(canal_id)
+
+        if not paliers:
+            return 0
+
+        if prix_vente_ttc is None:
+            return paliers[0]["frais_gestion_ht"]
+
+        for palier in paliers:
+
+            if palier["seuil_prix_max"] is None:
+                return palier["frais_gestion_ht"]
+
+            if prix_vente_ttc <= palier["seuil_prix_max"]:
+                return palier["frais_gestion_ht"]
+
+        return paliers[-1]["frais_gestion_ht"]

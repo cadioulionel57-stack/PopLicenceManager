@@ -125,6 +125,14 @@ SCHEMA["grille_emballage"] = [
     # automatique d'emballage sur la fiche produit.
     ("poids_max_g", "REAL"),
 
+    # 'souple' (pochette P1/P2 : pas de marge de sécurité
+    # nécessaire, le produit peut être enveloppé au plus
+    # près) ou 'rigide' (carton C1-C4 : marge de +1cm
+    # appliquée, pour permettre fermeture/calage). Utilisé
+    # par la sélection automatique d'emballage sur la fiche
+    # produit.
+    ("type_emballage", "TEXT DEFAULT 'rigide'"),
+
     # Coût de l'emballage lui-même (pochette/carton)
     ("cout_ht", "REAL DEFAULT 0"),
 
@@ -223,6 +231,26 @@ SCHEMA["categories"] = [
     ("commission_pourcentage", "REAL"),
 
     ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["paliers_frais_gestion"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("canal_id", "INTEGER"),
+
+    # Prix de vente TTC jusqu'auquel ce montant s'applique.
+    # NULL = dernier palier, sans limite haute.
+    # Ex : Rakuten = 0,15€ jusqu'à 10€, 0,50€ jusqu'à 50€...
+    ("seuil_prix_max", "REAL"),
+
+    # Montant fixe HT (pas un pourcentage, contrairement aux
+    # paliers de commission).
+    ("frais_gestion_ht", "REAL"),
+
+    ("ordre", "INTEGER")
 
 ]
 

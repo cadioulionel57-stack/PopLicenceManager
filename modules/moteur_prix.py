@@ -174,7 +174,17 @@ class MoteurPrix:
                 ecart_test = (
                     nouvelle_resolution["prix_ht"] - tarif_client_ht_test
                 )
-                nouveau_cout_fixe = cout_fixe + ecart_test
+
+                # Frais de gestion par palier de prix (ex :
+                # Rakuten), résolus dans la même itération
+                # puisqu'ils dépendent eux aussi du prix final.
+                frais_gestion_test = self.canaux.frais_gestion_effectif(
+                    canal_id, prix_estime_ttc
+                )
+
+                nouveau_cout_fixe = (
+                    cout_fixe + ecart_test + frais_gestion_test
+                )
 
                 meme_transporteur = (
                     resolution is not None
@@ -206,7 +216,11 @@ class MoteurPrix:
             )
             ecart = resolution["prix_ht"] - tarif_client_ht
 
-            cout_fixe += ecart
+            frais_gestion = self.canaux.frais_gestion_effectif(
+                canal_id, prix_estime_ttc
+            )
+
+            cout_fixe += ecart + frais_gestion
 
             transport = {
                 "transporteur": resolution["transporteur"],
@@ -214,6 +228,7 @@ class MoteurPrix:
                 "prix_ht": resolution["prix_ht"],
                 "tarif_facture_client_ttc": resolution["tarif_client_ttc"],
                 "ecart_absorbe_ht": round(ecart, 2),
+                "frais_gestion_ht": round(frais_gestion, 2),
             }
 
         elif canal["port_inclus"]:
@@ -388,12 +403,24 @@ class MoteurPrix:
             self.SEUIL_TRANSPORT_DEFAUT
         )
 
-        if transport is not None and prix_vente_ht > 0:
+        if (
+            transport is not None
+            and prix_vente_ht > 0
+            and not canal["utilise_grille_fba"]
+        ):
 
             # Si seul un écart est absorbé (cas FBM), c'est
             # cet écart qui pèse réellement sur ton prix —
             # pas le coût total du transport, dont une
             # partie est payée par le client.
+            #
+            # Ce contrôle ne s'applique pas aux canaux FBA :
+            # là, le coût de transport n'est pas un choix
+            # (tarif imposé par la grille Amazon selon le
+            # gabarit), donc un ratio élevé n'indique pas une
+            # mauvaise décision — juste un gabarit coûteux.
+            # La vraie comparaison utile pour FBA se fait
+            # ailleurs (face au prix FBM du même produit).
             valeur_pesant_sur_le_prix = transport.get(
                 "ecart_absorbe_ht", transport["prix_ht"]
             )
