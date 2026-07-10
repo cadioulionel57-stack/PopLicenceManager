@@ -33,6 +33,12 @@ class ProductManager:
         couleur=None,
         age_minimum=None,
         pays_fabrication=None,
+        titre_seo=None,
+        meta_description=None,
+        mots_cles=None,
+        url_slug=None,
+        description_courte=None,
+        description_longue=None,
     ):
         """
         Crée un produit et renvoie son identifiant
@@ -68,11 +74,17 @@ class ProductManager:
                 couleur,
                 age_minimum,
                 pays_fabrication,
+                titre_seo,
+                meta_description,
+                mots_cles,
+                url_slug,
+                description_courte,
+                description_longue,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -100,6 +112,12 @@ class ProductManager:
                 couleur,
                 age_minimum,
                 pays_fabrication,
+                titre_seo,
+                meta_description,
+                mots_cles,
+                url_slug,
+                description_courte,
+                description_longue,
             )
         )
 
@@ -176,6 +194,12 @@ class ProductManager:
         couleur=None,
         age_minimum=None,
         pays_fabrication=None,
+        titre_seo=None,
+        meta_description=None,
+        mots_cles=None,
+        url_slug=None,
+        description_courte=None,
+        description_longue=None,
     ):
 
         self.db.executer(
@@ -204,7 +228,13 @@ class ProductManager:
                 matiere = ?,
                 couleur = ?,
                 age_minimum = ?,
-                pays_fabrication = ?
+                pays_fabrication = ?,
+                titre_seo = ?,
+                meta_description = ?,
+                mots_cles = ?,
+                url_slug = ?,
+                description_courte = ?,
+                description_longue = ?
             WHERE id = ?
             """,
             (
@@ -231,6 +261,12 @@ class ProductManager:
                 couleur,
                 age_minimum,
                 pays_fabrication,
+                titre_seo,
+                meta_description,
+                mots_cles,
+                url_slug,
+                description_courte,
+                description_longue,
                 identifiant
             )
         )

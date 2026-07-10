@@ -64,6 +64,15 @@ SCHEMA = {
 
         ("ean_colis", "TEXT"),
 
+        # Onglet SEO — remplis automatiquement à la création
+        # du produit (voir modules/seo_generator.py), toujours
+        # modifiables ensuite. Pensés pour être exportés tels
+        # quels vers WiziShop/Base.com, sans retouche.
+        ("titre_seo", "TEXT"),
+        ("meta_description", "TEXT"),
+        ("mots_cles", "TEXT"),
+        ("url_slug", "TEXT"),
+
         ("description_courte", "TEXT"),
         ("description_longue", "TEXT"),
 

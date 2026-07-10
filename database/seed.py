@@ -649,9 +649,13 @@ class Seeder:
         actée à 3,79€ HT dans un premier temps, puis
         ajustée à 2,79€ HT (achat de l'étiquette Mondial
         Relay directement via eBay, moins cher que via
-        Boxtal). Corrige uniquement si la valeur est encore
-        à l'ancien montant (3,79), pour ne pas écraser un
-        réglage que tu aurais changé depuis.
+        Boxtal).
+
+        Corrige si la valeur est encore à l'ancien montant
+        (3,79) OU si elle est restée à 0/NULL (cas où le
+        canal eBay avait été créé avant que cette valeur ne
+        soit actée). Si tu as toi-même mis une autre valeur
+        depuis, ce correctif ne la touche pas.
         """
 
         self.db.executer(
@@ -659,7 +663,11 @@ class Seeder:
             UPDATE canaux_vente
             SET contribution_transport_min_ht = 2.79
             WHERE nom = 'eBay'
-            AND contribution_transport_min_ht = 3.79
+            AND (
+                contribution_transport_min_ht = 3.79
+                OR contribution_transport_min_ht IS NULL
+                OR contribution_transport_min_ht = 0
+            )
             """
         )
 

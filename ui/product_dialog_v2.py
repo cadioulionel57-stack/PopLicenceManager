@@ -12,6 +12,7 @@ from ui.tabs.tab_general import GeneralTab
 from ui.tabs.tab_caracteristiques import CaracteristiquesTab
 from ui.tabs.tab_publication import PublicationTab
 from ui.tabs.tab_tarification import TarificationTab
+from ui.tabs.tab_seo import SeoTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
@@ -283,10 +284,49 @@ class ProductDialogV2(QDialog):
             self.pageTarification.calculer()
 
         ####################################################
+        # Onglet SEO
+        ####################################################
+
+        self.pageSeo = SeoTab()
+
+        self.pageSeo._nom = (
+            lambda: self.pageGeneral.nom.text()
+        )
+        self.pageSeo._licence_nom = (
+            lambda: self.pageGeneral.cboLicence.texte() or None
+        )
+        self.pageSeo._marque_nom = (
+            lambda: self.pageGeneral.cboMarque.texte() or None
+        )
+        self.pageSeo._matiere = (
+            lambda: self.pageCaracteristiques.matiere.text() or None
+        )
+        self.pageSeo._couleur = (
+            lambda: self.pageCaracteristiques.couleur.text() or None
+        )
+        self.pageSeo._age_minimum = (
+            lambda: self.pageCaracteristiques.age.value() or None
+        )
+        self.pageSeo._pays_fabrication = (
+            lambda: self.pageCaracteristiques.fabrication.text() or None
+        )
+        self.pageSeo._ean = (
+            lambda: self.pageGeneral.ean.text() or None
+        )
+        self.pageSeo._sku = (
+            lambda: self.pageGeneral.sku.text() or None
+        )
+        self.pageSeo._prix_ttc_site = self._prix_ttc_site_actuel
+
+        self.tabs.addTab(self.pageSeo, "🌐 SEO")
+
+        if self.produit is not None:
+            self.pageSeo.charger(self.produit)
+
+        ####################################################
         # Autres onglets
         ####################################################
 
-        self.tabs.addTab(QWidget(), "🌐 SEO")
         self.tabs.addTab(QWidget(), "🖼 Images")
         self.tabs.addTab(QWidget(), "📜 Historique")
 
@@ -309,6 +349,35 @@ class ProductDialogV2(QDialog):
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self.enregistrer)
 
+    def _prix_ttc_site_actuel(self):
+        """
+        Renvoie le prix de vente TTC calculé sur le canal
+        "Site" (WiziShop), s'il a déjà été calculé dans
+        l'onglet Tarification — utilisé pour les données
+        structurées Schema.org (prix affiché dans Google).
+        Renvoie None si pas encore calculé, ce qui est géré
+        proprement par le générateur SEO.
+        """
+
+        canaux = getattr(self.pageTarification, "_derniersCanaux", None)
+
+        if not canaux:
+            return None
+
+        for canal in canaux:
+
+            if "site" not in (canal["nom"] or "").lower():
+                continue
+
+            resultat = self.pageTarification.derniersResultats.get(
+                canal["id"]
+            )
+
+            if resultat and not resultat.get("erreur"):
+                return resultat.get("prix_vente_ttc")
+
+        return None
+
     def enregistrer(self):
 
         if not self.pageCaracteristiques.emballage_valide():
@@ -329,6 +398,13 @@ class ProductDialogV2(QDialog):
             sku = self.numerotation.generer(
                 self.codeNumerotation
             )
+
+            # Génération automatique du contenu SEO à la
+            # toute première sauvegarde du produit, si
+            # l'onglet n'a pas déjà été rempli/régénéré
+            # manuellement entre-temps.
+            if self.pageSeo.est_vide():
+                self.pageSeo.regenerer()
 
             identifiant_produit = self.productManager.ajouter(
 
@@ -376,7 +452,19 @@ class ProductDialogV2(QDialog):
 
                 age_minimum=self.pageCaracteristiques.age.value(),
 
-                pays_fabrication=self.pageCaracteristiques.fabrication.text()
+                pays_fabrication=self.pageCaracteristiques.fabrication.text(),
+
+                titre_seo=self.pageSeo.titreSeo.text(),
+
+                meta_description=self.pageSeo.metaDescription.toPlainText(),
+
+                mots_cles=self.pageSeo.motsCles.text(),
+
+                url_slug=self.pageSeo.urlSlug.text(),
+
+                description_courte=self.pageSeo.descriptionCourte.toPlainText(),
+
+                description_longue=self.pageSeo.descriptionLongue.toPlainText(),
 
             )
 
@@ -430,7 +518,19 @@ class ProductDialogV2(QDialog):
 
                 age_minimum=self.pageCaracteristiques.age.value(),
 
-                pays_fabrication=self.pageCaracteristiques.fabrication.text()
+                pays_fabrication=self.pageCaracteristiques.fabrication.text(),
+
+                titre_seo=self.pageSeo.titreSeo.text(),
+
+                meta_description=self.pageSeo.metaDescription.toPlainText(),
+
+                mots_cles=self.pageSeo.motsCles.text(),
+
+                url_slug=self.pageSeo.urlSlug.text(),
+
+                description_courte=self.pageSeo.descriptionCourte.toPlainText(),
+
+                description_longue=self.pageSeo.descriptionLongue.toPlainText(),
 
             )
 
