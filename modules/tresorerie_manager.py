@@ -76,6 +76,42 @@ class TresorerieManager:
 
         return ligne["solde_ttc"] if ligne else None
 
+    def date_dernier_solde(self):
+
+        ligne = self.db.lire_un(
+            """
+            SELECT date
+            FROM soldes_journaliers
+            WHERE actif = 1
+            ORDER BY date DESC
+            LIMIT 1
+            """
+        )
+
+        return ligne["date"] if ligne else None
+
+    def solde_effectif(self):
+        """
+        Le vrai solde à l'instant présent : le dernier solde
+        saisi à la main + l'argent réellement encaissé
+        depuis (commandes cochées "payée" avec une date de
+        paiement postérieure à cette saisie) — pour ne
+        jamais compter deux fois le même argent.
+        """
+
+        from modules.commande_manager import CommandeManager
+
+        solde = self.solde_actuel()
+
+        if solde is None:
+            return None
+
+        date_ancrage = self.date_dernier_solde()
+
+        ca_recu = CommandeManager().ca_encaisse_depuis(date_ancrage)
+
+        return round(solde + ca_recu, 2)
+
     def solde_jour(self, date_iso):
 
         ligne = self.db.lire_un(
@@ -335,18 +371,19 @@ class TresorerieManager:
     ########################################################
 
     def fonds_developpement(self):
-        """30% du solde actuel, recalculé en direct."""
+        """
+        30% de la trésorerie DISPONIBLE (solde du jour moins
+        les charges du mois pas encore payées) — pas du
+        solde brut, qui inclut de l'argent déjà destiné à
+        payer des factures.
+        """
 
-        solde = self.solde_actuel() or 0
-
-        return round(solde * 0.30, 2)
+        return round(self.tresorerie_previsionnelle() * 0.30, 2)
 
     def reserve_tresorerie(self):
-        """40% du solde actuel, recalculé en direct."""
+        """40% de la trésorerie disponible, même logique."""
 
-        solde = self.solde_actuel() or 0
-
-        return round(solde * 0.40, 2)
+        return round(self.tresorerie_previsionnelle() * 0.40, 2)
 
     ########################################################
     # Renouvellement Stock
@@ -413,97 +450,61 @@ class TresorerieManager:
 
         return round(cout_ventes + ajustement, 2)
 
-    def _obtenir_fonds_croissance(self):
+    def taux_contribution_croissance(self):
+        """
+        Le taux (en %) appliqué à chaque nouvelle vente
+        cochée "payée" pour alimenter le Fonds de Croissance
+        — réglable, mais ne s'applique qu'aux ventes cochées
+        À PARTIR du changement. Les contributions déjà
+        figées pour des ventes passées ne bougent jamais.
+        """
 
-        ligne = self.db.lire_un(
+        from modules.parametre_manager import ParametreManager
+
+        return ParametreManager().obtenir_nombre(
+            "taux_contribution_croissance", 5.0
+        )
+
+    def definir_taux_contribution_croissance(self, taux):
+
+        from modules.parametre_manager import ParametreManager
+
+        ParametreManager().definir(
+            "taux_contribution_croissance", taux,
+            "Pourcentage du bénéfice net de chaque vente "
+            "payée versé au Fonds de Croissance"
+        )
+
+    def cagnotte_croissance_cumulee(self):
+        """
+        Somme de toutes les contributions déjà figées, vente
+        par vente — ne diminue jamais sauf si une commande
+        est décochée "payée" (sa contribution est alors
+        retirée).
+        """
+
+        total = self.db.lire_un(
             """
-            SELECT *
-            FROM fonds_croissance
-            LIMIT 1
+            SELECT SUM(montant_contribue) AS total
+            FROM contributions_fonds_croissance
             """
         )
 
-        if ligne is None:
-
-            self.db.executer(
-                """
-                INSERT INTO fonds_croissance
-                (montant_actuel, dernier_mois_alimente)
-                VALUES (0, NULL)
-                """
-            )
-
-            ligne = self.db.lire_un(
-                """
-                SELECT * FROM fonds_croissance LIMIT 1
-                """
-            )
-
-        return ligne
-
-    def fonds_deja_initialise(self):
-
-        return bool(self._obtenir_fonds_croissance()["initialise"])
-
-    def initialiser_fonds_croissance(self, montant_depart):
-        """
-        Amorce la cagnotte à 30% du solde de départ — à
-        n'appliquer qu'une seule fois, à la toute première
-        saisie de solde. Si la cotisation mensuelle de 5% a
-        déjà eu lieu avant cette initialisation, elle est
-        conservée et le montant de départ vient s'AJOUTER,
-        pas écraser ce qui existe déjà.
-        """
-
-        fonds = self._obtenir_fonds_croissance()
-
-        montant_base = round(montant_depart * 0.30, 2)
-
-        nouveau_montant = (fonds["montant_actuel"] or 0) + montant_base
-
-        self.db.executer(
-            """
-            UPDATE fonds_croissance
-            SET montant_actuel = ?, initialise = 1
-            WHERE id = ?
-            """,
-            (nouveau_montant, fonds["id"])
-        )
+        return round(total["total"] or 0, 2)
 
     def fonds_croissance_actuel(self):
-
-        return self._obtenir_fonds_croissance()["montant_actuel"] or 0
-
-    def alimenter_fonds_croissance_mensuel(self, benefice_du_mois, mois_iso=None):
         """
-        Verse 5% du bénéfice du mois dans la cagnotte — une
-        seule fois par mois (vérifie qu'elle n'a pas déjà
-        été alimentée ce mois-ci, pour ne jamais verser deux
-        fois si le logiciel est relancé plusieurs fois dans
-        le même mois).
+        30% de la trésorerie disponible (recalculé en
+        direct, comme les 2 autres enveloppes) + la cagnotte
+        cumulée des contributions déjà figées vente par
+        vente (jamais recalculée en arrière, même si le taux
+        change).
         """
 
-        mois_iso = mois_iso or date.today().strftime("%Y-%m")
+        base_tresorerie = self.tresorerie_previsionnelle() * 0.30
+        cagnotte = self.cagnotte_croissance_cumulee()
 
-        fonds = self._obtenir_fonds_croissance()
-
-        if fonds["dernier_mois_alimente"] == mois_iso:
-            return False
-
-        apport = round(benefice_du_mois * 0.05, 2)
-
-        nouveau_montant = (fonds["montant_actuel"] or 0) + apport
-
-        self.db.executer(
-            """
-            UPDATE fonds_croissance
-            SET montant_actuel = ?, dernier_mois_alimente = ?
-            WHERE id = ?
-            """,
-            (nouveau_montant, mois_iso, fonds["id"])
-        )
-
-        return True
+        return round(base_tresorerie + cagnotte, 2)
 
     ########################################################
     # Trésorerie prévisionnelle
@@ -511,11 +512,11 @@ class TresorerieManager:
 
     def tresorerie_previsionnelle(self, mois_iso=None):
         """
-        Solde actuel moins les charges du mois pas encore
-        payées.
+        Solde effectif (solde saisi + CA réellement encaissé
+        depuis) moins les charges du mois pas encore payées.
         """
 
-        solde = self.solde_actuel() or 0
+        solde = self.solde_effectif() or 0
 
         charges = self.total_charges_mois(mois_iso)
 

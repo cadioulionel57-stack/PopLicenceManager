@@ -55,6 +55,122 @@ class CommandeManager:
             (identifiant,)
         )
 
+    def marquer_paye(self, commande_id, paye, date_paiement=None):
+        """
+        Coche/décoche une commande comme réellement payée
+        (argent reçu). Si cochée : fige une contribution au
+        Fonds de Croissance (5% du bénéfice net de CETTE
+        vente, au taux en vigueur au moment où elle est
+        cochée — ne bouge plus jamais après, même si le taux
+        change plus tard). Si décochée : retire cette
+        contribution proprement.
+        """
+
+        from datetime import date
+
+        date_paiement = date_paiement or date.today().isoformat()
+
+        self.db.executer(
+            """
+            UPDATE commandes
+            SET paye = ?, date_paiement = ?
+            WHERE id = ?
+            """,
+            (1 if paye else 0, date_paiement if paye else None, commande_id)
+        )
+
+        if paye:
+
+            from modules.tresorerie_manager import TresorerieManager
+
+            existe = self.db.lire_un(
+                """
+                SELECT id
+                FROM contributions_fonds_croissance
+                WHERE commande_id = ?
+                """,
+                (commande_id,)
+            )
+
+            if existe is None:
+
+                taux = TresorerieManager().taux_contribution_croissance()
+
+                gain = self.gain_net_reel(commande_id)
+                gain_net = gain["gain_net_ht"] if gain else 0
+
+                montant_contribue = round(gain_net * (taux / 100), 2)
+
+                self.db.executer(
+                    """
+                    INSERT INTO contributions_fonds_croissance
+                    (commande_id, montant_contribue, taux_applique,
+                     date_contribution)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (commande_id, montant_contribue, taux, date_paiement)
+                )
+
+        else:
+
+            self.db.executer(
+                """
+                DELETE FROM contributions_fonds_croissance
+                WHERE commande_id = ?
+                """,
+                (commande_id,)
+            )
+
+    def montant_encaisse_ttc(self, commande_id):
+        """
+        Argent réellement encaissé pour cette commande : le
+        montant TTC payé par le client (produits + port),
+        tel qu'il arrive vraiment sur le compte.
+        """
+
+        commande = self.obtenir(commande_id)
+
+        if commande is None:
+            return 0
+
+        lignes = self.lignes(commande_id)
+
+        montant_produits_ttc = sum(
+            (l["prix_unitaire_ttc"] or 0) * (l["quantite"] or 1)
+            for l in lignes
+        )
+
+        frais_port = commande["frais_port_client_ttc"] or 0
+
+        return round(montant_produits_ttc + frais_port, 2)
+
+    def ca_encaisse_depuis(self, date_iso):
+        """
+        Total réellement encaissé (TTC) pour toutes les
+        commandes cochées "payée" dont la date de paiement
+        est le jour même ou après date_iso — sert à ajouter
+        au solde du jour saisi à la main. Comparaison
+        inclusive : un paiement coché le jour même de la
+        saisie du solde compte quand même (on part du
+        principe que le solde saisi ne l'inclut pas encore).
+        """
+
+        commandes = self.db.lire(
+            """
+            SELECT id
+            FROM commandes
+            WHERE actif = 1
+            AND paye = 1
+            AND date_paiement >= ?
+            """,
+            (date_iso,)
+        )
+
+        return round(
+            sum(self.montant_encaisse_ttc(c["id"]) for c in commandes),
+            2
+        )
+
     def ajouter(
         self,
         numero,
@@ -563,6 +679,118 @@ class CommandeManager:
             2
         )
 
+    def ca_par_canal(self, mois_iso):
+        """
+        CA HT du mois, réparti par canal de vente — sert au
+        camembert de répartition. Ne renvoie que les canaux
+        ayant réellement du CA ce mois-là.
+        """
+
+        import calendar
+
+        annee, mois = (int(x) for x in mois_iso.split("-"))
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+
+        date_debut = f"{mois_iso}-01"
+        date_fin = f"{mois_iso}-{dernier_jour:02d}"
+
+        commandes = self.db.lire(
+            """
+            SELECT co.id, co.canal_id, cv.nom AS nom_canal
+            FROM commandes co
+
+            LEFT JOIN canaux_vente cv
+                ON cv.id = co.canal_id
+
+            WHERE co.actif = 1
+            AND co.date_commande >= ?
+            AND co.date_commande <= ?
+            """,
+            (date_debut, date_fin)
+        )
+
+        ca_par_canal = {}
+
+        for c in commandes:
+
+            nom = c["nom_canal"] or "Canal inconnu"
+            ca = self.chiffre_affaires_ht(c["id"])
+
+            ca_par_canal[nom] = ca_par_canal.get(nom, 0) + ca
+
+        return [
+            {"canal": nom, "ca_ht": round(ca, 2)}
+            for nom, ca in sorted(
+                ca_par_canal.items(), key=lambda x: -x[1]
+            )
+            if ca > 0
+        ]
+
+    def mois_avec_commandes(self):
+        """
+        Tous les mois (AAAA-MM) où au moins une commande a
+        été passée, triés du plus récent au plus ancien —
+        sert à peupler le sélecteur de mois des graphiques.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT DISTINCT substr(date_commande, 1, 7) AS mois
+            FROM commandes
+            WHERE actif = 1
+            AND date_commande IS NOT NULL
+            ORDER BY mois DESC
+            """
+        )
+
+        return [l["mois"] for l in lignes if l["mois"]]
+
+    def annees_disponibles(self):
+        """
+        Toutes les années civiles (AAAA) où au moins une
+        commande existe, triées de la plus récente à la plus
+        ancienne — sert au sélecteur d'année du graphique
+        d'évolution du CA.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT DISTINCT substr(date_commande, 1, 4) AS annee
+            FROM commandes
+            WHERE actif = 1
+            AND date_commande IS NOT NULL
+            ORDER BY annee DESC
+            """
+        )
+
+        return [l["annee"] for l in lignes if l["annee"]]
+
+    def ca_par_mois_annee(self, annee):
+        """
+        CA HT de chacun des 12 mois d'une année civile
+        donnée (janvier à décembre) — renvoie aussi les mois
+        sans aucune vente, à 0€, pour que le graphique montre
+        toujours les 12 mois complets.
+        """
+
+        resultat = []
+
+        for mois in range(1, 13):
+
+            mois_iso = f"{annee}-{mois:02d}"
+
+            import calendar
+
+            dernier_jour = calendar.monthrange(int(annee), mois)[1]
+
+            ca = self.ca_periode(
+                f"{mois_iso}-01", f"{mois_iso}-{dernier_jour:02d}"
+            )
+
+            resultat.append({"mois": mois_iso, "ca_ht": ca})
+
+        return resultat
+
     def ca_jour(self):
 
         from datetime import date
@@ -668,6 +896,17 @@ class CommandeManager:
         debut_mois = aujourdhui.replace(day=1).isoformat()
 
         return self.benefice_periode(debut_mois, aujourdhui.isoformat())
+
+    def benefice_total(self):
+        """
+        Bénéfice cumulé depuis le tout début (toutes les
+        commandes actives, sans limite de date) — recalculé
+        en direct à chaque fois, jamais stocké. Sert de base
+        au Fonds de Croissance, qui doit refléter la réalité
+        à l'instant présent, pas un historique figé.
+        """
+
+        return self.benefice_periode("0000-01-01", "9999-12-31")
 
     ########################################################
     # TVA (collectée / déductible / nette)

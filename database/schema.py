@@ -809,6 +809,25 @@ SCHEMA["mouvements_stock"] = [
     ("commentaire", "TEXT")
 
 ]
+SCHEMA["contributions_fonds_croissance"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("commande_id", "INTEGER UNIQUE"),
+
+    # Montant figé au moment où la commande a été cochée
+    # payée — ne change jamais après coup, même si le taux
+    # de contribution est modifié plus tard dans les
+    # réglages. Une commande décochée retire sa ligne ici.
+    ("montant_contribue", "REAL"),
+
+    ("taux_applique", "REAL"),
+
+    ("date_contribution", "TEXT")
+
+]
+
+
 SCHEMA["commandes"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -829,6 +848,18 @@ SCHEMA["commandes"] = [
     ("transporteur_id", "INTEGER"),
 
     ("statut", "TEXT DEFAULT 'En cours'"),
+
+    # Argent réellement reçu ou non — distinct du statut de
+    # livraison. Une vente marketplace peut être "Livrée"
+    # sans que l'argent soit encore arrivé sur le compte
+    # (reversement différé). Sert de base au calcul de la
+    # trésorerie réelle disponible.
+    ("paye", "INTEGER DEFAULT 0"),
+
+    # Date à laquelle l'argent est réellement arrivé — pas
+    # forcément le jour où tu coches la case, si tu coches
+    # après-coup.
+    ("date_paiement", "TEXT"),
 
     ("montant_ht", "REAL"),
 
@@ -1001,6 +1032,44 @@ SCHEMA["clients"] = [
     ("pays", "TEXT")
 
 ]
+SCHEMA["budget_publicitaire_canaux"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("ligne_id", "INTEGER"),
+
+    ("canal_id", "INTEGER"),
+
+    # Permet de lier un canal à une ligne de budget (ex :
+    # Amazon FBA + FBM tous les deux liés à "Amazon Ads")
+    # sans forcément les compter tous les deux tout de suite
+    # — décoche celui pas encore utilisé, coche-le le jour
+    # où tu t'en sers vraiment.
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["periodes_commerciales"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT"),
+
+    ("date_debut", "TEXT"),
+    ("date_fin", "TEXT"),
+
+    # Budget EN PLUS de ce qui est déjà dépensé sur les
+    # lignes habituelles pendant cette période (ex : un
+    # coup de pouce pour Noël, en plus du budget normal de
+    # Google Shopping ce mois-là).
+    ("budget_supplementaire_ht", "REAL DEFAULT 0"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
 SCHEMA["budget_publicitaire_lignes"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),

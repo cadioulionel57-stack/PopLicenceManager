@@ -19,18 +19,19 @@ from PySide6.QtCore import Qt
 
 from modules.tresorerie_manager import TresorerieManager
 from modules.commande_manager import CommandeManager
-from modules.budget_publicitaire_manager import BudgetPublicitaireManager
 from ui.charge_dialog import ChargeDialog
-from ui.budget_pub_ligne_dialog import BudgetPubLigneDialog
-from ui.budget_pub_depense_dialog import BudgetPubDepenseDialog
 
 
 class TresoreriePage(QWidget):
     """
     Écran Trésorerie : solde du jour, charges récurrentes
     (loyer, prêt, crédit TVA...) avec suivi de paiement
-    mensuel, et les 3 enveloppes (Croissance, Développement,
-    Réserve).
+    mensuel, et les enveloppes (Croissance, Développement,
+    Réserve, Renouvellement Stock).
+
+    Le budget publicitaire a sa propre page dédiée
+    ("📣 Budget Publicité"), pour laisser de la place ici à
+    un vrai suivi des charges.
     """
 
     def __init__(self):
@@ -38,11 +39,11 @@ class TresoreriePage(QWidget):
         super().__init__()
 
         self.manager = TresorerieManager()
-        self.managerBudgetPub = BudgetPublicitaireManager()
 
         self.setStyleSheet("""
         QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
         QLabel#titre{ font-size:24px; font-weight:600; color:#0f2f5c; }
+        QLabel#sousTitre{ font-size:15px; font-weight:600; color:#0f2f5c; }
         QFrame#card{
             background:white; border:1px solid #e1e8f0;
             border-radius:12px;
@@ -58,6 +59,7 @@ class TresoreriePage(QWidget):
             border-radius:8px; padding:9px 16px; font-weight:500;
         }
         QPushButton:hover{ background:#1d61b4; }
+        QPushButton#btnSupprimer{ background:#c0392b; }
         QTableWidget{
             background:white; gridline-color:#eef1f6;
             alternate-background-color:#f8fafc;
@@ -154,6 +156,27 @@ class TresoreriePage(QWidget):
 
         layout.addLayout(ligneKpi2)
 
+        ligneTauxCroissance = QHBoxLayout()
+        ligneTauxCroissance.addWidget(QLabel(
+            "Taux de contribution au Fonds de Croissance, à "
+            "chaque vente encaissée (ne s'applique qu'aux "
+            "prochaines ventes, jamais aux anciennes) :"
+        ))
+
+        self.champTauxCroissance = QDoubleSpinBox()
+        self.champTauxCroissance.setDecimals(1)
+        self.champTauxCroissance.setMaximum(100)
+        self.champTauxCroissance.setSuffix(" %")
+        ligneTauxCroissance.addWidget(self.champTauxCroissance)
+
+        self.btnTauxCroissance = QPushButton("💾 Appliquer le taux")
+        self.btnTauxCroissance.clicked.connect(self.enregistrerTauxCroissance)
+        ligneTauxCroissance.addWidget(self.btnTauxCroissance)
+
+        ligneTauxCroissance.addStretch()
+
+        layout.addLayout(ligneTauxCroissance)
+
         ligneAjustementStock = QHBoxLayout()
         ligneAjustementStock.addWidget(QLabel(
             "Ajustement manuel du Renouvellement Stock "
@@ -176,12 +199,15 @@ class TresoreriePage(QWidget):
         layout.addLayout(ligneAjustementStock)
 
         ####################################################
-        # Charges du mois
+        # Charges récurrentes — écran dédié, en pleine
+        # largeur maintenant que le budget pub est ailleurs.
         ####################################################
 
+        titreCharges = QLabel("🧾 Charges récurrentes")
+        titreCharges.setObjectName("sousTitre")
+        layout.addWidget(titreCharges)
+
         entêteCharges = QHBoxLayout()
-        entêteCharges.addWidget(QLabel("Charges récurrentes"))
-        entêteCharges.addStretch()
 
         self.btnAjouterCharge = QPushButton("➕ Nouvelle charge")
         self.btnAjouterCharge.clicked.connect(self.ajouterCharge)
@@ -192,9 +218,11 @@ class TresoreriePage(QWidget):
         entêteCharges.addWidget(self.btnModifierCharge)
 
         self.btnSupprimerCharge = QPushButton("🗑 Supprimer")
-        self.btnSupprimerCharge.setStyleSheet("background:#c0392b;")
+        self.btnSupprimerCharge.setObjectName("btnSupprimer")
         self.btnSupprimerCharge.clicked.connect(self.supprimerCharge)
         entêteCharges.addWidget(self.btnSupprimerCharge)
+
+        entêteCharges.addStretch()
 
         layout.addLayout(entêteCharges)
 
@@ -210,105 +238,24 @@ class TresoreriePage(QWidget):
             QHeaderView.Stretch
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setMinimumHeight(320)
 
         layout.addWidget(self.table)
-
-        ####################################################
-        # Budget publicitaire
-        ####################################################
-
-        entêtePub = QHBoxLayout()
-        entêtePub.addWidget(QLabel("📣 Budget publicitaire"))
-        entêtePub.addStretch()
-
-        self.btnAjouterLignePub = QPushButton("➕ Nouvelle enveloppe")
-        self.btnAjouterLignePub.clicked.connect(self.ajouterLignePub)
-        entêtePub.addWidget(self.btnAjouterLignePub)
-
-        self.btnModifierLignePub = QPushButton("✏ Modifier l'enveloppe")
-        self.btnModifierLignePub.clicked.connect(self.modifierLignePub)
-        entêtePub.addWidget(self.btnModifierLignePub)
-
-        self.btnSupprimerLignePub = QPushButton("🗑 Supprimer")
-        self.btnSupprimerLignePub.setStyleSheet("background:#c0392b;")
-        self.btnSupprimerLignePub.clicked.connect(self.supprimerLignePub)
-        entêtePub.addWidget(self.btnSupprimerLignePub)
-
-        layout.addLayout(entêtePub)
-
-        sousTitrePub = QLabel(
-            "Une ligne = une enveloppe globale (ex : Google "
-            "Shopping, 5040€ sur 15 mois). Clique sur une "
-            "ligne pour voir et remplir ses dépenses mois par "
-            "mois juste en dessous."
-        )
-        sousTitrePub.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
-        sousTitrePub.setWordWrap(True)
-        layout.addWidget(sousTitrePub)
-
-        self.tableBudgetPub = QTableWidget()
-        self.tableBudgetPub.setColumnCount(6)
-        self.tableBudgetPub.setHorizontalHeaderLabels([
-            "ID", "Nom", "Enveloppe totale HT",
-            "Dépensé à ce jour (cumul de tous les mois saisis)",
-            "Restant sur l'enveloppe", "% déjà consommé"
-        ])
-        self.tableBudgetPub.setColumnHidden(0, True)
-        self.tableBudgetPub.setAlternatingRowColors(True)
-        self.tableBudgetPub.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
-        self.tableBudgetPub.verticalHeader().setVisible(False)
-        self.tableBudgetPub.itemSelectionChanged.connect(
-            self._chargerDetailMensuelPub
-        )
-        layout.addWidget(self.tableBudgetPub)
-
-        ####################################################
-        # Détail mensuel de la ligne sélectionnée
-        ####################################################
-
-        entêteDetailPub = QHBoxLayout()
-        self.labelDetailPub = QLabel(
-            "Détail mensuel — sélectionne une ligne ci-dessus"
-        )
-        entêteDetailPub.addWidget(self.labelDetailPub)
-        entêteDetailPub.addStretch()
-
-        self.btnAjouterMoisPub = QPushButton("➕ Ajouter un mois")
-        self.btnAjouterMoisPub.clicked.connect(self.ajouterMoisDetailPub)
-        entêteDetailPub.addWidget(self.btnAjouterMoisPub)
-
-        layout.addLayout(entêteDetailPub)
-
-        self.tableDetailPub = QTableWidget()
-        self.tableDetailPub.setColumnCount(2)
-        self.tableDetailPub.setHorizontalHeaderLabels([
-            "Mois (AAAA-MM)", "Montant dépensé HT"
-        ])
-        self.tableDetailPub.setMaximumHeight(180)
-        self.tableDetailPub.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
-        self.tableDetailPub.verticalHeader().setVisible(False)
-        self.tableDetailPub.itemChanged.connect(
-            self.enregistrerDetailMensuelPub
-        )
-        layout.addWidget(self.tableDetailPub)
-
-        layout.addWidget(self.tableBudgetPub)
 
         self.charger()
 
     def charger(self):
 
-        solde = self.manager.solde_actuel()
+        solde_saisi = self.manager.solde_actuel()
 
-        if solde is not None:
-            self.champSolde.setValue(solde)
+        if solde_saisi is not None:
+            self.champSolde.setValue(solde_saisi)
+
+        solde_effectif = self.manager.solde_effectif()
 
         self.carteSoldeActuel.labelValeur.setText(
-            f"{solde:.2f} €" if solde is not None else "Non renseigné"
+            f"{solde_effectif:.2f} €"
+            if solde_effectif is not None else "Non renseigné"
         )
 
         mois_actuel = date.today().strftime("%Y-%m")
@@ -338,9 +285,24 @@ class TresoreriePage(QWidget):
         self.champAjustementStock.setValue(
             self.manager.ajustement_manuel_stock()
         )
+        self.champTauxCroissance.setValue(
+            self.manager.taux_contribution_croissance()
+        )
 
         self._chargerTableCharges(mois_actuel)
-        self._chargerTableBudgetPub()
+
+    def enregistrerTauxCroissance(self):
+
+        self.manager.definir_taux_contribution_croissance(
+            self.champTauxCroissance.value()
+        )
+
+        QMessageBox.information(
+            self, "Enregistré",
+            "Le nouveau taux s'appliquera aux prochaines ventes "
+            "cochées payées — les contributions déjà figées ne "
+            "changent pas."
+        )
 
     def enregistrerAjustementStock(self):
 
@@ -349,226 +311,6 @@ class TresoreriePage(QWidget):
         )
 
         self.charger()
-
-    def _chargerTableBudgetPub(self):
-
-        self.tableBudgetPub.setRowCount(0)
-
-        for ligne, item in enumerate(self.managerBudgetPub.synthese()):
-
-            self.tableBudgetPub.insertRow(ligne)
-
-            ligne_data = item["ligne"]
-
-            valeurs = [
-                str(ligne_data["id"]),
-                ligne_data["nom"] or "",
-                f"{ligne_data['enveloppe_totale_ht'] or 0:.2f} € HT",
-                f"{item['depense_ht']:.2f} € HT",
-                f"{item['restant_ht']:.2f} € HT",
-                f"{item['pourcentage_consomme']:.0f} %",
-            ]
-
-            for colonne, valeur in enumerate(valeurs):
-
-                item_table = QTableWidgetItem(valeur)
-
-                if colonne == 5:
-
-                    pourcentage = item["pourcentage_consomme"]
-
-                    if pourcentage >= 100:
-                        item_table.setForeground(Qt.GlobalColor.red)
-                    elif pourcentage >= 80:
-                        item_table.setForeground(Qt.GlobalColor.darkYellow)
-
-                self.tableBudgetPub.setItem(ligne, colonne, item_table)
-
-    def ajouterLignePub(self):
-
-        dialog = BudgetPubLigneDialog("Nouvelle enveloppe publicitaire")
-
-        if dialog.exec() != BudgetPubLigneDialog.DialogCode.Accepted:
-            return
-
-        self.managerBudgetPub.ajouter_ligne(
-            dialog.nom.text().strip(),
-            dialog.enveloppeTotale.value(),
-            dialog.dateDebut.text().strip(),
-            dialog.dateFin.text().strip() or None,
-        )
-
-        self.charger()
-
-    def modifierLignePub(self):
-
-        ligne = self.tableBudgetPub.currentRow()
-
-        if ligne == -1:
-            QMessageBox.information(self, "Information", "Sélectionnez une ligne.")
-            return
-
-        identifiant = int(self.tableBudgetPub.item(ligne, 0).text())
-        ligne_data = self.managerBudgetPub.obtenir_ligne(identifiant)
-
-        dialog = BudgetPubLigneDialog(
-            "Modifier l'enveloppe",
-            ligne_data["nom"], ligne_data["enveloppe_totale_ht"],
-            ligne_data["date_debut"], ligne_data["date_fin"],
-        )
-
-        if dialog.exec() != BudgetPubLigneDialog.DialogCode.Accepted:
-            return
-
-        self.managerBudgetPub.modifier_ligne(
-            identifiant,
-            dialog.nom.text().strip(),
-            dialog.enveloppeTotale.value(),
-            dialog.dateDebut.text().strip(),
-            dialog.dateFin.text().strip() or None,
-        )
-
-        self.charger()
-
-    def supprimerLignePub(self):
-
-        ligne = self.tableBudgetPub.currentRow()
-
-        if ligne == -1:
-            QMessageBox.information(self, "Information", "Sélectionnez une ligne.")
-            return
-
-        reponse = QMessageBox.question(
-            self, "Confirmation", "Supprimer cette enveloppe publicitaire ?"
-        )
-
-        if reponse != QMessageBox.StandardButton.Yes:
-            return
-
-        identifiant = int(self.tableBudgetPub.item(ligne, 0).text())
-        self.managerBudgetPub.supprimer_ligne(identifiant)
-
-        self.charger()
-
-    def _chargerDetailMensuelPub(self):
-        """
-        Affiche, dans le tableau du bas, toutes les dépenses
-        déjà saisies pour la ligne sélectionnée en haut —
-        modifiables directement dans le tableau (double-clic
-        sur une cellule).
-        """
-
-        ligne = self.tableBudgetPub.currentRow()
-
-        self.tableDetailPub.blockSignals(True)
-        self.tableDetailPub.setRowCount(0)
-
-        if ligne == -1:
-            self.labelDetailPub.setText(
-                "Détail mensuel — sélectionne une ligne ci-dessus"
-            )
-            self._ligne_pub_selectionnee = None
-            self.tableDetailPub.blockSignals(False)
-            return
-
-        identifiant = int(self.tableBudgetPub.item(ligne, 0).text())
-        ligne_data = self.managerBudgetPub.obtenir_ligne(identifiant)
-
-        self._ligne_pub_selectionnee = identifiant
-        self.labelDetailPub.setText(
-            f"Détail mensuel — {ligne_data['nom']}"
-        )
-
-        depenses = self.managerBudgetPub.depenses_ligne(identifiant)
-
-        for r, depense in enumerate(depenses):
-
-            self.tableDetailPub.insertRow(r)
-
-            itemMois = QTableWidgetItem(depense["mois"] or "")
-            itemMontant = QTableWidgetItem(
-                f"{depense['montant_reel_ht']:.2f}"
-            )
-
-            self.tableDetailPub.setItem(r, 0, itemMois)
-            self.tableDetailPub.setItem(r, 1, itemMontant)
-
-        self.tableDetailPub.blockSignals(False)
-
-    def ajouterMoisDetailPub(self):
-
-        if getattr(self, "_ligne_pub_selectionnee", None) is None:
-            QMessageBox.information(
-                self, "Information",
-                "Sélectionne d'abord une ligne de budget en haut."
-            )
-            return
-
-        ligne = self.tableDetailPub.rowCount()
-
-        # Signaux bloqués le temps d'insérer la ligne vide —
-        # sinon chaque setItem() déclenche une sauvegarde
-        # prématurée, avec un mois par défaut qui pourrait
-        # écraser un mois déjà rempli portant la même valeur.
-        self.tableDetailPub.blockSignals(True)
-
-        self.tableDetailPub.insertRow(ligne)
-
-        self.tableDetailPub.setItem(ligne, 0, QTableWidgetItem(""))
-        self.tableDetailPub.setItem(ligne, 1, QTableWidgetItem("0.00"))
-
-        self.tableDetailPub.blockSignals(False)
-
-        self.tableDetailPub.editItem(
-            self.tableDetailPub.item(ligne, 0)
-        )
-
-    def enregistrerDetailMensuelPub(self, item):
-        """
-        Sauvegarde automatiquement dès qu'une cellule du
-        détail mensuel est modifiée — pas besoin de bouton
-        "Enregistrer" séparé.
-        """
-
-        if getattr(self, "_ligne_pub_selectionnee", None) is None:
-            return
-
-        ligne = item.row()
-
-        item_mois = self.tableDetailPub.item(ligne, 0)
-        item_montant = self.tableDetailPub.item(ligne, 1)
-
-        if item_mois is None or item_montant is None:
-            return
-
-        mois = item_mois.text().strip()
-
-        try:
-            montant = float(item_montant.text().replace(",", "."))
-        except ValueError:
-            return
-
-        if not mois:
-            return
-
-        self.managerBudgetPub.definir_depense_mois(
-            self._ligne_pub_selectionnee, mois, montant
-        )
-
-        # Signaux bloqués pendant le rechargement du tableau
-        # du haut, pour ne pas déclencher en cascade un
-        # rechargement du détail du bas qui écraserait la
-        # ligne qu'on vient tout juste d'ajouter.
-        self.tableBudgetPub.blockSignals(True)
-        self._chargerTableBudgetPub()
-
-        for r in range(self.tableBudgetPub.rowCount()):
-
-            if int(self.tableBudgetPub.item(r, 0).text()) == self._ligne_pub_selectionnee:
-                self.tableBudgetPub.selectRow(r)
-                break
-
-        self.tableBudgetPub.blockSignals(False)
 
     def _chargerTableCharges(self, mois_iso):
 
@@ -631,9 +373,6 @@ class TresoreriePage(QWidget):
         aujourdhui = date.today().isoformat()
 
         self.manager.definir_solde_jour(aujourdhui, self.champSolde.value())
-
-        if not self.manager.fonds_deja_initialise():
-            self.manager.initialiser_fonds_croissance(self.champSolde.value())
 
         self.charger()
 
@@ -713,19 +452,3 @@ class TresoreriePage(QWidget):
         self.manager.supprimer_charge(identifiant)
 
         self.charger()
-
-    def alimenter_fonds_croissance_si_nouveau_mois(self):
-        """
-        Appelé au lancement du logiciel : verse 5% du
-        bénéfice du mois précédent dans le Fonds de
-        Croissance, une seule fois par mois.
-        """
-
-        mois_actuel = date.today().strftime("%Y-%m")
-
-        commande_manager = CommandeManager()
-        benefice = commande_manager.benefice_mois()
-
-        self.manager.alimenter_fonds_croissance_mensuel(
-            benefice, mois_actuel
-        )

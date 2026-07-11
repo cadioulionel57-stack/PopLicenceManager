@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 from PySide6.QtCore import QDate
+from PySide6.QtGui import QPalette, QColor
 
 from ui.widgets.reference_combobox import ReferenceComboBox
 from modules.client_manager import ClientManager
@@ -257,6 +258,22 @@ class CommandeDialog(QDialog):
         ])
         formEntete.addRow("Statut", self.statut)
 
+        ligneEncaissement = QHBoxLayout()
+
+        self.commandePayee = QCheckBox(
+            "💰 Commande payée (argent réellement reçu)"
+        )
+        self.commandePayee.toggled.connect(self._basculerDatePaiement)
+        ligneEncaissement.addWidget(self.commandePayee)
+
+        self.datePaiement = QDateEdit()
+        self.datePaiement.setCalendarPopup(True)
+        self.datePaiement.setDate(QDate.currentDate())
+        self.datePaiement.setEnabled(False)
+        ligneEncaissement.addWidget(self.datePaiement)
+
+        formEntete.addRow("Encaissement", ligneEncaissement)
+
         self.tracking = QLineEdit()
         formEntete.addRow("Numéro de suivi", self.tracking)
 
@@ -303,9 +320,28 @@ class CommandeDialog(QDialog):
             "Code EAN/SKU", "Produit", "Qté", "Prix vente HT",
             "Prix vente TTC", "Coût achat HT unitaire", ""
         ])
-        self.tableLignes.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+
+        entete_lignes = self.tableLignes.horizontalHeader()
+
+        # Seule la colonne "Produit" s'étire pour occuper
+        # l'espace restant — toutes les autres gardent une
+        # largeur fixe suffisante pour que les chiffres (avec
+        # leurs flèches +/-) ne soient jamais écrasés.
+        entete_lignes.setSectionResizeMode(0, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(1, QHeaderView.Stretch)
+        entete_lignes.setSectionResizeMode(2, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(3, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(4, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(5, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(6, QHeaderView.Fixed)
+
+        self.tableLignes.setColumnWidth(0, 140)
+        self.tableLignes.setColumnWidth(2, 70)
+        self.tableLignes.setColumnWidth(3, 130)
+        self.tableLignes.setColumnWidth(4, 130)
+        self.tableLignes.setColumnWidth(5, 150)
+        self.tableLignes.setColumnWidth(6, 50)
+
         self.tableLignes.setMinimumHeight(180)
 
         layoutPanier.addWidget(self.tableLignes)
@@ -456,6 +492,10 @@ class CommandeDialog(QDialog):
 
         self._adapterTailleEcran(1250, 850)
 
+    def _basculerDatePaiement(self, actif):
+
+        self.datePaiement.setEnabled(actif)
+
     def _basculerEmballageCadeau(self, actif):
 
         self.papierCadeauEmballage.setEnabled(actif)
@@ -524,6 +564,13 @@ class CommandeDialog(QDialog):
             self.statut.setCurrentIndex(index_statut)
 
         self.tracking.setText(self.commande["tracking"] or "")
+
+        self.commandePayee.setChecked(bool(self.commande["paye"]))
+
+        if self.commande["date_paiement"]:
+            self.datePaiement.setDate(
+                QDate.fromString(self.commande["date_paiement"], "yyyy-MM-dd")
+            )
         self.fraisPortClient.setValue(self.commande["frais_port_client_ttc"] or 0)
         self.fraisPortReel.setValue(self.commande["frais_port_reel_ht"] or 0)
         self.commentaire.setPlainText(self.commande["commentaire"] or "")
@@ -590,9 +637,31 @@ class CommandeDialog(QDialog):
         ligne = self.tableLignes.rowCount()
         self.tableLignes.insertRow(ligne)
 
+        # Les widgets insérés dans un tableau (setCellWidget)
+        # n'héritent pas toujours correctement du style de la
+        # fenêtre — on force donc explicitement leur couleur
+        # de texte ici (à la fois via stylesheet ET palette,
+        # certains widgets Qt ignorant l'un ou l'autre selon
+        # les cas), sinon ils ressortent pâles et illisibles.
+
+        def forcer_lisibilite(widget):
+
+            widget.setStyleSheet(
+                "background:white; color:#000000; border:1px "
+                "solid #d7e0ec; border-radius:6px; padding:4px 6px;"
+            )
+            widget.setMinimumHeight(30)
+
+            palette = widget.palette()
+            palette.setColor(QPalette.ColorRole.Text, QColor("#000000"))
+            palette.setColor(QPalette.ColorRole.WindowText, QColor("#000000"))
+            palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+            widget.setPalette(palette)
+
         champCode = QLineEdit()
         champCode.setPlaceholderText("EAN ou SKU, puis Entrée")
         champCode.produit_id = None
+        forcer_lisibilite(champCode)
 
         labelProduit = QLabel("—")
         labelProduit.setStyleSheet("color:#7f8c8d;")
@@ -601,18 +670,22 @@ class CommandeDialog(QDialog):
         spinQuantite.setMinimum(1)
         spinQuantite.setMaximum(9999)
         spinQuantite.setValue(1)
+        forcer_lisibilite(spinQuantite)
 
         spinPrixHt = QDoubleSpinBox()
         spinPrixHt.setDecimals(2)
         spinPrixHt.setMaximum(99999)
+        forcer_lisibilite(spinPrixHt)
 
         spinPrixTtc = QDoubleSpinBox()
         spinPrixTtc.setDecimals(2)
         spinPrixTtc.setMaximum(99999)
+        forcer_lisibilite(spinPrixTtc)
 
         spinCoutAchat = QDoubleSpinBox()
         spinCoutAchat.setDecimals(2)
         spinCoutAchat.setMaximum(99999)
+        forcer_lisibilite(spinCoutAchat)
 
         btnSupprimer = QPushButton("🗑")
         btnSupprimer.setMaximumWidth(40)

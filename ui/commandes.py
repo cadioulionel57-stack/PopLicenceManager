@@ -22,7 +22,7 @@ class CommandesPage(ListPage):
 
         self.manager = CommandeManager()
 
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -31,6 +31,7 @@ class CommandesPage(ListPage):
             "Canal",
             "Client",
             "Statut",
+            "Payé",
             "Montant TTC",
             "Port client",
             "Gain net réel",
@@ -70,6 +71,7 @@ class CommandesPage(ListPage):
                 commande["nom_canal"] or "",
                 commande["nom_client"] or "",
                 commande["statut"] or "",
+                "💰 Payée" if commande["paye"] else "⏳ À venir",
                 f"{commande['montant_ttc'] or 0:.2f} €",
                 f"{commande['frais_port_client_ttc'] or 0:.2f} €",
                 gain_texte,
@@ -262,6 +264,13 @@ class CommandesPage(ListPage):
                 cout_retour_ht=retour.get("cout_retour_ht", 0),
                 notes=retour.get("notes", ""),
             )
+
+        self.manager.marquer_paye(
+            identifiant,
+            dialog.commandePayee.isChecked(),
+            dialog.datePaiement.date().toString("yyyy-MM-dd")
+            if dialog.commandePayee.isChecked() else None,
+        )
 
         self.charger()
 
