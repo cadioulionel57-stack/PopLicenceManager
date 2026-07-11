@@ -679,6 +679,60 @@ class CommandeManager:
             2
         )
 
+    def ca_par_produit(self, mois_iso, limite=10):
+        """
+        CA HT du mois, par produit précis (pas juste par
+        licence) — classé du plus vendu au moins vendu, pour
+        anticiper le réassort des références qui cartonnent
+        vraiment.
+        """
+
+        import calendar
+
+        annee, mois = (int(x) for x in mois_iso.split("-"))
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+
+        date_debut = f"{mois_iso}-01"
+        date_fin = f"{mois_iso}-{dernier_jour:02d}"
+
+        lignes = self.db.lire(
+            """
+            SELECT
+                lc.quantite,
+                lc.prix_unitaire_ht,
+                lc.nom_produit
+            FROM lignes_commandes lc
+
+            INNER JOIN commandes co
+                ON co.id = lc.commande_id
+
+            WHERE lc.actif = 1
+            AND co.actif = 1
+            AND co.date_commande >= ?
+            AND co.date_commande <= ?
+            """,
+            (date_debut, date_fin)
+        )
+
+        ca_par_produit = {}
+
+        for l in lignes:
+
+            nom = l["nom_produit"] or "Produit sans nom"
+            ca = (l["prix_unitaire_ht"] or 0) * (l["quantite"] or 1)
+
+            ca_par_produit[nom] = ca_par_produit.get(nom, 0) + ca
+
+        resultat = [
+            {"produit": nom, "ca_ht": round(ca, 2)}
+            for nom, ca in sorted(
+                ca_par_produit.items(), key=lambda x: -x[1]
+            )
+            if ca > 0
+        ]
+
+        return resultat[:limite]
+
     def ca_par_licence(self, mois_iso, limite=10):
         """
         CA HT du mois, par licence de produit vendu — classé

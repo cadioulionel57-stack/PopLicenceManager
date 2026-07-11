@@ -313,6 +313,47 @@ class StatistiquesPage(QWidget):
 
         layout.addWidget(carteCharges)
 
+        ####################################################
+        # Meilleurs produits
+        ####################################################
+
+        carteProduits = QFrame()
+        carteProduits.setObjectName("card")
+        layoutProduits = QVBoxLayout(carteProduits)
+
+        entêteProduits = QHBoxLayout()
+
+        titreProduits = QLabel("🏆 Meilleurs produits (CA)")
+        titreProduits.setObjectName("sousTitre")
+        entêteProduits.addWidget(titreProduits)
+
+        entêteProduits.addStretch()
+
+        entêteProduits.addWidget(QLabel("Mois :"))
+
+        self.selecteurMoisProduits = QComboBox()
+        self.selecteurMoisProduits.currentIndexChanged.connect(
+            self.rafraichirProduits
+        )
+        entêteProduits.addWidget(self.selecteurMoisProduits)
+
+        layoutProduits.addLayout(entêteProduits)
+
+        self.labelVideProduits = QLabel(
+            "Aucune vente pour ce mois."
+        )
+        self.labelVideProduits.setStyleSheet("color:#7f8c8d; padding:20px;")
+        layoutProduits.addWidget(self.labelVideProduits)
+
+        self.chartViewProduits = QChartView()
+        self.chartViewProduits.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+        self.chartViewProduits.setMinimumHeight(380)
+        layoutProduits.addWidget(self.chartViewProduits)
+
+        layout.addWidget(carteProduits)
+
         layout.addStretch()
 
         self.charger()
@@ -381,6 +422,74 @@ class StatistiquesPage(QWidget):
         self.selecteurMoisCharges.blockSignals(False)
 
         self.rafraichirCharges()
+
+        self.selecteurMoisProduits.blockSignals(True)
+        self.selecteurMoisProduits.clear()
+
+        for mois in mois_disponibles:
+            self.selecteurMoisProduits.addItem(mois, mois)
+
+        self.selecteurMoisProduits.blockSignals(False)
+
+        self.rafraichirProduits()
+
+    def rafraichirProduits(self):
+
+        mois = self.selecteurMoisProduits.currentData()
+
+        if mois is None:
+            return
+
+        donnees = self.manager.ca_par_produit(mois)
+
+        if not donnees:
+
+            self.labelVideProduits.setVisible(True)
+            self.chartViewProduits.setVisible(False)
+            return
+
+        self.labelVideProduits.setVisible(False)
+        self.chartViewProduits.setVisible(True)
+
+        # Du plus petit au plus grand, pour qu'un classement
+        # en barres horizontales affiche le meilleur en haut.
+        donnees = list(reversed(donnees))
+
+        produits = [d["produit"] for d in donnees]
+        valeurs = [d["ca_ht"] for d in donnees]
+
+        barSet = QBarSet("CA HT")
+        barSet.append(valeurs)
+        barSet.setColor(QColor("#8e44ad"))
+
+        series = QHorizontalBarSeries()
+        series.append(barSet)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle(f"Meilleurs produits — {mois}")
+
+        titleFont = QFont()
+        titleFont.setBold(True)
+        titleFont.setPointSize(11)
+        chart.setTitleFont(titleFont)
+
+        chart.legend().setVisible(False)
+
+        axeY = QBarCategoryAxis()
+        axeY.append(produits)
+        chart.addAxis(axeY, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(axeY)
+
+        valeur_max = max(valeurs) if valeurs else 100
+
+        axeX = QValueAxis()
+        axeX.setRange(0, valeur_max * 1.15 if valeur_max > 0 else 100)
+        axeX.setLabelFormat("%.0f €")
+        chart.addAxis(axeX, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(axeX)
+
+        self.chartViewProduits.setChart(chart)
 
     def rafraichirCharges(self):
 
