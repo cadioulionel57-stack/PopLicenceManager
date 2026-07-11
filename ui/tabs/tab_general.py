@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QScrollArea,
     QWidget,
     QVBoxLayout,
     QGroupBox,
@@ -8,17 +9,38 @@ from PySide6.QtWidgets import (
     QPushButton,
     QComboBox,
     QDoubleSpinBox,
+    QCheckBox,
 )
+from PySide6.QtGui import QColor
 
 from ui.widgets.reference_combobox import ReferenceComboBox
 
 
 class GeneralTab(QWidget):
 
+    STATUTS = {
+        "actif": ("✅ Actif", "#1e7d32"),
+        "rupture": ("⚠ En rupture", "#e67e22"),
+        "fin_de_vie": ("⛔ Fin de vie", "#c0392b"),
+    }
+
     def __init__(self):
         super().__init__()
 
-        principal = QVBoxLayout(self)
+        exterieur = QVBoxLayout(self)
+        exterieur.setContentsMargins(0, 0, 0, 0)
+
+        zoneDefilement = QScrollArea()
+        zoneDefilement.setWidgetResizable(True)
+        zoneDefilement.setStyleSheet(
+            "QScrollArea{border:none; background:transparent;}"
+        )
+
+        contenuDefilant = QWidget()
+        principal = QVBoxLayout(contenuDefilant)
+
+        zoneDefilement.setWidget(contenuDefilant)
+        exterieur.addWidget(zoneDefilement)
 
         origine = QGroupBox("📦 Origine")
         formOrigine = QFormLayout(origine)
@@ -26,6 +48,27 @@ class GeneralTab(QWidget):
         self.typeProduit = QLineEdit()
         self.typeProduit.setReadOnly(True)
         formOrigine.addRow("Type de produit", self.typeProduit)
+
+        self.statutStock = QComboBox()
+
+        for cle, (libelle, couleur) in self.STATUTS.items():
+            self.statutStock.addItem(libelle, cle)
+
+        self.statutStock.currentIndexChanged.connect(
+            self._majCouleurStatut
+        )
+        self._majCouleurStatut()
+
+        formOrigine.addRow("Statut du produit", self.statutStock)
+
+        self.ficheATerminer = QCheckBox(
+            "⚠ Fiche à compléter (créée rapidement, infos "
+            "manquantes — décoche une fois terminée)"
+        )
+        self.ficheATerminer.setStyleSheet(
+            "color:#c0392b; font-weight:600;"
+        )
+        formOrigine.addRow("", self.ficheATerminer)
 
         ligneFournisseur = QHBoxLayout()
         self.cboFournisseur = ReferenceComboBox("fournisseurs")
@@ -84,3 +127,26 @@ class GeneralTab(QWidget):
 
         principal.addWidget(identification)
         principal.addStretch()
+
+    def _majCouleurStatut(self):
+
+        cle = self.statutStock.currentData() or "actif"
+
+        _libelle, couleur = self.STATUTS.get(
+            cle, self.STATUTS["actif"]
+        )
+
+        self.statutStock.setStyleSheet(
+            f"color:{couleur}; font-weight:600;"
+        )
+
+    def statut_stock(self):
+
+        return self.statutStock.currentData()
+
+    def selectionner_statut_stock(self, statut):
+
+        index = self.statutStock.findData(statut or "actif")
+
+        if index >= 0:
+            self.statutStock.setCurrentIndex(index)

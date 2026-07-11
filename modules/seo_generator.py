@@ -256,32 +256,68 @@ class SeoGenerator:
 
         ##################################################
         # Mots-clés
+        #
+        # Objectif : couvrir les différentes façons dont un
+        # client formule sa recherche (utile pour le moteur
+        # de recherche interne WiziShop et les marketplaces
+        # — Google, lui, n'utilise plus ce champ depuis
+        # 2009, la vraie valeur SEO Google se joue dans le
+        # titre/description). Jamais de marque/fabricant,
+        # matière ou couleur en mot-clé : personne ne
+        # recherche un produit par ces critères.
         ##################################################
 
-        candidats = []
+        type_generique = nom_produit
 
-        candidats.extend(nom_produit.split())
+        if licence_nom:
 
-        for valeur in (licence_nom, marque_nom, categorie_nom, couleur, matiere):
+            type_generique = re.sub(
+                re.escape(licence_nom), "", nom_produit,
+                flags=re.IGNORECASE
+            )
+            type_generique = re.sub(r"\s+", " ", type_generique).strip()
 
-            if valeur:
-                candidats.append(valeur)
+        premier_mot_type = (
+            type_generique.split()[0] if type_generique else ""
+        )
+
+        candidats = [nom_produit]
+
+        if licence_nom:
+
+            candidats.append(licence_nom)
+
+            if not licence_deja_mentionnee:
+                candidats.append(f"{nom_produit} {licence_nom}")
+
+            if type_generique and type_generique != nom_produit:
+                candidats.append(f"{type_generique} {licence_nom}")
+
+            if premier_mot_type:
+                candidats.append(f"{premier_mot_type} {licence_nom}")
+
+        if type_generique:
+            candidats.append(type_generique)
+
+        if categorie_nom:
+
+            candidats.append(categorie_nom)
+
+            if licence_nom:
+                candidats.append(f"{categorie_nom} {licence_nom}")
 
         mots_cles_dedupliques = []
         vus = set()
 
-        for mot in candidats:
+        for expression in candidats:
 
-            mot_propre = mot.strip().lower()
+            expression_propre = expression.strip().lower()
 
-            if len(mot_propre) < 3:
+            if not expression_propre or expression_propre in vus:
                 continue
 
-            if mot_propre in vus:
-                continue
-
-            vus.add(mot_propre)
-            mots_cles_dedupliques.append(mot_propre)
+            vus.add(expression_propre)
+            mots_cles_dedupliques.append(expression.strip())
 
         mots_cles = ", ".join(mots_cles_dedupliques)
 

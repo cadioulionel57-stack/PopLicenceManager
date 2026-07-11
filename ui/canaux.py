@@ -105,7 +105,10 @@ class CanauxPage(ListPage):
             port_inclus=dialog.portInclus.isChecked(),
             tarif_port_client_ttc=dialog.tarif_port_client(),
             seuil_gratuite_ttc=dialog.seuil_gratuite(),
+            contribution_transport_min_ht=dialog.contribution_transport_min(),
+            prix_vente_min_ttc=dialog.prix_vente_min(),
             utilise_grille_fba=dialog.utilise_grille_fba_coche(),
+            couleur=dialog.couleur_choisie(),
             ordre=dialog.valeur_ordre(),
         )
 
@@ -150,7 +153,10 @@ class CanauxPage(ListPage):
             port_inclus=bool(canal["port_inclus"]),
             tarif_port_client_ttc=canal["tarif_port_client_ttc"],
             seuil_gratuite_ttc=canal["seuil_gratuite_ttc"],
+            contribution_transport_min_ht=canal["contribution_transport_min_ht"],
+            prix_vente_min_ttc=canal["prix_vente_min_ttc"],
             utilise_grille_fba=bool(canal["utilise_grille_fba"]),
+            couleur=canal["couleur"] or "#144b8b",
             ordre=canal["ordre"] or 0,
             transporteurs_autorises=transporteurs_actuels,
         )
@@ -175,7 +181,10 @@ class CanauxPage(ListPage):
             port_inclus=dialog.portInclus.isChecked(),
             tarif_port_client_ttc=dialog.tarif_port_client(),
             seuil_gratuite_ttc=dialog.seuil_gratuite(),
+            contribution_transport_min_ht=dialog.contribution_transport_min(),
+            prix_vente_min_ttc=dialog.prix_vente_min(),
             utilise_grille_fba=dialog.utilise_grille_fba_coche(),
+            couleur=dialog.couleur_choisie(),
             ordre=dialog.valeur_ordre(),
         )
 

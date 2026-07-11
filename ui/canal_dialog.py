@@ -13,7 +13,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QScrollArea,
     QWidget,
+    QColorDialog,
 )
+from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
 from modules.grille_transport_manager import GrilleTransportManager
@@ -39,12 +41,13 @@ class CanalDialog(QDialog):
         utilise_grille_fba=False,
         ordre=0,
         transporteurs_autorises=None,
+        couleur="#144b8b",
     ):
 
         super().__init__()
 
         self.setWindowTitle(titre)
-        self.resize(520, 620)
+        self.resize(750, 680)
         self.setMinimumSize(420, 300)
 
         self.setStyleSheet("""
@@ -123,6 +126,24 @@ class CanalDialog(QDialog):
         self.nom = QLineEdit()
         self.nom.setText(nom)
         layout.addWidget(self.nom)
+
+        layout.addSpacing(10)
+
+        layout.addWidget(QLabel(
+            "Couleur d'identification (repérage visuel dans "
+            "l'onglet Tarification des fiches produit)"
+        ))
+
+        self._couleur = couleur or "#144b8b"
+
+        self.btnCouleur = QPushButton("  Choisir une couleur")
+        self.btnCouleur.setStyleSheet(
+            f"background:{self._couleur}; color:white; "
+            f"text-align:left; padding-left:10px;"
+        )
+        self.btnCouleur.clicked.connect(self._choisirCouleur)
+
+        layout.addWidget(self.btnCouleur)
 
         layout.addSpacing(10)
 
@@ -389,6 +410,24 @@ class CanalDialog(QDialog):
         """
         valeur = self.tarifPortClient.value()
         return valeur if valeur > 0 else None
+
+    def _choisirCouleur(self):
+
+        couleur = QColorDialog.getColor(
+            QColor(self._couleur), self, "Couleur du canal"
+        )
+
+        if couleur.isValid():
+
+            self._couleur = couleur.name()
+            self.btnCouleur.setStyleSheet(
+                f"background:{self._couleur}; color:white; "
+                f"text-align:left; padding-left:10px;"
+            )
+
+    def couleur_choisie(self):
+
+        return self._couleur
 
     def seuil_gratuite(self):
         """

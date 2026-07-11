@@ -25,6 +25,8 @@ class Seeder:
         self._seed_categories_cdiscount()
         self._seed_rakuten()
         self._seed_ebay()
+        self._seed_emballage_cadeau()
+        self._corriger_couleurs_canaux()
         self._corriger_contribution_ebay()
 
     def _corriger_categories_fba(self):
@@ -670,6 +672,95 @@ class Seeder:
             )
             """
         )
+
+    def _seed_emballage_cadeau(self):
+        """
+        Crée la grille des emballages cadeau, une seule
+        fois : 8 codes "principaux" (le client paie toujours
+        2,42€ HT, quel que soit celui choisi — seul le coût
+        réel varie) et 5 codes "supplément" (jamais facturés,
+        juste un coût en plus qui réduit la marge).
+
+        Tous les coûts restent modifiables ensuite dans
+        l'écran "Emballages Cadeau", au fil des évolutions de
+        prix fournisseur.
+        """
+
+        existe_deja = self.db.lire_un(
+            """
+            SELECT id
+            FROM grille_emballage_cadeau
+            LIMIT 1
+            """
+        )
+
+        if existe_deja is not None:
+            return
+
+        TARIF_FACTURE = 2.42
+
+        # (code, nom, cout_ht, type, tarif_facture_ht)
+        codes = [
+            ("EPKDO1", "Étiquette adhésive (plaisir d'offrir)", 0.01, "supplement", None),
+            ("EPKDO2", "Étiquette adhésive (joyeux noël)", 0.01, "supplement", None),
+            ("CKDO1", "Étiquette adhésive (joyeux anniversaire)", 0.01, "supplement", None),
+            ("CKDO2", "Boîte pliable pelliculée blanc", 0.43, "principal", TARIF_FACTURE),
+            ("BBKDO", "Boîte berlingot 20x33x7", 1.59, "principal", TARIF_FACTURE),
+            ("POCKDO", "Boîte cadeau pliable 20x14x5", 0.72, "principal", TARIF_FACTURE),
+            ("PPKDO", "Emballage papier cadeau (rouleau)", 1.50, "principal", TARIF_FACTURE),
+            ("BOPKDO", "Boîte cadeau noire (20,7x3x3,7)", 1.44, "principal", TARIF_FACTURE),
+            ("PBSB", "Papier soie blanc", 0.04, "supplement", None),
+            ("PMSM", "Papier soie mauve", 0.05, "supplement", None),
+            ("POCKDO1", "Pochette cadeau polypro", 0.51, "principal", TARIF_FACTURE),
+            ("POCKDO2", "Pochette cadeau craft", 0.94, "principal", TARIF_FACTURE),
+        ]
+
+        for code, nom, cout_ht, type_emballage, tarif_facture in codes:
+
+            self.db.executer(
+                """
+                INSERT INTO grille_emballage_cadeau
+                (code, nom, cout_ht, type, tarif_facture_ht, actif)
+                VALUES (?, ?, ?, ?, ?, 1)
+                """,
+                (code, nom, cout_ht, type_emballage, tarif_facture)
+            )
+
+    def _corriger_couleurs_canaux(self):
+        """
+        Attribue une couleur distincte à chaque canal connu,
+        pour les repérer d'un coup d'œil dans l'onglet
+        Tarification — sans ça, tous partageraient la même
+        couleur par défaut.
+
+        Ne touche que les canaux encore à la couleur par
+        défaut (#144b8b), pour ne jamais écraser une couleur
+        que tu aurais choisie toi-même depuis l'écran Canaux
+        de vente.
+        """
+
+        couleurs = {
+            "Amazon FBA": "#ff9900",
+            "Amazon FBM": "#cc7a00",
+            "Cdiscount": "#e2001a",
+            "Fnac": "#eaba00",
+            "Rakuten": "#bf0000",
+            "eBay": "#0064d2",
+            "Leclerc Marketplace": "#0057a8",
+            "Site+Drop": "#1e7d32",
+        }
+
+        for nom, couleur in couleurs.items():
+
+            self.db.executer(
+                """
+                UPDATE canaux_vente
+                SET couleur = ?
+                WHERE nom = ?
+                AND (couleur IS NULL OR couleur = '#144b8b')
+                """,
+                (couleur, nom)
+            )
 
     def _seed_ebay(self):
         """

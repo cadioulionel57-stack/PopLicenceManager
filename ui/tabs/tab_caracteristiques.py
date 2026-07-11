@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QScrollArea,
     QWidget,
     QVBoxLayout,
     QGroupBox,
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QComboBox,
     QLabel,
+    QCheckBox,
 )
 
 from ui.widgets.reference_combobox import ReferenceComboBox
@@ -25,7 +27,20 @@ class CaracteristiquesTab(QWidget):
 
         self.emballageManager = EmballageManager()
 
-        layout = QVBoxLayout(self)
+        exterieur = QVBoxLayout(self)
+        exterieur.setContentsMargins(0, 0, 0, 0)
+
+        zoneDefilement = QScrollArea()
+        zoneDefilement.setWidgetResizable(True)
+        zoneDefilement.setStyleSheet(
+            "QScrollArea{border:none; background:transparent;}"
+        )
+
+        contenuDefilant = QWidget()
+        layout = QVBoxLayout(contenuDefilant)
+
+        zoneDefilement.setWidget(contenuDefilant)
+        exterieur.addWidget(zoneDefilement)
 
         ####################################################
         # Famille de produit (coût)
@@ -209,6 +224,24 @@ class CaracteristiquesTab(QWidget):
         form3.addRow("Pays de fabrication", self.fabrication)
 
         layout.addWidget(infos)
+
+        ####################################################
+        # Emballage cadeau (site uniquement, produits stock)
+        ####################################################
+
+        self.eligiblePapierCadeau = QCheckBox(
+            "🎁 Proposer l'emballage cadeau sur le site pour "
+            "ce produit"
+        )
+
+        # Prestation uniquement disponible sur le site, pour
+        # les produits en stock — inutile de l'afficher sur
+        # les autres types de produits.
+        self.eligiblePapierCadeau.setVisible(
+            self.type_produit == "stock"
+        )
+
+        layout.addWidget(self.eligiblePapierCadeau)
 
         layout.addStretch()
 
@@ -404,6 +437,10 @@ class CaracteristiquesTab(QWidget):
         self.couleur.setText(produit["couleur"] or "")
         self.age.setValue(produit["age_minimum"] or 0)
         self.fabrication.setText(produit["pays_fabrication"] or "")
+
+        self.eligiblePapierCadeau.setChecked(
+            bool(produit["eligible_papier_cadeau"])
+        )
 
         self._rafraichirEmballagesCompatibles()
 

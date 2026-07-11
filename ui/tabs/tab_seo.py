@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QScrollArea,
     QWidget,
     QVBoxLayout,
     QGroupBox,
@@ -31,7 +32,20 @@ class SeoTab(QWidget):
 
         super().__init__()
 
-        layout = QVBoxLayout(self)
+        exterieur = QVBoxLayout(self)
+        exterieur.setContentsMargins(0, 0, 0, 0)
+
+        zoneDefilement = QScrollArea()
+        zoneDefilement.setWidgetResizable(True)
+        zoneDefilement.setStyleSheet(
+            "QScrollArea{border:none; background:transparent;}"
+        )
+
+        contenuDefilant = QWidget()
+        layout = QVBoxLayout(contenuDefilant)
+
+        zoneDefilement.setWidget(contenuDefilant)
+        exterieur.addWidget(zoneDefilement)
 
         ####################################################
         # Bouton de génération/régénération

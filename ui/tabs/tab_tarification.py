@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QScrollArea,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -42,6 +43,11 @@ class TarificationTab(QWidget):
         self.moteur = MoteurPrix()
         self.parametres = ParametreManager()
 
+        # Pas de zone de défilement ici, volontairement : le
+        # tableau de résultats gère déjà son propre défilement
+        # nativement — l'envelopper cassait sa largeur (les
+        # champs marge/prix marché s'écrasaient en bandes
+        # minuscules).
         layout = QVBoxLayout(self)
 
         ####################################################
@@ -151,6 +157,7 @@ class TarificationTab(QWidget):
         # {canal_id: marge spécifique déjà enregistrée}
         # (préremplie par charger(), voir plus bas)
         self._marges_existantes = {}
+        self._marche_existant = {}
 
     def _canaux_compatibles(self):
         """
@@ -179,6 +186,28 @@ class TarificationTab(QWidget):
 
     def calculer(self):
 
+        # Mémorise les prix marché actuellement saisis avant
+        # de reconstruire le tableau — sinon une modification
+        # manuelle suivie d'un "Calculer les prix" perdait la
+        # saisie (et l'ancienne valeur restait seule en base
+        # à l'enregistrement, sans que l'utilisateur s'en
+        # rende compte).
+        # Mémorise les marges par canal actuellement saisies
+        # avant de reconstruire le tableau — même bug que
+        # pour le prix marché : sans ça, une marge modifiée
+        # à la main puis suivie d'un "Calculer les prix"
+        # perdait la saisie et retombait sur la marge par
+        # défaut, silencieusement.
+        for canal_id, champ in self.champsMarge.items():
+
+            if champ.value() != self.margeVisee.value():
+                self._marges_existantes[canal_id] = champ.value()
+
+        for canal_id, champ in self.champsPrixMarche.items():
+
+            if champ.value() > 0:
+                self._marche_existant[canal_id] = champ.value()
+
         canaux = self._canaux_compatibles()
 
         self._derniersCanaux = canaux
@@ -196,9 +225,16 @@ class TarificationTab(QWidget):
 
             self.ligneVersCanal[ligne] = canal["id"]
 
-            self.table.setItem(
-                ligne, 0, QTableWidgetItem(canal["nom"])
-            )
+            itemCanal = QTableWidgetItem(canal["nom"])
+
+            couleurCanal = QColor(canal["couleur"] or "#144b8b")
+            itemCanal.setForeground(couleurCanal)
+
+            policeCanal = QFont()
+            policeCanal.setBold(True)
+            itemCanal.setFont(policeCanal)
+
+            self.table.setItem(ligne, 0, itemCanal)
 
             # Champ marge, propre à ce canal
             champMarge = QDoubleSpinBox()
@@ -222,6 +258,9 @@ class TarificationTab(QWidget):
             champPrixMarche.setDecimals(2)
             champPrixMarche.setMaximum(99999)
             champPrixMarche.setSuffix(" €")
+            champPrixMarche.setValue(
+                self._marche_existant.get(canal["id"]) or 0
+            )
             champPrixMarche.valueChanged.connect(
                 lambda _, l=ligne: self._actualiserDecision(l)
             )
@@ -408,10 +447,14 @@ class TarificationTab(QWidget):
         # pas juste le pourcentage abstrait).
         gain_net_ht = resultat["prix_vente_ht"] * (marge / 100)
 
-        self.table.setItem(
-            ligne, 2,
-            QTableWidgetItem(f"{gain_net_ht:.2f} €")
-        )
+        itemGainNet = QTableWidgetItem(f"{gain_net_ht:.2f} €")
+        itemGainNet.setForeground(QColor("#1e7d32"))
+
+        policeGainNet = QFont()
+        policeGainNet.setBold(True)
+        itemGainNet.setFont(policeGainNet)
+
+        self.table.setItem(ligne, 2, itemGainNet)
 
         self.table.setItem(
             ligne, 3,
@@ -676,14 +719,6 @@ class TarificationTab(QWidget):
             self.margeVisee.setValue(produit["marge_visee_pourcentage"])
 
         self._marges_existantes = marges or {}
+        self._marche_existant = marche or {}
 
         self.calculer()
-
-        if marche:
-
-            for canal_id, prix in marche.items():
-
-                champ = self.champsPrixMarche.get(canal_id)
-
-                if champ is not None and prix is not None:
-                    champ.setValue(prix)

@@ -39,6 +39,9 @@ class ProductManager:
         url_slug=None,
         description_courte=None,
         description_longue=None,
+        eligible_papier_cadeau=False,
+        statut_stock="actif",
+        fiche_a_terminer=False,
     ):
         """
         Crée un produit et renvoie son identifiant
@@ -80,11 +83,14 @@ class ProductManager:
                 url_slug,
                 description_courte,
                 description_longue,
+                eligible_papier_cadeau,
+                statut_stock,
+                fiche_a_terminer,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -118,6 +124,9 @@ class ProductManager:
                 url_slug,
                 description_courte,
                 description_longue,
+                1 if eligible_papier_cadeau else 0,
+                statut_stock,
+                1 if fiche_a_terminer else 0,
             )
         )
 
@@ -137,6 +146,8 @@ class ProductManager:
                 p.licence_id,
                 p.marque_id,
                 p.fournisseur_id,
+                p.statut_stock,
+                p.fiche_a_terminer,
                 l.nom AS licence,
                 m.nom AS marque,
                 f.nom AS fournisseur
@@ -166,6 +177,28 @@ class ProductManager:
             WHERE id = ?
             """,
             (identifiant,)
+        )
+
+    def trouver_par_code(self, code):
+        """
+        Recherche un produit par EAN ou SKU (correspondance
+        exacte) — utilisé pour la saisie rapide par
+        scan/code dans les commandes, plutôt qu'une liste
+        déroulante ingérable avec un catalogue de plusieurs
+        milliers de produits.
+        """
+
+        if not code:
+            return None
+
+        return self.db.lire_un(
+            """
+            SELECT *
+            FROM produits
+            WHERE (ean = ? OR sku = ?)
+            AND actif = 1
+            """,
+            (code, code)
         )
 
     def modifier(
@@ -200,6 +233,9 @@ class ProductManager:
         url_slug=None,
         description_courte=None,
         description_longue=None,
+        eligible_papier_cadeau=False,
+        statut_stock="actif",
+        fiche_a_terminer=False,
     ):
 
         self.db.executer(
@@ -234,7 +270,10 @@ class ProductManager:
                 mots_cles = ?,
                 url_slug = ?,
                 description_courte = ?,
-                description_longue = ?
+                description_longue = ?,
+                eligible_papier_cadeau = ?,
+                statut_stock = ?,
+                fiche_a_terminer = ?
             WHERE id = ?
             """,
             (
@@ -267,6 +306,9 @@ class ProductManager:
                 url_slug,
                 description_courte,
                 description_longue,
+                1 if eligible_papier_cadeau else 0,
+                statut_stock,
+                1 if fiche_a_terminer else 0,
                 identifiant
             )
         )

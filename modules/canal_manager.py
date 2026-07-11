@@ -53,7 +53,8 @@ class CanalManager:
         contribution_transport_min_ht=0,
         prix_vente_min_ttc=None,
         utilise_grille_fba=False,
-        ordre=0
+        ordre=0,
+        couleur="#144b8b"
     ):
 
         curseur = self.db.executer(
@@ -74,11 +75,12 @@ class CanalManager:
                 prix_vente_min_ttc,
                 utilise_grille_fba,
                 ordre,
+                couleur,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -95,7 +97,8 @@ class CanalManager:
                 contribution_transport_min_ht,
                 prix_vente_min_ttc,
                 1 if utilise_grille_fba else 0,
-                ordre
+                ordre,
+                couleur
             )
         )
 
@@ -118,6 +121,7 @@ class CanalManager:
         contribution_transport_min_ht=0,
         prix_vente_min_ttc=None,
         utilise_grille_fba=False,
+        couleur="#144b8b",
     ):
 
         self.db.executer(
@@ -137,7 +141,8 @@ class CanalManager:
                 contribution_transport_min_ht = ?,
                 prix_vente_min_ttc = ?,
                 utilise_grille_fba = ?,
-                ordre = ?
+                ordre = ?,
+                couleur = ?
             WHERE id = ?
             """,
             (
@@ -155,6 +160,7 @@ class CanalManager:
                 prix_vente_min_ttc,
                 1 if utilise_grille_fba else 0,
                 ordre,
+                couleur,
                 identifiant
             )
         )
@@ -189,6 +195,8 @@ class CanalManager:
                 ct.id,
                 ct.transporteur_id,
                 ct.offre,
+                ct.prix_min_ttc,
+                ct.prix_max_ttc,
                 t.nom AS transporteur
             FROM canaux_transporteurs ct
 

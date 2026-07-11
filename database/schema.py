@@ -64,6 +64,27 @@ SCHEMA = {
 
         ("ean_colis", "TEXT"),
 
+        # Éligibilité à la prestation d'emballage cadeau —
+        # uniquement pertinent pour les produits de type
+        # "stock" (proposée seulement sur le site). Le client
+        # choisit ou non de la payer au moment de l'achat ;
+        # cette case dit juste si l'option lui est proposée.
+        ("eligible_papier_cadeau", "INTEGER DEFAULT 0"),
+
+        # Statut de disponibilité, distinct du champ "actif"
+        # (qui sert à archiver/supprimer). 'actif' = normal,
+        # 'rupture' = temporairement indisponible, 'fin_de_vie'
+        # = ne sera plus jamais réapprovisionné. Affiché en
+        # couleur dans la liste des produits.
+        ("statut_stock", "TEXT DEFAULT 'actif'"),
+
+        # Coché automatiquement quand la fiche est créée en
+        # vitesse depuis "Achats Stocks" (nom + prix d'achat
+        # seulement) — signale qu'il manque des infos avant
+        # export (dimensions, marge, catégories par canal...).
+        # Décoché manuellement une fois la fiche complétée.
+        ("fiche_a_terminer", "INTEGER DEFAULT 0"),
+
         # Onglet SEO — remplis automatiquement à la création
         # du produit (voir modules/seo_generator.py), toujours
         # modifiables ensuite. Pensés pour être exportés tels
@@ -285,6 +306,35 @@ SCHEMA["paliers_commission_categorie"] = [
 ]
 
 
+SCHEMA["grille_emballage_cadeau"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("code", "TEXT UNIQUE"),
+
+    ("nom", "TEXT"),
+
+    ("cout_ht", "REAL DEFAULT 0"),
+
+    # 'principal' : le choix d'emballage visible/facturé au
+    # client (toujours au même tarif, quel que soit le code
+    # choisi — le coût réel varie, pas le prix facturé).
+    # 'supplement' : un ajout optionnel (papier de soie,
+    # étiquette...) jamais facturé séparément au client,
+    # juste un coût en plus qui réduit la marge sur la
+    # prestation.
+    ("type", "TEXT DEFAULT 'principal'"),
+
+    # Uniquement renseigné pour les codes de type
+    # 'principal' — le montant HT facturé au client,
+    # actuellement 2,42€ pour tous, mais modifiable
+    # individuellement si un jour tu differencies les tarifs.
+    ("tarif_facture_ht", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
 SCHEMA["fournisseurs"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -298,6 +348,28 @@ SCHEMA["fournisseurs"] = [
     ("email", "TEXT"),
 
     ("site", "TEXT"),
+
+    # Montant minimum de commande exigé par ce fournisseur
+    # (HT), en dessous duquel il n'accepte pas la commande.
+    ("seuil_minimum_commande", "REAL"),
+
+    # Montant de commande (HT) à partir duquel les frais de
+    # port sont offerts par ce fournisseur.
+    ("franco_port", "REAL"),
+
+    # Frais de port facturés par ce fournisseur si la
+    # commande est en dessous du seuil de franco ci-dessus.
+    ("frais_port", "REAL"),
+
+    # Conditions de règlement en texte libre (ex : "30 jours
+    # fin de mois", "comptant à la commande", "50% acompte").
+    ("conditions_reglement", "TEXT"),
+
+    # Délai de livraison en texte libre (ex : "15-20 jours",
+    # "3 semaines", variable selon les produits chez
+    # certains fournisseurs, d'où le texte libre plutôt
+    # qu'un nombre de jours figé).
+    ("delai_livraison", "TEXT"),
 
     ("actif", "INTEGER DEFAULT 1")
 
@@ -464,6 +536,12 @@ SCHEMA["canaux_vente"] = [
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
 
     ("nom", "TEXT UNIQUE"),
+
+    # Couleur d'identification visuelle du canal (code hexa,
+    # ex : "#1e7d32") — reprise dans l'onglet Tarification
+    # des fiches produit pour repérer chaque canal d'un coup
+    # d'œil.
+    ("couleur", "TEXT DEFAULT '#144b8b'"),
 
     # "site" (WiziShop) ou "marketplace" (Base.com, Amazon, Cdiscount...)
     ("type", "TEXT"),
@@ -735,6 +813,9 @@ SCHEMA["commandes"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
 
+    # Numéro tel que fourni par WiziShop/Base.com/la
+    # marketplace — unique pour éviter les doublons si tu
+    # importes la même commande deux fois plus tard.
     ("numero", "TEXT UNIQUE"),
 
     ("canal_id", "INTEGER"),
@@ -747,19 +828,36 @@ SCHEMA["commandes"] = [
 
     ("transporteur_id", "INTEGER"),
 
-    ("statut", "TEXT"),
+    ("statut", "TEXT DEFAULT 'En cours'"),
 
     ("montant_ht", "REAL"),
 
     ("montant_ttc", "REAL"),
 
-    ("frais_port_ht", "REAL"),
+    # Frais de port payés PAR LE CLIENT (ce qu'il a réglé à
+    # l'achat) — jamais confondu avec le coût réel ci-dessous.
+    ("frais_port_client_ttc", "REAL"),
 
-    ("frais_port_ttc", "REAL"),
+    # Frais de port réellement payés PAR TOI au transporteur
+    # (le vrai coût, indispensable pour calculer ta marge
+    # réelle sur cette commande).
+    ("frais_port_reel_ht", "REAL"),
+
+    # Prestation emballage cadeau — un seul choix par
+    # commande. papier_cadeau_emballage_id = le code
+    # "principal" choisi (toujours facturé au tarif fixe de
+    # la grille, quel que soit le code) ; supplement_id = un
+    # ajout optionnel (papier de soie...), jamais facturé,
+    # juste un coût en plus.
+    ("papier_cadeau_actif", "INTEGER DEFAULT 0"),
+    ("papier_cadeau_emballage_id", "INTEGER"),
+    ("papier_cadeau_supplement_id", "INTEGER"),
 
     ("tracking", "TEXT"),
 
-    ("commentaire", "TEXT")
+    ("commentaire", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
 
 ]
 
@@ -770,17 +868,112 @@ SCHEMA["lignes_commandes"] = [
 
     ("commande_id", "INTEGER"),
 
+    # Peut être NULL si le produit n'existe plus dans ton
+    # catalogue au moment de l'import (nom_produit ci-dessous
+    # reste alors la seule trace).
     ("produit_id", "INTEGER"),
 
-    ("quantite", "INTEGER"),
+    # Copie du nom au moment de la commande — ne dépend
+    # jamais du produit actuel, qui peut être renommé ou
+    # supprimé depuis.
+    ("nom_produit", "TEXT"),
+
+    ("quantite", "INTEGER DEFAULT 1"),
 
     ("prix_unitaire_ht", "REAL"),
 
     ("prix_unitaire_ttc", "REAL"),
 
+    # Coût d'achat unitaire (HT) au moment de la commande —
+    # figé ici, jamais recalculé depuis la fiche produit,
+    # pour que la marge de cette vente reste exacte même si
+    # ton prix d'achat change plus tard.
+    ("cout_achat_unitaire_ht", "REAL"),
+
     ("remise_ht", "REAL"),
 
-    ("tva", "REAL")
+    ("tva", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["commandes_retours"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Lié à une ligne précise, pas à toute la commande : on
+    # peut retourner un seul article parmi plusieurs achetés
+    # dans la même commande.
+    ("ligne_commande_id", "INTEGER"),
+
+    ("date_retour", "TEXT"),
+
+    ("motif", "TEXT"),
+
+    ("statut", "TEXT DEFAULT 'Demandé'"),
+
+    ("montant_rembourse_ttc", "REAL"),
+
+    # Frais de réexpédition si un produit de remplacement
+    # est renvoyé au client (distinct du coût du retour
+    # ci-dessous, qui couvre le retour initial).
+    ("frais_reexpedition_ht", "REAL"),
+
+    # Coût du retour lui-même (étiquette retour, remise en
+    # stock, produit invendable...).
+    ("cout_retour_ht", "REAL"),
+
+    ("notes", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["achats_fournisseurs"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("numero", "TEXT UNIQUE"),
+
+    ("fournisseur_id", "INTEGER"),
+
+    ("date_achat", "TEXT"),
+
+    ("date_reception", "TEXT"),
+
+    ("statut", "TEXT DEFAULT 'Commandé'"),
+
+    ("montant_ht", "REAL DEFAULT 0"),
+
+    ("frais_port_ht", "REAL DEFAULT 0"),
+
+    ("commentaire", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["achats_fournisseurs_lignes"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("achat_id", "INTEGER"),
+
+    # Peut être NULL si le produit n'existe pas encore dans
+    # ton catalogue au moment de la commande fournisseur.
+    ("produit_id", "INTEGER"),
+
+    ("nom_produit", "TEXT"),
+
+    ("quantite", "INTEGER DEFAULT 1"),
+
+    ("prix_unitaire_ht", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
 
 ]
 
@@ -808,6 +1001,135 @@ SCHEMA["clients"] = [
     ("pays", "TEXT")
 
 ]
+SCHEMA["budget_publicitaire_lignes"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT"),
+
+    # Enveloppe totale HT prévue pour toute la période
+    # (ex : 5040€ pour Google Shopping sur les 15 mois du
+    # 1er exercice).
+    ("enveloppe_totale_ht", "REAL"),
+
+    ("date_debut", "TEXT"),
+    ("date_fin", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["depenses_publicitaires"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("ligne_id", "INTEGER"),
+
+    # Mois de la dépense réelle, format 'YYYY-MM' — saisi
+    # librement, aucune répartition automatique imposée :
+    # certains mois consomment plus (périodes commerciales
+    # fortes), d'autres moins.
+    ("mois", "TEXT"),
+
+    ("montant_reel_ht", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["soldes_journaliers"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("date", "TEXT UNIQUE"),
+
+    ("solde_ttc", "REAL"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["charges_recurrentes"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT"),
+
+    # loyer / electricite / eau / abonnement / pret /
+    # credit_tva / autre
+    ("categorie", "TEXT DEFAULT 'autre'"),
+
+    # 'mensuelle' (due chaque mois) ou 'annuelle' (due une
+    # seule fois par an, le même mois que mois_debut).
+    ("frequence", "TEXT DEFAULT 'mensuelle'"),
+
+    # Certaines charges portent de la TVA récupérable
+    # (loyer, électricité, abonnements...), d'autres non
+    # (remboursement de prêt — capital et intérêts —, ou le
+    # crédit relais TVA lui-même). Coché par défaut, à
+    # décocher pour les charges concernées.
+    ("tva_applicable", "INTEGER DEFAULT 1"),
+
+    ("montant_mensuel", "REAL"),
+
+    # Mois de première échéance, format 'YYYY-MM'.
+    ("mois_debut", "TEXT"),
+
+    # Nombre d'échéances au total. NULL = récurrent sans
+    # fin (loyer, abonnements...). Un nombre précis pour un
+    # prêt ou un crédit à durée déterminée (ex : 81 pour la
+    # phase de remboursement du prêt, 6 pour le crédit TVA).
+    ("nombre_occurrences", "INTEGER"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["paiements_charges"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("charge_id", "INTEGER"),
+
+    # Mois concerné par ce paiement, format 'YYYY-MM'.
+    ("mois", "TEXT"),
+
+    ("paye", "INTEGER DEFAULT 0"),
+
+    ("date_paiement", "TEXT")
+
+]
+
+
+SCHEMA["fonds_croissance"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Singleton : une seule ligne, le montant cumulé actuel
+    # de la cagnotte (30% du solde de départ + 5% du
+    # bénéfice de chaque mois, versé une fois par mois).
+    ("montant_actuel", "REAL DEFAULT 0"),
+
+    # Dernier mois pour lequel la contribution mensuelle de
+    # 5% du bénéfice a déjà été versée — évite de la
+    # verser deux fois si le logiciel est relancé plusieurs
+    # fois dans le même mois.
+    ("dernier_mois_alimente", "TEXT"),
+
+    # Distingue "jamais initialisé avec les 30% du solde de
+    # départ" de "à 0€ mais déjà initialisé" — un simple
+    # test sur montant_actuel==0 se trompait si la
+    # cotisation mensuelle de 5% arrivait avant la toute
+    # première saisie de solde.
+    ("initialise", "INTEGER DEFAULT 0")
+
+]
+
+
 SCHEMA["ventes"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),

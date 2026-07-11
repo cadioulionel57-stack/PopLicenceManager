@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QScrollArea,
     QWidget,
     QVBoxLayout,
     QGridLayout,
@@ -43,7 +44,20 @@ class PublicationTab(QWidget):
 
         self.type_produit = type_produit
 
-        layout = QVBoxLayout(self)
+        exterieur = QVBoxLayout(self)
+        exterieur.setContentsMargins(0, 0, 0, 0)
+
+        zoneDefilement = QScrollArea()
+        zoneDefilement.setWidgetResizable(True)
+        zoneDefilement.setStyleSheet(
+            "QScrollArea{border:none; background:transparent;}"
+        )
+
+        contenuDefilant = QWidget()
+        layout = QVBoxLayout(contenuDefilant)
+
+        zoneDefilement.setWidget(contenuDefilant)
+        exterieur.addWidget(zoneDefilement)
 
         groupe = QGroupBox("🚀 Canaux de vente")
 

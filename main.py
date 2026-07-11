@@ -2,6 +2,7 @@ import sys
 import traceback
 
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QLocale
 
 try:
     print("1")
@@ -15,6 +16,13 @@ try:
 
     print("4")
     app = QApplication(sys.argv)
+
+    # Force le point comme séparateur décimal partout dans
+    # le logiciel (champs poids, prix, marge...) — sans ça,
+    # les champs numériques suivent la langue de Windows et
+    # attendent une virgule ; taper un point dedans produit
+    # alors une valeur fausse sans aucun message d'erreur.
+    QLocale.setDefault(QLocale(QLocale.Language.English, QLocale.Country.UnitedStates))
 
     print("5")
     window = MainWindow()

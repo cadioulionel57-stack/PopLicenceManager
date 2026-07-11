@@ -20,11 +20,20 @@ from modules.product_manager import ProductManager
 
 class ProductDialogV2(QDialog):
 
-    def __init__(self, type_produit=None, produit=None):
+    def __init__(
+        self,
+        type_produit=None,
+        produit=None,
+        nom_prerempli=None,
+        prix_achat_prerempli=None,
+        code_prerempli=None,
+        parent=None,
+    ):
 
-        super().__init__()
+        super().__init__(parent)
 
         self.produit = produit
+        self._creation_rapide = nom_prerempli is not None
 
         if produit is not None:
             self.type_produit = produit["type_produit"]
@@ -38,32 +47,137 @@ class ProductDialogV2(QDialog):
             self.setWindowTitle("📦 Nouveau produit")
         else:
             self.setWindowTitle("✏ Modifier le produit")
-        self.resize(1100, 750)
+
+        # (taille fixée plus bas, une fois tout le contenu
+        # de la fenêtre posé — sinon Qt l'agrandit tout seul
+        # ensuite pour faire de la place à son contenu)
 
         self.setStyleSheet("""
         QDialog{
-            background:#edf3fa;
+            background:#f4f7fb;
             font-family:"Segoe UI";
         }
 
         QTabWidget::pane{
             background:white;
-            border:1px solid #d7e3ef;
+            border:1px solid #e1e8f0;
             border-radius:10px;
+            top:-1px;
         }
 
         QTabBar::tab{
-            background:#dfeaf6;
-            padding:12px 24px;
-            margin-right:2px;
+            background:#e7edf6;
+            color:#3d5773;
+            padding:11px 22px;
+            margin-right:3px;
             border-top-left-radius:8px;
             border-top-right-radius:8px;
+            font-size:10pt;
+        }
+
+        QTabBar::tab:hover{
+            background:#d9e4f2;
         }
 
         QTabBar::tab:selected{
             background:white;
-            font-weight:bold;
-            color:#144b8b;
+            font-weight:600;
+            color:#0f2f5c;
+            border-bottom:3px solid #144b8b;
+        }
+
+        QGroupBox{
+            background:white;
+            border:1px solid #e1e8f0;
+            border-radius:10px;
+            margin-top:14px;
+            padding-top:14px;
+            font-weight:600;
+            font-size:10.5pt;
+            color:#0f2f5c;
+        }
+
+        QGroupBox::title{
+            subcontrol-origin:margin;
+            left:12px;
+            padding:0 8px;
+        }
+
+        QLineEdit,
+        QTextEdit,
+        QComboBox,
+        QSpinBox,
+        QDoubleSpinBox,
+        QDateEdit{
+            background:#f7f9fc;
+            border:1px solid #d7e0ec;
+            border-radius:7px;
+            padding:6px 8px;
+            font-size:10pt;
+            color:#1c2b3a;
+            selection-background-color:#dbe7f7;
+        }
+
+        QLineEdit:focus,
+        QTextEdit:focus,
+        QComboBox:focus,
+        QSpinBox:focus,
+        QDoubleSpinBox:focus,
+        QDateEdit:focus{
+            border:1px solid #144b8b;
+            background:white;
+        }
+
+        QSpinBox::up-button, QDoubleSpinBox::up-button{
+            subcontrol-origin:border;
+            subcontrol-position:top right;
+            width:18px;
+            border-left:1px solid #d7e0ec;
+            border-bottom:1px solid #d7e0ec;
+            border-top-right-radius:7px;
+            background:#eef2f8;
+        }
+
+        QSpinBox::down-button, QDoubleSpinBox::down-button{
+            subcontrol-origin:border;
+            subcontrol-position:bottom right;
+            width:18px;
+            border-left:1px solid #d7e0ec;
+            border-bottom-right-radius:7px;
+            background:#eef2f8;
+        }
+
+        QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+        QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover{
+            background:#dbe7f7;
+        }
+
+        QSpinBox::up-arrow, QDoubleSpinBox::up-arrow{
+            image:none;
+            border-left:4px solid transparent;
+            border-right:4px solid transparent;
+            border-bottom:5px solid #144b8b;
+            width:0;
+            height:0;
+        }
+
+        QSpinBox::down-arrow, QDoubleSpinBox::down-arrow{
+            image:none;
+            border-left:4px solid transparent;
+            border-right:4px solid transparent;
+            border-top:5px solid #144b8b;
+            width:0;
+            height:0;
+        }
+
+        QCheckBox{
+            font-size:10pt;
+            color:#1c2b3a;
+            spacing:8px;
+        }
+
+        QLabel{
+            color:#1c2b3a;
         }
 
         QPushButton{
@@ -73,10 +187,15 @@ class ProductDialogV2(QDialog):
             border-radius:8px;
             padding:10px 20px;
             min-width:140px;
+            font-weight:500;
         }
 
         QPushButton:hover{
             background:#1d61b4;
+        }
+
+        QPushButton:pressed{
+            background:#0d3a6e;
         }
         """)
 
@@ -137,6 +256,15 @@ class ProductDialogV2(QDialog):
                 )
             )
 
+            if self._creation_rapide:
+
+                self.pageGeneral.nom.setText(nom_prerempli or "")
+                self.pageGeneral.prixAchatHt.setValue(
+                    prix_achat_prerempli or 0
+                )
+                self.pageGeneral.ean.setText(code_prerempli or "")
+                self.pageGeneral.ficheATerminer.setChecked(True)
+
         else:
 
             self.pageGeneral.sku.setText(
@@ -169,6 +297,14 @@ class ProductDialogV2(QDialog):
 
             self.pageGeneral.prixAchatHt.setValue(
                 self.produit["prix_fournisseur_ht"] or 0
+            )
+
+            self.pageGeneral.selectionner_statut_stock(
+                self.produit["statut_stock"]
+            )
+
+            self.pageGeneral.ficheATerminer.setChecked(
+                bool(self.produit["fiche_a_terminer"])
             )
 
         ####################################################
@@ -349,6 +485,33 @@ class ProductDialogV2(QDialog):
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self.enregistrer)
 
+        self._adapterTailleEcran(1400, 800)
+
+    def _adapterTailleEcran(self, largeur_souhaitee, hauteur_souhaitee):
+        """
+        Force la taille de la fenêtre à rester dans les
+        limites de l'écran — appelé en différé (juste après
+        l'affichage), car Qt réajuste automatiquement la
+        fenêtre à la taille de son contenu juste après un
+        appel resize() classique, ce qui annulait sinon
+        cette limite.
+        """
+
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+
+        def appliquer():
+
+            ecran_widget = self.screen() or QApplication.primaryScreen()
+            ecran = ecran_widget.availableGeometry()
+
+            largeur = min(largeur_souhaitee, ecran.width() - 60)
+            hauteur = min(hauteur_souhaitee, ecran.height() - 100)
+
+            self.resize(largeur, hauteur)
+
+        QTimer.singleShot(0, appliquer)
+
     def _prix_ttc_site_actuel(self):
         """
         Renvoie le prix de vente TTC calculé sur le canal
@@ -466,6 +629,12 @@ class ProductDialogV2(QDialog):
 
                 description_longue=self.pageSeo.descriptionLongue.toPlainText(),
 
+                eligible_papier_cadeau=self.pageCaracteristiques.eligiblePapierCadeau.isChecked(),
+
+                statut_stock=self.pageGeneral.statut_stock(),
+
+                fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
+
             )
 
         else:
@@ -532,6 +701,12 @@ class ProductDialogV2(QDialog):
 
                 description_longue=self.pageSeo.descriptionLongue.toPlainText(),
 
+                eligible_papier_cadeau=self.pageCaracteristiques.eligiblePapierCadeau.isChecked(),
+
+                statut_stock=self.pageGeneral.statut_stock(),
+
+                fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
+
             )
 
         self.productManager.definir_categories_canaux(
@@ -546,13 +721,15 @@ class ProductDialogV2(QDialog):
 
         for canal_id, champ in self.pageTarification.champsPrixMarche.items():
 
-            if champ.value() > 0:
-
-                self.productManager.definir_prix_marche(
-                    identifiant_produit,
-                    canal_id,
-                    champ.value()
-                )
+            # Toujours enregistrer, même à 0€ — sinon remettre
+            # un prix marché à zéro ne l'effaçait jamais en
+            # base, l'ancienne valeur restait affichée au
+            # prochain chargement.
+            self.productManager.definir_prix_marche(
+                identifiant_produit,
+                canal_id,
+                champ.value()
+            )
 
         for canal_id, marge in self.pageTarification.marges_saisies().items():
 

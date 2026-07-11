@@ -10,9 +10,9 @@ from PySide6.QtWidgets import (
 
 class ProductTypeDialog(QDialog):
 
-    def __init__(self):
+    def __init__(self, parent=None):
 
-        super().__init__()
+        super().__init__(parent)
 
         self.setWindowTitle("Nouveau produit")
         self.resize(500, 350)
