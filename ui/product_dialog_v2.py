@@ -543,7 +543,14 @@ class ProductDialogV2(QDialog):
 
     def enregistrer(self):
 
-        if not self.pageCaracteristiques.emballage_valide():
+        # Un produit Direct Fournisseur est expédié par le
+        # fournisseur, jamais par toi — aucun emballage de ta
+        # grille ne s'applique, donc ce contrôle ne le
+        # concerne pas.
+        if (
+            self.type_produit != "dropshipping"
+            and not self.pageCaracteristiques.emballage_valide()
+        ):
 
             QMessageBox.warning(
                 self,

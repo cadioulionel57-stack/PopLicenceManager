@@ -189,6 +189,16 @@ class CaracteristiquesTab(QWidget):
 
         layout.addWidget(emballageGroupe)
 
+        # Un produit Direct Fournisseur est expédié par le
+        # fournisseur lui-même, jamais par toi — aucun
+        # emballage de ta grille ne s'applique donc ici. Le
+        # champ est masqué entièrement plutôt que de forcer
+        # un choix qui n'a pas de sens (le coût d'emballage
+        # retombera à 0€, ou sur celui de la famille si elle
+        # en a un).
+        emballageGroupe.setVisible(self.type_produit != "dropshipping")
+
+
         for champ in (
             self.longueur,
             self.largeur,
