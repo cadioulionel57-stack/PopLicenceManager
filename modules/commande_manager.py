@@ -679,6 +679,117 @@ class CommandeManager:
             2
         )
 
+    def ca_par_licence(self, mois_iso, limite=10):
+        """
+        CA HT du mois, par licence de produit vendu — classé
+        du plus rentable au moins rentable. Les lignes dont
+        le produit n'a pas de licence associée (ou n'existe
+        plus) sont regroupées sous "Sans licence".
+        """
+
+        import calendar
+
+        annee, mois = (int(x) for x in mois_iso.split("-"))
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+
+        date_debut = f"{mois_iso}-01"
+        date_fin = f"{mois_iso}-{dernier_jour:02d}"
+
+        lignes = self.db.lire(
+            """
+            SELECT
+                lc.quantite,
+                lc.prix_unitaire_ht,
+                l.nom AS nom_licence
+            FROM lignes_commandes lc
+
+            INNER JOIN commandes co
+                ON co.id = lc.commande_id
+
+            LEFT JOIN produits p
+                ON p.id = lc.produit_id
+
+            LEFT JOIN licences l
+                ON l.id = p.licence_id
+
+            WHERE lc.actif = 1
+            AND co.actif = 1
+            AND co.date_commande >= ?
+            AND co.date_commande <= ?
+            """,
+            (date_debut, date_fin)
+        )
+
+        ca_par_licence = {}
+
+        for l in lignes:
+
+            nom = l["nom_licence"] or "Sans licence"
+            ca = (l["prix_unitaire_ht"] or 0) * (l["quantite"] or 1)
+
+            ca_par_licence[nom] = ca_par_licence.get(nom, 0) + ca
+
+        resultat = [
+            {"licence": nom, "ca_ht": round(ca, 2)}
+            for nom, ca in sorted(
+                ca_par_licence.items(), key=lambda x: -x[1]
+            )
+            if ca > 0
+        ]
+
+        return resultat[:limite]
+
+    def benefice_par_canal(self, mois_iso):
+        """
+        Bénéfice net réel du mois, réparti par canal de
+        vente — complète ca_par_canal : un canal peut faire
+        beaucoup de CA mais très peu de marge à cause des
+        commissions et frais (l'inverse est vrai aussi).
+        """
+
+        import calendar
+
+        annee, mois = (int(x) for x in mois_iso.split("-"))
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+
+        date_debut = f"{mois_iso}-01"
+        date_fin = f"{mois_iso}-{dernier_jour:02d}"
+
+        commandes = self.db.lire(
+            """
+            SELECT co.id, cv.nom AS nom_canal
+            FROM commandes co
+
+            LEFT JOIN canaux_vente cv
+                ON cv.id = co.canal_id
+
+            WHERE co.actif = 1
+            AND co.date_commande >= ?
+            AND co.date_commande <= ?
+            """,
+            (date_debut, date_fin)
+        )
+
+        benefice_par_canal = {}
+
+        for c in commandes:
+
+            nom = c["nom_canal"] or "Canal inconnu"
+
+            gain = self.gain_net_reel(c["id"])
+            benefice = gain["gain_net_ht"] if gain else 0
+
+            benefice_par_canal[nom] = (
+                benefice_par_canal.get(nom, 0) + benefice
+            )
+
+        return [
+            {"canal": nom, "benefice_ht": round(benefice, 2)}
+            for nom, benefice in sorted(
+                benefice_par_canal.items(), key=lambda x: -x[1]
+            )
+        ]
+
     def ca_par_canal(self, mois_iso):
         """
         CA HT du mois, réparti par canal de vente — sert au

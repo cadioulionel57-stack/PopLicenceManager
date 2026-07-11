@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QComboBox,
     QFrame,
+    QScrollArea,
 )
 from PySide6.QtCharts import (
     QChart,
@@ -16,11 +17,15 @@ from PySide6.QtCharts import (
     QBarSet,
     QBarCategoryAxis,
     QValueAxis,
+    QHorizontalBarSeries,
+    QLineSeries,
+    QDateTimeAxis,
 )
 from PySide6.QtGui import QPainter, QColor, QFont
 from PySide6.QtCore import Qt
 
 from modules.commande_manager import CommandeManager
+from modules.tresorerie_manager import TresorerieManager
 
 
 class StatistiquesPage(QWidget):
@@ -39,6 +44,7 @@ class StatistiquesPage(QWidget):
         super().__init__()
 
         self.manager = CommandeManager()
+        self.managerTresorerie = TresorerieManager()
 
         self.setStyleSheet("""
         QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
@@ -54,9 +60,22 @@ class StatistiquesPage(QWidget):
         }
         """)
 
-        layout = QVBoxLayout(self)
+        exterieur = QVBoxLayout(self)
+        exterieur.setContentsMargins(0, 0, 0, 0)
+
+        zoneDefilement = QScrollArea()
+        zoneDefilement.setWidgetResizable(True)
+        zoneDefilement.setStyleSheet(
+            "QScrollArea{border:none; background:transparent;}"
+        )
+
+        contenuDefilant = QWidget()
+        layout = QVBoxLayout(contenuDefilant)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
+
+        zoneDefilement.setWidget(contenuDefilant)
+        exterieur.addWidget(zoneDefilement)
 
         entete = QHBoxLayout()
         titre = QLabel("📊 Statistiques")
@@ -139,6 +158,120 @@ class StatistiquesPage(QWidget):
 
         layout.addWidget(carteEvolution)
 
+        ####################################################
+        # Meilleures ventes par licence
+        ####################################################
+
+        carteLicences = QFrame()
+        carteLicences.setObjectName("card")
+        layoutLicences = QVBoxLayout(carteLicences)
+
+        entêteLicences = QHBoxLayout()
+
+        titreLicences = QLabel("🏆 Meilleures ventes par licence (CA)")
+        titreLicences.setObjectName("sousTitre")
+        entêteLicences.addWidget(titreLicences)
+
+        entêteLicences.addStretch()
+
+        entêteLicences.addWidget(QLabel("Mois :"))
+
+        self.selecteurMoisLicences = QComboBox()
+        self.selecteurMoisLicences.currentIndexChanged.connect(
+            self.rafraichirLicences
+        )
+        entêteLicences.addWidget(self.selecteurMoisLicences)
+
+        layoutLicences.addLayout(entêteLicences)
+
+        self.labelVideLicences = QLabel(
+            "Aucune vente avec licence pour ce mois."
+        )
+        self.labelVideLicences.setStyleSheet("color:#7f8c8d; padding:20px;")
+        layoutLicences.addWidget(self.labelVideLicences)
+
+        self.chartViewLicences = QChartView()
+        self.chartViewLicences.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+        self.chartViewLicences.setMinimumHeight(380)
+        layoutLicences.addWidget(self.chartViewLicences)
+
+        layout.addWidget(carteLicences)
+
+        ####################################################
+        # Bénéfice net par canal
+        ####################################################
+
+        carteBenefice = QFrame()
+        carteBenefice.setObjectName("card")
+        layoutBenefice = QVBoxLayout(carteBenefice)
+
+        entêteBenefice = QHBoxLayout()
+
+        titreBenefice = QLabel("💰 Bénéfice net par canal")
+        titreBenefice.setObjectName("sousTitre")
+        entêteBenefice.addWidget(titreBenefice)
+
+        entêteBenefice.addStretch()
+
+        entêteBenefice.addWidget(QLabel("Mois :"))
+
+        self.selecteurMoisBenefice = QComboBox()
+        self.selecteurMoisBenefice.currentIndexChanged.connect(
+            self.rafraichirBenefice
+        )
+        entêteBenefice.addWidget(self.selecteurMoisBenefice)
+
+        layoutBenefice.addLayout(entêteBenefice)
+
+        self.labelVideBenefice = QLabel(
+            "Aucune commande pour ce mois."
+        )
+        self.labelVideBenefice.setStyleSheet("color:#7f8c8d; padding:20px;")
+        layoutBenefice.addWidget(self.labelVideBenefice)
+
+        self.chartViewBenefice = QChartView()
+        self.chartViewBenefice.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+        self.chartViewBenefice.setMinimumHeight(380)
+        layoutBenefice.addWidget(self.chartViewBenefice)
+
+        layout.addWidget(carteBenefice)
+
+        ####################################################
+        # Évolution de la trésorerie (solde bancaire)
+        ####################################################
+
+        carteTresorerie = QFrame()
+        carteTresorerie.setObjectName("card")
+        layoutTresorerie = QVBoxLayout(carteTresorerie)
+
+        titreTresorerie = QLabel("🏦 Évolution du solde bancaire")
+        titreTresorerie.setObjectName("sousTitre")
+        layoutTresorerie.addWidget(titreTresorerie)
+
+        self.labelVideTresorerie = QLabel(
+            "Aucun solde saisi pour l'instant — renseigne ton "
+            "solde du jour dans Trésorerie pour voir apparaître "
+            "cette courbe."
+        )
+        self.labelVideTresorerie.setStyleSheet(
+            "color:#7f8c8d; padding:20px;"
+        )
+        self.labelVideTresorerie.setWordWrap(True)
+        layoutTresorerie.addWidget(self.labelVideTresorerie)
+
+        self.chartViewTresorerie = QChartView()
+        self.chartViewTresorerie.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+        self.chartViewTresorerie.setMinimumHeight(380)
+        layoutTresorerie.addWidget(self.chartViewTresorerie)
+
+        layout.addWidget(carteTresorerie)
+
         layout.addStretch()
 
         self.charger()
@@ -176,6 +309,224 @@ class StatistiquesPage(QWidget):
 
         self.rafraichirEvolution()
 
+        self.selecteurMoisLicences.blockSignals(True)
+        self.selecteurMoisLicences.clear()
+
+        for mois in mois_disponibles:
+            self.selecteurMoisLicences.addItem(mois, mois)
+
+        self.selecteurMoisLicences.blockSignals(False)
+
+        self.rafraichirLicences()
+
+        self.selecteurMoisBenefice.blockSignals(True)
+        self.selecteurMoisBenefice.clear()
+
+        for mois in mois_disponibles:
+            self.selecteurMoisBenefice.addItem(mois, mois)
+
+        self.selecteurMoisBenefice.blockSignals(False)
+
+        self.rafraichirBenefice()
+
+        self.rafraichirTresorerie()
+
+    def rafraichirTresorerie(self):
+
+        historique = self.managerTresorerie.historique_soldes(limite=90)
+
+        if not historique:
+
+            self.labelVideTresorerie.setVisible(True)
+            self.chartViewTresorerie.setVisible(False)
+            return
+
+        self.labelVideTresorerie.setVisible(False)
+        self.chartViewTresorerie.setVisible(True)
+
+        # Du plus ancien au plus récent, pour que la courbe
+        # se lise naturellement de gauche à droite.
+        historique = list(reversed(historique))
+
+        from PySide6.QtCore import QDateTime, QDate, QTime
+
+        series = QLineSeries()
+        series.setColor(QColor("#144b8b"))
+
+        for point in historique:
+
+            annee, mois, jour = (int(x) for x in point["date"].split("-"))
+            instant = QDateTime(QDate(annee, mois, jour), QTime(0, 0, 0))
+
+            series.append(
+                instant.toMSecsSinceEpoch(), point["solde_ttc"]
+            )
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle("Évolution du solde bancaire")
+
+        titleFont = QFont()
+        titleFont.setBold(True)
+        titleFont.setPointSize(11)
+        chart.setTitleFont(titleFont)
+
+        chart.legend().setVisible(False)
+
+        axeX = QDateTimeAxis()
+        axeX.setFormat("dd/MM/yy")
+        axeX.setTitleText("Date")
+        chart.addAxis(axeX, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(axeX)
+
+        valeurs = [p["solde_ttc"] for p in historique]
+        valeur_max = max(valeurs) if valeurs else 100
+        valeur_min = min(valeurs) if valeurs else 0
+
+        axeY = QValueAxis()
+        axeY.setRange(
+            valeur_min * 0.9 if valeur_min > 0 else valeur_min * 1.1,
+            valeur_max * 1.1
+        )
+        axeY.setLabelFormat("%.0f €")
+        chart.addAxis(axeY, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(axeY)
+
+        self.chartViewTresorerie.setChart(chart)
+
+    def rafraichirBenefice(self):
+
+        mois = self.selecteurMoisBenefice.currentData()
+
+        if mois is None:
+            return
+
+        donnees = self.manager.benefice_par_canal(mois)
+
+        if not donnees:
+
+            self.labelVideBenefice.setVisible(True)
+            self.chartViewBenefice.setVisible(False)
+            return
+
+        self.labelVideBenefice.setVisible(False)
+        self.chartViewBenefice.setVisible(True)
+
+        canaux = [d["canal"] for d in donnees]
+
+        # Deux séries séparées (positif / négatif) pour que
+        # les canaux déficitaires ressortent en rouge et les
+        # rentables en vert, sans que la charge graphique ne
+        # permette de colorer chaque barre individuellement
+        # dans une même série.
+        valeurs_positives = [
+            max(d["benefice_ht"], 0) for d in donnees
+        ]
+        valeurs_negatives = [
+            min(d["benefice_ht"], 0) for d in donnees
+        ]
+
+        setPositif = QBarSet("Bénéfice")
+        setPositif.append(valeurs_positives)
+        setPositif.setColor(QColor("#1e7d32"))
+
+        setNegatif = QBarSet("Perte")
+        setNegatif.append(valeurs_negatives)
+        setNegatif.setColor(QColor("#c0392b"))
+
+        series = QBarSeries()
+        series.append(setPositif)
+        series.append(setNegatif)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle(f"Bénéfice net par canal — {mois}")
+
+        titleFont = QFont()
+        titleFont.setBold(True)
+        titleFont.setPointSize(11)
+        chart.setTitleFont(titleFont)
+
+        chart.legend().setVisible(False)
+
+        axeX = QBarCategoryAxis()
+        axeX.append(canaux)
+        chart.addAxis(axeX, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(axeX)
+
+        toutes_valeurs = valeurs_positives + valeurs_negatives
+        valeur_max = max(toutes_valeurs) if toutes_valeurs else 100
+        valeur_min = min(toutes_valeurs) if toutes_valeurs else 0
+
+        axeY = QValueAxis()
+        axeY.setRange(
+            valeur_min * 1.15 if valeur_min < 0 else 0,
+            valeur_max * 1.15 if valeur_max > 0 else 100
+        )
+        axeY.setLabelFormat("%.0f €")
+        chart.addAxis(axeY, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(axeY)
+
+        self.chartViewBenefice.setChart(chart)
+
+    def rafraichirLicences(self):
+
+        mois = self.selecteurMoisLicences.currentData()
+
+        if mois is None:
+            return
+
+        donnees = self.manager.ca_par_licence(mois)
+
+        if not donnees:
+
+            self.labelVideLicences.setVisible(True)
+            self.chartViewLicences.setVisible(False)
+            return
+
+        self.labelVideLicences.setVisible(False)
+        self.chartViewLicences.setVisible(True)
+
+        # Du plus petit au plus grand, pour qu'un classement
+        # en barres horizontales affiche le meilleur en haut.
+        donnees = list(reversed(donnees))
+
+        licences = [d["licence"] for d in donnees]
+        valeurs = [d["ca_ht"] for d in donnees]
+
+        barSet = QBarSet("CA HT")
+        barSet.append(valeurs)
+        barSet.setColor(QColor("#1e7d32"))
+
+        series = QHorizontalBarSeries()
+        series.append(barSet)
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle(f"Meilleures licences — {mois}")
+
+        titleFont = QFont()
+        titleFont.setBold(True)
+        titleFont.setPointSize(11)
+        chart.setTitleFont(titleFont)
+
+        chart.legend().setVisible(False)
+
+        axeY = QBarCategoryAxis()
+        axeY.append(licences)
+        chart.addAxis(axeY, Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(axeY)
+
+        valeur_max = max(valeurs) if valeurs else 100
+
+        axeX = QValueAxis()
+        axeX.setRange(0, valeur_max * 1.15 if valeur_max > 0 else 100)
+        axeX.setLabelFormat("%.0f €")
+        chart.addAxis(axeX, Qt.AlignmentFlag.AlignBottom)
+        series.attachAxis(axeX)
+
+        self.chartViewLicences.setChart(chart)
+
     def rafraichirEvolution(self):
 
         annee = self.selecteurAnnee.currentData()
@@ -190,7 +541,7 @@ class StatistiquesPage(QWidget):
 
         barSet = QBarSet("CA HT")
         barSet.append(valeurs)
-        barSet.setColor(QColor("#144b8b"))
+        barSet.setColor(QColor("#1e88c7"))
 
         series = QBarSeries()
         series.append(barSet)
