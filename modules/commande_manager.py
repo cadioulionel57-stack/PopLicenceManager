@@ -739,6 +739,66 @@ class CommandeManager:
 
         return resultat[:limite]
 
+    def repartition_charges_mois(self, mois_iso):
+        """
+        Répartition des coûts liés aux ventes du mois :
+        achat produits, transport (réel + contribution
+        cachée), commissions et frais fixes de canal, frais
+        de paiement, coûts SAV/retours — pour voir en un
+        coup d'œil où part l'argent sur les ventes.
+        """
+
+        import calendar
+
+        annee, mois = (int(x) for x in mois_iso.split("-"))
+        dernier_jour = calendar.monthrange(annee, mois)[1]
+
+        date_debut = f"{mois_iso}-01"
+        date_fin = f"{mois_iso}-{dernier_jour:02d}"
+
+        commandes = self.db.lire(
+            """
+            SELECT id
+            FROM commandes
+            WHERE actif = 1
+            AND date_commande >= ?
+            AND date_commande <= ?
+            """,
+            (date_debut, date_fin)
+        )
+
+        totaux = {
+            "Achat produits": 0,
+            "Transport": 0,
+            "Commissions & frais canal": 0,
+            "Frais de paiement": 0,
+            "SAV / retours": 0,
+        }
+
+        for c in commandes:
+
+            gain = self.gain_net_reel(c["id"])
+
+            if gain is None:
+                continue
+
+            totaux["Achat produits"] += gain["cout_achat_total_ht"]
+            totaux["Transport"] += (
+                gain["contribution_transport_ht"]
+                + gain["frais_port_reel_ht"]
+            )
+            totaux["Commissions & frais canal"] += (
+                gain["commission_ht"] + gain["frais_fixe_canal_ht"]
+            )
+            totaux["Frais de paiement"] += gain["frais_paiement_ht"]
+            totaux["SAV / retours"] += gain["cout_retours_ht"]
+
+        return [
+            {"poste": poste, "montant_ht": round(montant, 2)}
+            for poste, montant in totaux.items()
+            if montant > 0
+        ]
+
     def benefice_par_canal(self, mois_iso):
         """
         Bénéfice net réel du mois, réparti par canal de

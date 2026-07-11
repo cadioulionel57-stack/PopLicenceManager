@@ -272,6 +272,47 @@ class StatistiquesPage(QWidget):
 
         layout.addWidget(carteTresorerie)
 
+        ####################################################
+        # Répartition des coûts liés aux ventes
+        ####################################################
+
+        carteCharges = QFrame()
+        carteCharges.setObjectName("card")
+        layoutCharges = QVBoxLayout(carteCharges)
+
+        entêteCharges = QHBoxLayout()
+
+        titreCharges = QLabel("🥧 Répartition des coûts liés aux ventes")
+        titreCharges.setObjectName("sousTitre")
+        entêteCharges.addWidget(titreCharges)
+
+        entêteCharges.addStretch()
+
+        entêteCharges.addWidget(QLabel("Mois :"))
+
+        self.selecteurMoisCharges = QComboBox()
+        self.selecteurMoisCharges.currentIndexChanged.connect(
+            self.rafraichirCharges
+        )
+        entêteCharges.addWidget(self.selecteurMoisCharges)
+
+        layoutCharges.addLayout(entêteCharges)
+
+        self.labelVideCharges = QLabel(
+            "Aucune commande pour ce mois."
+        )
+        self.labelVideCharges.setStyleSheet("color:#7f8c8d; padding:20px;")
+        layoutCharges.addWidget(self.labelVideCharges)
+
+        self.chartViewCharges = QChartView()
+        self.chartViewCharges.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+        self.chartViewCharges.setMinimumHeight(420)
+        layoutCharges.addWidget(self.chartViewCharges)
+
+        layout.addWidget(carteCharges)
+
         layout.addStretch()
 
         self.charger()
@@ -330,6 +371,59 @@ class StatistiquesPage(QWidget):
         self.rafraichirBenefice()
 
         self.rafraichirTresorerie()
+
+        self.selecteurMoisCharges.blockSignals(True)
+        self.selecteurMoisCharges.clear()
+
+        for mois in mois_disponibles:
+            self.selecteurMoisCharges.addItem(mois, mois)
+
+        self.selecteurMoisCharges.blockSignals(False)
+
+        self.rafraichirCharges()
+
+    def rafraichirCharges(self):
+
+        mois = self.selecteurMoisCharges.currentData()
+
+        if mois is None:
+            return
+
+        donnees = self.manager.repartition_charges_mois(mois)
+
+        if not donnees:
+
+            self.labelVideCharges.setVisible(True)
+            self.chartViewCharges.setVisible(False)
+            return
+
+        self.labelVideCharges.setVisible(False)
+        self.chartViewCharges.setVisible(True)
+
+        series = QPieSeries()
+
+        for i, item in enumerate(donnees):
+
+            tranche = series.append(
+                f"{item['poste']} ({item['montant_ht']:.0f} € HT)",
+                item["montant_ht"]
+            )
+            tranche.setLabelVisible(True)
+            tranche.setColor(QColor(self.COULEURS[i % len(self.COULEURS)]))
+
+        chart = QChart()
+        chart.addSeries(series)
+        chart.setTitle(f"Répartition des coûts liés aux ventes — {mois}")
+
+        titleFont = QFont()
+        titleFont.setBold(True)
+        titleFont.setPointSize(11)
+        chart.setTitleFont(titleFont)
+
+        chart.legend().setVisible(True)
+        chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
+
+        self.chartViewCharges.setChart(chart)
 
     def rafraichirTresorerie(self):
 
