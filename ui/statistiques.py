@@ -405,7 +405,7 @@ class StatistiquesPage(QWidget):
         for i, item in enumerate(donnees):
 
             tranche = series.append(
-                f"{item['poste']} ({item['montant_ht']:.0f} € HT)",
+                f"{item['poste']} ({item['montant_ht']:.2f} € HT)",
                 item["montant_ht"]
             )
             tranche.setLabelVisible(True)
@@ -689,7 +689,7 @@ class StatistiquesPage(QWidget):
         for i, item in enumerate(donnees):
 
             tranche = series.append(
-                f"{item['canal']} ({item['ca_ht']:.0f} € HT)",
+                f"{item['canal']} ({item['ca_ht']:.2f} € HT)",
                 item["ca_ht"]
             )
             tranche.setLabelVisible(True)

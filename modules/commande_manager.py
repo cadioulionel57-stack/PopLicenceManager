@@ -1281,6 +1281,11 @@ class CommandeManager:
             for l in lignes
         )
 
+        montant_produits_ttc = sum(
+            (l["prix_unitaire_ttc"] or 0) * (l["quantite"] or 1)
+            for l in lignes
+        )
+
         cout_achat_total_ht = sum(
             (l["cout_achat_unitaire_ht"] or 0) * (l["quantite"] or 1)
             for l in lignes
@@ -1307,11 +1312,20 @@ class CommandeManager:
 
         encaisse_ht = montant_produits_ht + frais_port_client_ht
 
+        # La commission de vente et les frais de paiement
+        # (PayPal, Stripe, marketplace...) se calculent sur
+        # le montant TTC réellement encaissé — c'est ce
+        # montant-là qui transite chez le prestataire de
+        # paiement, jamais le HT.
+        encaisse_ttc = (
+            montant_produits_ttc + (commande["frais_port_client_ttc"] or 0)
+        )
+
         commission_pourcentage = (
             canal["commission_pourcentage"] or 0
         ) if canal else 0
 
-        commission_ht = encaisse_ht * (commission_pourcentage / 100)
+        commission_ht = encaisse_ttc * (commission_pourcentage / 100)
 
         # Frais fixe par vente du canal (ex : 0,35€ chez
         # eBay), et frais de paiement (% + montant fixe) —
@@ -1327,7 +1341,7 @@ class CommandeManager:
         )
 
         frais_paiement_ht = (
-            encaisse_ht * (frais_paiement_pourcentage / 100)
+            encaisse_ttc * (frais_paiement_pourcentage / 100)
             + frais_paiement_fixe_ht
         )
 
