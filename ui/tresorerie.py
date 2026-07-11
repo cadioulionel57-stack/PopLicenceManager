@@ -225,11 +225,7 @@ class TresoreriePage(QWidget):
         self.btnAjouterLignePub.clicked.connect(self.ajouterLignePub)
         entêtePub.addWidget(self.btnAjouterLignePub)
 
-        self.btnSaisirDepense = QPushButton("💸 Saisir une dépense")
-        self.btnSaisirDepense.clicked.connect(self.saisirDepensePub)
-        entêtePub.addWidget(self.btnSaisirDepense)
-
-        self.btnModifierLignePub = QPushButton("✏ Modifier")
+        self.btnModifierLignePub = QPushButton("✏ Modifier l'enveloppe")
         self.btnModifierLignePub.clicked.connect(self.modifierLignePub)
         entêtePub.addWidget(self.btnModifierLignePub)
 
@@ -240,11 +236,22 @@ class TresoreriePage(QWidget):
 
         layout.addLayout(entêtePub)
 
+        sousTitrePub = QLabel(
+            "Une ligne = une enveloppe globale (ex : Google "
+            "Shopping, 5040€ sur 15 mois). Clique sur une "
+            "ligne pour voir et remplir ses dépenses mois par "
+            "mois juste en dessous."
+        )
+        sousTitrePub.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
+        sousTitrePub.setWordWrap(True)
+        layout.addWidget(sousTitrePub)
+
         self.tableBudgetPub = QTableWidget()
         self.tableBudgetPub.setColumnCount(6)
         self.tableBudgetPub.setHorizontalHeaderLabels([
-            "ID", "Nom", "Enveloppe totale", "Dépensé à ce jour",
-            "Restant", "% consommé"
+            "ID", "Nom", "Enveloppe totale HT",
+            "Dépensé à ce jour (cumul de tous les mois saisis)",
+            "Restant sur l'enveloppe", "% déjà consommé"
         ])
         self.tableBudgetPub.setColumnHidden(0, True)
         self.tableBudgetPub.setAlternatingRowColors(True)
@@ -252,6 +259,42 @@ class TresoreriePage(QWidget):
             QHeaderView.Stretch
         )
         self.tableBudgetPub.verticalHeader().setVisible(False)
+        self.tableBudgetPub.itemSelectionChanged.connect(
+            self._chargerDetailMensuelPub
+        )
+        layout.addWidget(self.tableBudgetPub)
+
+        ####################################################
+        # Détail mensuel de la ligne sélectionnée
+        ####################################################
+
+        entêteDetailPub = QHBoxLayout()
+        self.labelDetailPub = QLabel(
+            "Détail mensuel — sélectionne une ligne ci-dessus"
+        )
+        entêteDetailPub.addWidget(self.labelDetailPub)
+        entêteDetailPub.addStretch()
+
+        self.btnAjouterMoisPub = QPushButton("➕ Ajouter un mois")
+        self.btnAjouterMoisPub.clicked.connect(self.ajouterMoisDetailPub)
+        entêteDetailPub.addWidget(self.btnAjouterMoisPub)
+
+        layout.addLayout(entêteDetailPub)
+
+        self.tableDetailPub = QTableWidget()
+        self.tableDetailPub.setColumnCount(2)
+        self.tableDetailPub.setHorizontalHeaderLabels([
+            "Mois (AAAA-MM)", "Montant dépensé HT"
+        ])
+        self.tableDetailPub.setMaximumHeight(180)
+        self.tableDetailPub.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch
+        )
+        self.tableDetailPub.verticalHeader().setVisible(False)
+        self.tableDetailPub.itemChanged.connect(
+            self.enregistrerDetailMensuelPub
+        )
+        layout.addWidget(self.tableDetailPub)
 
         layout.addWidget(self.tableBudgetPub)
 
@@ -407,34 +450,125 @@ class TresoreriePage(QWidget):
 
         self.charger()
 
-    def saisirDepensePub(self):
+    def _chargerDetailMensuelPub(self):
+        """
+        Affiche, dans le tableau du bas, toutes les dépenses
+        déjà saisies pour la ligne sélectionnée en haut —
+        modifiables directement dans le tableau (double-clic
+        sur une cellule).
+        """
 
         ligne = self.tableBudgetPub.currentRow()
 
+        self.tableDetailPub.blockSignals(True)
+        self.tableDetailPub.setRowCount(0)
+
         if ligne == -1:
-            QMessageBox.information(
-                self, "Information",
-                "Sélectionnez d'abord une ligne de budget."
+            self.labelDetailPub.setText(
+                "Détail mensuel — sélectionne une ligne ci-dessus"
             )
+            self._ligne_pub_selectionnee = None
+            self.tableDetailPub.blockSignals(False)
             return
 
         identifiant = int(self.tableBudgetPub.item(ligne, 0).text())
         ligne_data = self.managerBudgetPub.obtenir_ligne(identifiant)
 
-        dialog = BudgetPubDepenseDialog(
-            "Saisir une dépense", ligne_data["nom"]
+        self._ligne_pub_selectionnee = identifiant
+        self.labelDetailPub.setText(
+            f"Détail mensuel — {ligne_data['nom']}"
         )
 
-        if dialog.exec() != BudgetPubDepenseDialog.DialogCode.Accepted:
+        depenses = self.managerBudgetPub.depenses_ligne(identifiant)
+
+        for r, depense in enumerate(depenses):
+
+            self.tableDetailPub.insertRow(r)
+
+            itemMois = QTableWidgetItem(depense["mois"] or "")
+            itemMontant = QTableWidgetItem(
+                f"{depense['montant_reel_ht']:.2f}"
+            )
+
+            self.tableDetailPub.setItem(r, 0, itemMois)
+            self.tableDetailPub.setItem(r, 1, itemMontant)
+
+        self.tableDetailPub.blockSignals(False)
+
+    def ajouterMoisDetailPub(self):
+
+        if getattr(self, "_ligne_pub_selectionnee", None) is None:
+            QMessageBox.information(
+                self, "Information",
+                "Sélectionne d'abord une ligne de budget en haut."
+            )
+            return
+
+        ligne = self.tableDetailPub.rowCount()
+
+        # Signaux bloqués le temps d'insérer la ligne vide —
+        # sinon chaque setItem() déclenche une sauvegarde
+        # prématurée, avec un mois par défaut qui pourrait
+        # écraser un mois déjà rempli portant la même valeur.
+        self.tableDetailPub.blockSignals(True)
+
+        self.tableDetailPub.insertRow(ligne)
+
+        self.tableDetailPub.setItem(ligne, 0, QTableWidgetItem(""))
+        self.tableDetailPub.setItem(ligne, 1, QTableWidgetItem("0.00"))
+
+        self.tableDetailPub.blockSignals(False)
+
+        self.tableDetailPub.editItem(
+            self.tableDetailPub.item(ligne, 0)
+        )
+
+    def enregistrerDetailMensuelPub(self, item):
+        """
+        Sauvegarde automatiquement dès qu'une cellule du
+        détail mensuel est modifiée — pas besoin de bouton
+        "Enregistrer" séparé.
+        """
+
+        if getattr(self, "_ligne_pub_selectionnee", None) is None:
+            return
+
+        ligne = item.row()
+
+        item_mois = self.tableDetailPub.item(ligne, 0)
+        item_montant = self.tableDetailPub.item(ligne, 1)
+
+        if item_mois is None or item_montant is None:
+            return
+
+        mois = item_mois.text().strip()
+
+        try:
+            montant = float(item_montant.text().replace(",", "."))
+        except ValueError:
+            return
+
+        if not mois:
             return
 
         self.managerBudgetPub.definir_depense_mois(
-            identifiant,
-            dialog.mois.text().strip(),
-            dialog.montant.value(),
+            self._ligne_pub_selectionnee, mois, montant
         )
 
-        self.charger()
+        # Signaux bloqués pendant le rechargement du tableau
+        # du haut, pour ne pas déclencher en cascade un
+        # rechargement du détail du bas qui écraserait la
+        # ligne qu'on vient tout juste d'ajouter.
+        self.tableBudgetPub.blockSignals(True)
+        self._chargerTableBudgetPub()
+
+        for r in range(self.tableBudgetPub.rowCount()):
+
+            if int(self.tableBudgetPub.item(r, 0).text()) == self._ligne_pub_selectionnee:
+                self.tableBudgetPub.selectRow(r)
+                break
+
+        self.tableBudgetPub.blockSignals(False)
 
     def _chargerTableCharges(self, mois_iso):
 
