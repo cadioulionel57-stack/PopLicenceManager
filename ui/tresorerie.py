@@ -145,12 +145,35 @@ class TresoreriePage(QWidget):
         self.carteCroissance = carte("🌱 Fonds de Croissance", "#1e7d32")
         self.carteDeveloppement = carte("🛠 Fonds de Développement", "#8e44ad")
         self.carteReserve = carte("🛡 Réserve de Trésorerie", "#e67e22")
+        self.carteRenouvellementStock = carte("📦 Renouvellement Stock", "#144b8b")
 
         ligneKpi2.addWidget(self.carteCroissance)
         ligneKpi2.addWidget(self.carteDeveloppement)
         ligneKpi2.addWidget(self.carteReserve)
+        ligneKpi2.addWidget(self.carteRenouvellementStock)
 
         layout.addLayout(ligneKpi2)
+
+        ligneAjustementStock = QHBoxLayout()
+        ligneAjustementStock.addWidget(QLabel(
+            "Ajustement manuel du Renouvellement Stock "
+            "(positif pour ajouter, négatif pour retirer) :"
+        ))
+
+        self.champAjustementStock = QDoubleSpinBox()
+        self.champAjustementStock.setDecimals(2)
+        self.champAjustementStock.setMinimum(-999999)
+        self.champAjustementStock.setMaximum(999999)
+        self.champAjustementStock.setSuffix(" €")
+        ligneAjustementStock.addWidget(self.champAjustementStock)
+
+        self.btnAjustementStock = QPushButton("💾 Appliquer l'ajustement")
+        self.btnAjustementStock.clicked.connect(self.enregistrerAjustementStock)
+        ligneAjustementStock.addWidget(self.btnAjustementStock)
+
+        ligneAjustementStock.addStretch()
+
+        layout.addLayout(ligneAjustementStock)
 
         ####################################################
         # Charges du mois
@@ -266,9 +289,23 @@ class TresoreriePage(QWidget):
         self.carteReserve.labelValeur.setText(
             f"{self.manager.reserve_tresorerie():.2f} €"
         )
+        self.carteRenouvellementStock.labelValeur.setText(
+            f"{self.manager.renouvellement_stock_total():.2f} €"
+        )
+        self.champAjustementStock.setValue(
+            self.manager.ajustement_manuel_stock()
+        )
 
         self._chargerTableCharges(mois_actuel)
         self._chargerTableBudgetPub()
+
+    def enregistrerAjustementStock(self):
+
+        self.manager.definir_ajustement_manuel_stock(
+            self.champAjustementStock.value()
+        )
+
+        self.charger()
 
     def _chargerTableBudgetPub(self):
 

@@ -790,6 +790,41 @@ class CommandeManager:
 
         return self.tva_periode(debut_mois, aujourdhui.isoformat())
 
+    def total_cout_achat_vendu(self):
+        """
+        Somme du coût d'achat fournisseur de tous les
+        produits vendus, toutes commandes actives confondues
+        — alimente le KPI "Renouvellement Stock" (ce qui a
+        été récupéré sur les ventes pour racheter du stock).
+
+        Recalculé en direct à chaque fois depuis les lignes
+        de commande, jamais stocké — comme les Fonds
+        Développement/Réserve, pas de risque de double
+        comptage à chaque relance du logiciel.
+        """
+
+        lignes = self.db.lire(
+            """
+            SELECT
+                lc.quantite,
+                lc.cout_achat_unitaire_ht
+            FROM lignes_commandes lc
+
+            INNER JOIN commandes co
+                ON co.id = lc.commande_id
+
+            WHERE lc.actif = 1
+            AND co.actif = 1
+            """
+        )
+
+        total = sum(
+            (l["cout_achat_unitaire_ht"] or 0) * (l["quantite"] or 1)
+            for l in lignes
+        )
+
+        return round(total, 2)
+
     def gain_net_reel(self, commande_id):
         """
         Calcule le gain net réel d'une commande, en tenant

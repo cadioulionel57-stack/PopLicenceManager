@@ -1105,6 +1105,20 @@ SCHEMA["paiements_charges"] = [
 ]
 
 
+SCHEMA["renouvellement_stock"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Singleton : ajustement manuel libre (positif pour
+    # ajouter une somme, négatif pour en retirer) — vient
+    # s'ajouter au cumul automatique du coût d'achat de
+    # chaque produit vendu (calculé en direct depuis les
+    # commandes, jamais stocké ici).
+    ("ajustement_manuel", "REAL DEFAULT 0")
+
+]
+
+
 SCHEMA["fonds_croissance"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),

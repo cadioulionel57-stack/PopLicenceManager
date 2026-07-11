@@ -348,6 +348,71 @@ class TresorerieManager:
 
         return round(solde * 0.40, 2)
 
+    ########################################################
+    # Renouvellement Stock
+    ########################################################
+
+    def _obtenir_renouvellement_stock(self):
+
+        ligne = self.db.lire_un(
+            """
+            SELECT * FROM renouvellement_stock LIMIT 1
+            """
+        )
+
+        if ligne is None:
+
+            self.db.executer(
+                """
+                INSERT INTO renouvellement_stock (ajustement_manuel)
+                VALUES (0)
+                """
+            )
+
+            ligne = self.db.lire_un(
+                """
+                SELECT * FROM renouvellement_stock LIMIT 1
+                """
+            )
+
+        return ligne
+
+    def ajustement_manuel_stock(self):
+
+        return self._obtenir_renouvellement_stock()["ajustement_manuel"] or 0
+
+    def definir_ajustement_manuel_stock(self, montant):
+        """
+        Fixe l'ajustement manuel libre (positif pour ajouter
+        une somme au Renouvellement Stock, négatif pour en
+        retirer).
+        """
+
+        ligne = self._obtenir_renouvellement_stock()
+
+        self.db.executer(
+            """
+            UPDATE renouvellement_stock
+            SET ajustement_manuel = ?
+            WHERE id = ?
+            """,
+            (montant, ligne["id"])
+        )
+
+    def renouvellement_stock_total(self):
+        """
+        Coût d'achat cumulé de tout ce qui a été vendu
+        (calculé en direct depuis les commandes) + ajustement
+        manuel libre.
+        """
+
+        from modules.commande_manager import CommandeManager
+
+        cout_ventes = CommandeManager().total_cout_achat_vendu()
+        ajustement = self.ajustement_manuel_stock()
+
+        return round(cout_ventes + ajustement, 2)
+
     def _obtenir_fonds_croissance(self):
 
         ligne = self.db.lire_un(
