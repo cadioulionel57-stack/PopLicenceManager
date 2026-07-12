@@ -261,6 +261,31 @@ SCHEMA["marques"] = [
 ]
 
 
+SCHEMA["modeles_fiche_produit"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT"),
+
+    ("categorie_site_id", "INTEGER"),
+
+    # 'stock' ou 'dropshipping'.
+    ("type_produit", "TEXT"),
+
+    # Le code HTML complet de la charte, avec des variables
+    # entre doubles accolades (ex: {{nom_produit}}) que le
+    # logiciel remplace à l'export.
+    ("html_template", "TEXT"),
+
+    # Un seul modèle actif à la fois par combinaison
+    # catégorie+type — celui utilisé à l'export. Les autres
+    # (Noël, soldes...) restent en mémoire, prêts à être
+    # réactivés d'un clic.
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
 SCHEMA["categories_site"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
