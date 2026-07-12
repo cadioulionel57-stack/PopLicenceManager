@@ -125,6 +125,25 @@ class ReferenceManager:
             )
         )
 
+    def definir_champ(self, table, identifiant, colonne, valeur):
+        """
+        Modifie un seul champ précis d'une ligne, dans une
+        table qui a des colonnes en plus du socle commun
+        (nom/description/actif) — par exemple id_wizishop
+        sur les Marques, sans avoir à dupliquer ajouter()/
+        modifier() pour chaque champ spécifique à une seule
+        table.
+        """
+
+        self.db.executer(
+            f"""
+            UPDATE {table}
+            SET {colonne} = ?
+            WHERE id = ?
+            """,
+            (valeur, identifiant)
+        )
+
     def supprimer(
         self,
         table,

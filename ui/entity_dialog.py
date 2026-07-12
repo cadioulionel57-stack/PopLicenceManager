@@ -18,7 +18,9 @@ class EntityDialog(QDialog):
         titre,
         nom="",
         description="",
-        actif=True
+        actif=True,
+        champ_supplementaire_label=None,
+        champ_supplementaire_valeur="",
     ):
 
         super().__init__()
@@ -95,6 +97,25 @@ class EntityDialog(QDialog):
         layout.addWidget(self.nom)
 
         layout.addSpacing(10)
+
+        # Champ supplémentaire optionnel — n'apparaît que si
+        # un libellé est fourni (ex : "ID WiziShop" pour les
+        # Marques), pour rester générique sur les autres
+        # tables de référence qui n'en ont pas besoin.
+        self.champSupplementaire = None
+
+        if champ_supplementaire_label:
+
+            layout.addWidget(QLabel(champ_supplementaire_label))
+
+            self.champSupplementaire = QLineEdit()
+            self.champSupplementaire.setText(
+                champ_supplementaire_valeur or ""
+            )
+
+            layout.addWidget(self.champSupplementaire)
+
+            layout.addSpacing(10)
 
         layout.addWidget(QLabel("Description"))
 

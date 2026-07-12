@@ -99,6 +99,20 @@ SCHEMA = {
 
         ("image_principale", "TEXT"),
 
+        # Catégorie du site (pointe vers la sous-catégorie,
+        # WiziShop exigeant les deux niveaux — la catégorie
+        # principale se retrouve via categorie_parente_id).
+        # Uniquement pertinent pour les produits destinés au
+        # site (Site+Drop).
+        ("categorie_site_id", "INTEGER"),
+
+        # Identifiant attribué par WiziShop une fois le
+        # produit importé (le #N) — vide tant qu'il n'a
+        # jamais été exporté/importé, permet ensuite de
+        # mettre à jour la bonne fiche plutôt que d'en
+        # recréer une nouvelle.
+        ("id_wizishop", "TEXT"),
+
         ("actif", "INTEGER DEFAULT 1")
 
     ]
@@ -233,7 +247,32 @@ SCHEMA["marques"] = [
 
     ("nom", "TEXT UNIQUE"),
 
+    # Identifiant WiziShop de cette marque (le #N visible
+    # dans Produits > Marques sur WiziShop) — obligatoire
+    # pour l'export CSV du catalogue.
+    ("id_wizishop", "TEXT"),
+
     ("description", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["categories_site"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT"),
+
+    # Identifiant WiziShop de cette catégorie (le #N visible
+    # dans Produits > Catégories sur WiziShop).
+    ("id_wizishop", "TEXT"),
+
+    # NULL = catégorie principale. Sinon, référence l'id
+    # d'une autre ligne de cette même table : c'est une
+    # sous-catégorie rattachée à cette catégorie principale.
+    ("categorie_parente_id", "INTEGER"),
 
     ("actif", "INTEGER DEFAULT 1")
 

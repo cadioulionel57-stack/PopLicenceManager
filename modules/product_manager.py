@@ -42,6 +42,8 @@ class ProductManager:
         eligible_papier_cadeau=False,
         statut_stock="actif",
         fiche_a_terminer=False,
+        image_principale=None,
+        categorie_site_id=None,
     ):
         """
         Crée un produit et renvoie son identifiant
@@ -86,11 +88,13 @@ class ProductManager:
                 eligible_papier_cadeau,
                 statut_stock,
                 fiche_a_terminer,
+                image_principale,
+                categorie_site_id,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -127,6 +131,8 @@ class ProductManager:
                 1 if eligible_papier_cadeau else 0,
                 statut_stock,
                 1 if fiche_a_terminer else 0,
+                image_principale,
+                categorie_site_id,
             )
         )
 
@@ -236,6 +242,8 @@ class ProductManager:
         eligible_papier_cadeau=False,
         statut_stock="actif",
         fiche_a_terminer=False,
+        image_principale=None,
+        categorie_site_id=None,
     ):
 
         self.db.executer(
@@ -273,7 +281,9 @@ class ProductManager:
                 description_longue = ?,
                 eligible_papier_cadeau = ?,
                 statut_stock = ?,
-                fiche_a_terminer = ?
+                fiche_a_terminer = ?,
+                image_principale = ?,
+                categorie_site_id = ?
             WHERE id = ?
             """,
             (
@@ -309,6 +319,8 @@ class ProductManager:
                 1 if eligible_papier_cadeau else 0,
                 statut_stock,
                 1 if fiche_a_terminer else 0,
+                image_principale,
+                categorie_site_id,
                 identifiant
             )
         )

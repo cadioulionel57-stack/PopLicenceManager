@@ -13,6 +13,7 @@ from ui.tabs.tab_caracteristiques import CaracteristiquesTab
 from ui.tabs.tab_publication import PublicationTab
 from ui.tabs.tab_tarification import TarificationTab
 from ui.tabs.tab_seo import SeoTab
+from ui.tabs.tab_images import ImagesTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
@@ -348,6 +349,10 @@ class ProductDialogV2(QDialog):
 
             self.pagePublication.charger(canaux_produit)
 
+            self.pagePublication.definir_categorie_site(
+                self.produit["categorie_site_id"]
+            )
+
         ####################################################
         # Onglet Tarification
         ####################################################
@@ -463,7 +468,16 @@ class ProductDialogV2(QDialog):
         # Autres onglets
         ####################################################
 
-        self.tabs.addTab(QWidget(), "🖼 Images")
+        ####################################################
+        # Images
+        ####################################################
+
+        self.pageImages = ImagesTab()
+        self.tabs.addTab(self.pageImages, "🖼 Images")
+
+        if self.produit is not None:
+            self.pageImages.charger(self.produit["image_principale"])
+
         self.tabs.addTab(QWidget(), "📜 Historique")
 
         ####################################################
@@ -642,6 +656,10 @@ class ProductDialogV2(QDialog):
 
                 fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
 
+                image_principale=self.pageImages.image_principale(),
+
+                categorie_site_id=self.pagePublication.categorie_site_id(),
+
             )
 
         else:
@@ -713,6 +731,10 @@ class ProductDialogV2(QDialog):
                 statut_stock=self.pageGeneral.statut_stock(),
 
                 fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
+
+                image_principale=self.pageImages.image_principale(),
+
+                categorie_site_id=self.pagePublication.categorie_site_id(),
 
             )
 

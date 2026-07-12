@@ -26,6 +26,7 @@ from ui.achats_stocks import AchatsStocksPage
 from ui.tresorerie import TresoreriePage
 from ui.budget_publicite import BudgetPublicitePage
 from ui.statistiques import StatistiquesPage
+from ui.categories_site import CategoriesSitePage
 from ui.politique_transport import PolitiqueTransportPage
 from ui.fournisseurs import FournisseursPage
 from ui.commandes import CommandesPage
@@ -296,6 +297,7 @@ class MainWindow(QMainWindow):
         self.pageTresorerie = TresoreriePage()
         self.pageBudgetPublicite = BudgetPublicitePage()
         self.pageStatistiques = StatistiquesPage()
+        self.pageCategoriesSite = CategoriesSitePage()
 
         self.pages.addWidget(self.pageProduits)
         self.pages.addWidget(self.pageLicences)
@@ -315,6 +317,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.pageTresorerie)
         self.pages.addWidget(self.pageBudgetPublicite)
         self.pages.addWidget(self.pageStatistiques)
+        self.pages.addWidget(self.pageCategoriesSite)
 
                 #################################################
         # CONNEXIONS
@@ -409,6 +412,12 @@ class MainWindow(QMainWindow):
             lambda: (
                 self.pages.setCurrentIndex(18),
                 self.pageStatistiques.charger()
+            )
+        )
+        self.boutons["⚙️  Paramètres"].clicked.connect(
+            lambda: (
+                self.pages.setCurrentIndex(19),
+                self.pageCategoriesSite.charger()
             )
         )
         #################################################

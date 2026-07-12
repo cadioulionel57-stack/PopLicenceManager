@@ -8,9 +8,11 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QLineEdit,
     QComboBox,
+    QFormLayout,
 )
 
 from modules.canal_manager import CanalManager
+from modules.categorie_site_manager import CategorieSiteManager
 
 
 STATUTS = [
@@ -117,7 +119,40 @@ class PublicationTab(QWidget):
             }
 
         layout.addWidget(groupe)
+
+        ####################################################
+        # Catégorie du site (WiziShop) — uniquement utile
+        # pour un produit vendu sur le site.
+        ####################################################
+
+        groupeCategorie = QGroupBox("🏷 Catégorie du site (WiziShop)")
+        formCategorie = QFormLayout(groupeCategorie)
+
+        self.categorieSite = QComboBox()
+        self.categorieSite.addItem("— Aucune —", None)
+
+        for sous in CategorieSiteManager().toutes_sous_categories():
+
+            self.categorieSite.addItem(
+                f"{sous['nom_parent']} > {sous['nom']}", sous["id"]
+            )
+
+        formCategorie.addRow("Catégorie / Sous-catégorie", self.categorieSite)
+
+        layout.addWidget(groupeCategorie)
+
         layout.addStretch()
+
+    def categorie_site_id(self):
+
+        return self.categorieSite.currentData()
+
+    def definir_categorie_site(self, categorie_site_id):
+
+        index = self.categorieSite.findData(categorie_site_id)
+
+        if index != -1:
+            self.categorieSite.setCurrentIndex(index)
 
     def canaux_selectionnes(self):
         """
