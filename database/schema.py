@@ -87,6 +87,14 @@ SCHEMA = {
         # couleur dans la liste des produits.
         ("statut_stock", "TEXT DEFAULT 'actif'"),
 
+        # Quantité réellement en stock — distincte du statut
+        # ci-dessus (qui dit si tu vends encore ce produit,
+        # pas combien tu en as). Nécessaire pour l'export
+        # WiziShop ("Nombre de produits en stock"), et pour
+        # que ce nombre reste juste si un produit est un
+        # jour réimporté depuis WiziShop puis réexporté.
+        ("quantite_stock", "INTEGER DEFAULT 0"),
+
         # Coché automatiquement quand la fiche est créée en
         # vitesse depuis "Achats Stocks" (nom + prix d'achat
         # seulement) — signale qu'il manque des infos avant

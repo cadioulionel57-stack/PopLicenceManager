@@ -50,6 +50,7 @@ class ProductManager:
         instructions_entretien=None,
         coupe_type=None,
         type_manche=None,
+        quantite_stock=0,
         categorie_site_id=None,
     ):
         """
@@ -103,12 +104,13 @@ class ProductManager:
                 instructions_entretien,
                 coupe_type,
                 type_manche,
+                quantite_stock,
                 categorie_site_id,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -153,6 +155,7 @@ class ProductManager:
                 instructions_entretien,
                 coupe_type,
                 type_manche,
+                quantite_stock,
                 categorie_site_id,
             )
         )
@@ -271,6 +274,7 @@ class ProductManager:
         instructions_entretien=None,
         coupe_type=None,
         type_manche=None,
+        quantite_stock=0,
         categorie_site_id=None,
     ):
 
@@ -318,6 +322,7 @@ class ProductManager:
                 instructions_entretien = ?,
                 coupe_type = ?,
                 type_manche = ?,
+                quantite_stock = ?,
                 categorie_site_id = ?
             WHERE id = ?
             """,
@@ -362,6 +367,7 @@ class ProductManager:
                 instructions_entretien,
                 coupe_type,
                 type_manche,
+                quantite_stock,
                 categorie_site_id,
                 identifiant
             )

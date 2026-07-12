@@ -48,6 +48,26 @@ class ImagesTab(QWidget):
         form.addRow("Photo 3", self.image3)
 
         layout.addWidget(groupe)
+
+        groupeAmbiance = QGroupBox("🎨 Image d'ambiance (fiche HTML)")
+        formAmbiance = QFormLayout(groupeAmbiance)
+
+        infoAmbiance = QLabel(
+            "Image de fond utilisée dans la section \"Univers "
+            "produit\" de la fiche HTML générée — distincte des "
+            "photos ci-dessus, modifiable facilement sans toucher "
+            "aux vraies photos du produit."
+        )
+        infoAmbiance.setWordWrap(True)
+        infoAmbiance.setStyleSheet("color:#5a6b7d; font-size:9pt;")
+        formAmbiance.addRow(infoAmbiance)
+
+        self.imageAmbiance = QLineEdit()
+        self.imageAmbiance.setPlaceholderText("https://...")
+        formAmbiance.addRow("URL de l'image d'ambiance", self.imageAmbiance)
+
+        layout.addWidget(groupeAmbiance)
+
         layout.addStretch()
 
     def image_principale(self):
@@ -62,8 +82,13 @@ class ImagesTab(QWidget):
 
         return self.image3.text().strip() or None
 
-    def charger(self, image_principale, image_2, image_3):
+    def image_ambiance(self):
+
+        return self.imageAmbiance.text().strip() or None
+
+    def charger(self, image_principale, image_2, image_3, image_ambiance):
 
         self.imagePrincipale.setText(image_principale or "")
         self.image2.setText(image_2 or "")
         self.image3.setText(image_3 or "")
+        self.imageAmbiance.setText(image_ambiance or "")

@@ -236,15 +236,17 @@ class SeoGenerator:
         description_longue = " ".join(paragraphes)
 
         ##################################################
-        # Meta description
+        # Meta description — le prix n'y figure jamais : un
+        # changement de tarif oublié à cet endroit pourrait
+        # nuire au SEO sans aucun bénéfice réel (les extraits
+        # enrichis avec le prix passent par les données
+        # structurées Schema.org, pas par la meta description).
         ##################################################
-
-        phrase_prix = f" dès {prix_ttc:.2f}€" if prix_ttc else ""
 
         meta_description = (
             f"Achetez {nom_produit}"
             f"{' ' + licence_nom if licence_nom and not licence_deja_mentionnee else ''}"
-            f"{phrase_prix} chez {cls.NOM_SITE}."
+            f" chez {cls.NOM_SITE}."
             f"{' ' + caracteristique + '.' if caracteristique else ''} "
             f"Produit officiel, livraison rapide et sécurisée."
         )
@@ -256,68 +258,32 @@ class SeoGenerator:
 
         ##################################################
         # Mots-clés
-        #
-        # Objectif : couvrir les différentes façons dont un
-        # client formule sa recherche (utile pour le moteur
-        # de recherche interne WiziShop et les marketplaces
-        # — Google, lui, n'utilise plus ce champ depuis
-        # 2009, la vraie valeur SEO Google se joue dans le
-        # titre/description). Jamais de marque/fabricant,
-        # matière ou couleur en mot-clé : personne ne
-        # recherche un produit par ces critères.
         ##################################################
 
-        type_generique = nom_produit
+        candidats = []
 
-        if licence_nom:
+        candidats.extend(nom_produit.split())
 
-            type_generique = re.sub(
-                re.escape(licence_nom), "", nom_produit,
-                flags=re.IGNORECASE
-            )
-            type_generique = re.sub(r"\s+", " ", type_generique).strip()
+        for valeur in (licence_nom, marque_nom, categorie_nom, couleur, matiere):
 
-        premier_mot_type = (
-            type_generique.split()[0] if type_generique else ""
-        )
-
-        candidats = [nom_produit]
-
-        if licence_nom:
-
-            candidats.append(licence_nom)
-
-            if not licence_deja_mentionnee:
-                candidats.append(f"{nom_produit} {licence_nom}")
-
-            if type_generique and type_generique != nom_produit:
-                candidats.append(f"{type_generique} {licence_nom}")
-
-            if premier_mot_type:
-                candidats.append(f"{premier_mot_type} {licence_nom}")
-
-        if type_generique:
-            candidats.append(type_generique)
-
-        if categorie_nom:
-
-            candidats.append(categorie_nom)
-
-            if licence_nom:
-                candidats.append(f"{categorie_nom} {licence_nom}")
+            if valeur:
+                candidats.append(valeur)
 
         mots_cles_dedupliques = []
         vus = set()
 
-        for expression in candidats:
+        for mot in candidats:
 
-            expression_propre = expression.strip().lower()
+            mot_propre = mot.strip().lower()
 
-            if not expression_propre or expression_propre in vus:
+            if len(mot_propre) < 3:
                 continue
 
-            vus.add(expression_propre)
-            mots_cles_dedupliques.append(expression.strip())
+            if mot_propre in vus:
+                continue
+
+            vus.add(mot_propre)
+            mots_cles_dedupliques.append(mot_propre)
 
         mots_cles = ", ".join(mots_cles_dedupliques)
 

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QComboBox,
     QDoubleSpinBox,
+    QSpinBox,
     QCheckBox,
 )
 from PySide6.QtGui import QColor
@@ -60,6 +61,16 @@ class GeneralTab(QWidget):
         self._majCouleurStatut()
 
         formOrigine.addRow("Statut du produit", self.statutStock)
+
+        self.quantiteStock = QSpinBox()
+        self.quantiteStock.setMaximum(99999)
+        self.quantiteStock.setToolTip(
+            "Quantité réellement en stock — distincte du statut "
+            "ci-dessus. Sert de base au \"Nombre de produits en "
+            "stock\" exporté vers WiziShop, et reste juste même si "
+            "ce produit est un jour réimporté puis réexporté."
+        )
+        formOrigine.addRow("Quantité en stock", self.quantiteStock)
 
         self.ficheATerminer = QCheckBox(
             "⚠ Fiche à compléter (créée rapidement, infos "

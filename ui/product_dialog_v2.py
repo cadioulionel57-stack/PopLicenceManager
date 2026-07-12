@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.tabs.tab_general import GeneralTab
-from ui.tabs.tab_caracteristiques import CaracteristiquesTab
+from ui.tabs.tab_caracteristiquesv2 import CaracteristiquesTab
 from ui.tabs.tab_publication import PublicationTab
 from ui.tabs.tab_tarification import TarificationTab
 from ui.tabs.tab_seo import SeoTab
@@ -302,6 +302,10 @@ class ProductDialogV2(QDialog):
 
             self.pageGeneral.selectionner_statut_stock(
                 self.produit["statut_stock"]
+            )
+
+            self.pageGeneral.quantiteStock.setValue(
+                self.produit["quantite_stock"] or 0
             )
 
             self.pageGeneral.ficheATerminer.setChecked(
@@ -667,6 +671,8 @@ class ProductDialogV2(QDialog):
 
                 statut_stock=self.pageGeneral.statut_stock(),
 
+                quantite_stock=self.pageGeneral.quantiteStock.value(),
+
                 fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
 
                 image_principale=self.pageImages.image_principale(),
@@ -756,6 +762,8 @@ class ProductDialogV2(QDialog):
                 eligible_papier_cadeau=self.pageCaracteristiques.eligiblePapierCadeau.isChecked(),
 
                 statut_stock=self.pageGeneral.statut_stock(),
+
+                quantite_stock=self.pageGeneral.quantiteStock.value(),
 
                 fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
 
