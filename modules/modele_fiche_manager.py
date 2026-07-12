@@ -4,12 +4,15 @@ from database.database import Database
 class ModeleFicheManager:
     """
     Gère les modèles de fiche produit (chartes HTML) par
-    thème + type de produit (stock/dropshipping/les_deux) —
-    un seul actif à la fois par thème+type effectif (le
-    modèle "Automatique"), les autres (Noël, soldes...)
+    thème, chacun couvrant un ou plusieurs types de produit
+    (stock, dropshipping, bundle, précommande) — un seul
+    actif à la fois par thème pour chaque type qu'il couvre
+    (le modèle "Automatique"), les autres (Noël, soldes...)
     restent en mémoire pour être réactivés plus tard sans
     avoir à les recréer.
     """
+
+    TOUS_LES_TYPES = ["stock", "dropshipping", "bundle", "precommande"]
 
     def __init__(self):
 
@@ -17,7 +20,7 @@ class ModeleFicheManager:
 
     def tous(self):
 
-        return self.db.lire(
+        modeles = self.db.lire(
             """
             SELECT
                 mfp.*,
@@ -27,40 +30,93 @@ class ModeleFicheManager:
             LEFT JOIN themes_template t
                 ON t.id = mfp.theme_id
 
-            ORDER BY t.nom, mfp.type_produit, mfp.nom
+            ORDER BY t.nom, mfp.nom
             """
         )
 
-    def pour_type(self, type_produit):
+        resultat = []
+
+        for modele in modeles:
+
+            ligne = dict(modele)
+            ligne["types"] = self.types_du_modele(modele["id"])
+            resultat.append(ligne)
+
+        return resultat
+
+    def types_du_modele(self, modele_id):
         """
-        Tous les modèles disponibles pour un type de produit
-        donné — inclut ceux propres à ce type ET ceux marqués
-        "les_deux". Sert à peupler le menu déroulant de
-        sélection directe sur la fiche produit (le mode
-        "forcer un modèle précis").
+        Liste des types de produit couverts par ce modèle
+        (ex : ['stock', 'dropshipping']).
         """
 
-        return self.db.lire(
+        lignes = self.db.lire(
             """
-            SELECT
+            SELECT type_produit
+            FROM modeles_fiche_types
+            WHERE modele_id = ?
+            """,
+            (modele_id,)
+        )
+
+        return [l["type_produit"] for l in lignes]
+
+    def definir_types(self, modele_id, types_liste):
+        """
+        Remplace entièrement les types couverts par ce
+        modèle.
+        """
+
+        self.db.executer(
+            """
+            DELETE FROM modeles_fiche_types
+            WHERE modele_id = ?
+            """,
+            (modele_id,)
+        )
+
+        for type_produit in types_liste:
+
+            self.db.executer(
+                """
+                INSERT INTO modeles_fiche_types
+                (modele_id, type_produit)
+                VALUES (?, ?)
+                """,
+                (modele_id, type_produit)
+            )
+
+    def pour_type(self, type_produit):
+        """
+        Tous les modèles couvrant ce type de produit — sert
+        à peupler le menu déroulant de sélection directe sur
+        la fiche produit (le mode "forcer un modèle précis").
+        """
+
+        modeles = self.db.lire(
+            """
+            SELECT DISTINCT
                 mfp.*,
                 t.nom AS nom_theme
             FROM modeles_fiche_produit mfp
 
+            INNER JOIN modeles_fiche_types mft
+                ON mft.modele_id = mfp.id
+                AND mft.type_produit = ?
+
             LEFT JOIN themes_template t
                 ON t.id = mfp.theme_id
-
-            WHERE mfp.type_produit = ?
-            OR mfp.type_produit = 'les_deux'
 
             ORDER BY t.nom, mfp.nom
             """,
             (type_produit,)
         )
 
+        return modeles
+
     def obtenir(self, identifiant):
 
-        return self.db.lire_un(
+        modele = self.db.lire_un(
             """
             SELECT *
             FROM modeles_fiche_produit
@@ -69,100 +125,91 @@ class ModeleFicheManager:
             (identifiant,)
         )
 
+        if modele is None:
+            return None
+
+        ligne = dict(modele)
+        ligne["types"] = self.types_du_modele(identifiant)
+
+        return ligne
+
     def obtenir_actif(self, theme_id, type_produit):
         """
-        Le modèle actif ("Automatique") pour ce thème+type —
-        celui utilisé par les produits qui n'ont pas de
-        modèle forcé. Un modèle propre à ce type précis
-        (stock ou dropshipping) est toujours prioritaire sur
-        un modèle "les_deux" actif en même temps — ça permet
-        à un modèle "les_deux" (Noël) de continuer à couvrir
-        le Direct Fournisseur même si on réactive entre-temps
-        un modèle "stock" normal, sans qu'ils s'excluent
-        mutuellement. None si aucun des deux n'existe.
+        Le modèle actif ("Automatique") pour ce thème, parmi
+        ceux qui couvrent ce type de produit précis. None si
+        aucun n'existe.
         """
 
         if theme_id is None:
             return None
 
-        specifique = self.db.lire_un(
-            """
-            SELECT *
-            FROM modeles_fiche_produit
-            WHERE theme_id = ?
-            AND type_produit = ?
-            AND actif = 1
-            """,
-            (theme_id, type_produit)
-        )
-
-        if specifique is not None:
-            return specifique
-
         return self.db.lire_un(
             """
-            SELECT *
-            FROM modeles_fiche_produit
-            WHERE theme_id = ?
-            AND type_produit = 'les_deux'
-            AND actif = 1
+            SELECT mfp.*
+            FROM modeles_fiche_produit mfp
+
+            INNER JOIN modeles_fiche_types mft
+                ON mft.modele_id = mfp.id
+                AND mft.type_produit = ?
+
+            WHERE mfp.theme_id = ?
+            AND mfp.actif = 1
             """,
-            (theme_id,)
+            (type_produit, theme_id)
         )
 
     def ajouter(
-        self, nom, theme_id, type_produit, html_template,
+        self, nom, theme_id, types_liste, html_template,
         types_articles_concernes=""
     ):
 
         curseur = self.db.executer(
             """
             INSERT INTO modeles_fiche_produit
-            (nom, theme_id, type_produit, html_template,
+            (nom, theme_id, html_template,
              types_articles_concernes, actif)
-            VALUES (?, ?, ?, ?, ?, 0)
+            VALUES (?, ?, ?, ?, 0)
             """,
-            (nom, theme_id, type_produit, html_template,
-             types_articles_concernes)
+            (nom, theme_id, html_template, types_articles_concernes)
         )
 
-        return curseur.lastrowid
+        modele_id = curseur.lastrowid
+
+        self.definir_types(modele_id, types_liste)
+
+        return modele_id
 
     def modifier(
-        self, identifiant, nom, theme_id, type_produit,
+        self, identifiant, nom, theme_id, types_liste,
         html_template, types_articles_concernes=""
     ):
 
         self.db.executer(
             """
             UPDATE modeles_fiche_produit
-            SET nom = ?, theme_id = ?, type_produit = ?,
-                html_template = ?, types_articles_concernes = ?
+            SET nom = ?, theme_id = ?, html_template = ?,
+                types_articles_concernes = ?
             WHERE id = ?
             """,
-            (nom, theme_id, type_produit, html_template,
-             types_articles_concernes, identifiant)
+            (nom, theme_id, html_template, types_articles_concernes,
+             identifiant)
         )
+
+        self.definir_types(identifiant, types_liste)
 
     def basculer_actif(self, identifiant):
         """
-        Active ce modèle. La désactivation des autres suit
-        une règle volontairement asymétrique :
+        Active ce modèle. Désactive tout autre modèle du
+        même thème qui couvre AU MOINS UN type en commun
+        avec celui-ci (ex : activer un modèle "Soldes" qui
+        ne couvre que le stock désactive le modèle stock
+        normal, mais laisse tranquille un modèle dédié
+        uniquement au dropshipping, qui ne partage aucun
+        type avec les soldes).
 
-        - Activer un modèle "les_deux" (Noël, soldes...)
-          désactive TOUS les autres modèles du thème (stock,
-          dropshipping, les_deux) — il prend le contrôle
-          complet du thème, pour les deux types.
-        - Activer un modèle "stock" ou "dropshipping" ne
-          désactive que les autres modèles de ce même type
-          précis — un modèle "les_deux" déjà actif reste
-          actif pour l'autre type (ex : réactiver un modèle
-          stock normal ne coupe pas la couverture Direct
-          Fournisseur d'un Noël toujours en place).
-
-        C'est obtenir_actif() qui donne ensuite la priorité
-        au modèle le plus spécifique (stock/dropshipping)
-        sur un "les_deux" actif en même temps.
+        Bascule d'un coup tous les produits en mode
+        "Automatique" concernés, pour chacun des types
+        couverts par ce modèle.
         """
 
         modele = self.obtenir(identifiant)
@@ -170,27 +217,49 @@ class ModeleFicheManager:
         if modele is None:
             return
 
-        if modele["type_produit"] == "les_deux":
+        types_de_ce_modele = modele["types"]
 
+        if not types_de_ce_modele:
+            # Aucun type coché : on l'active quand même,
+            # mais il ne sera jamais choisi automatiquement
+            # nulle part tant qu'aucun type ne lui est
+            # rattaché.
             self.db.executer(
                 """
                 UPDATE modeles_fiche_produit
-                SET actif = 0
-                WHERE theme_id = ?
+                SET actif = 1
+                WHERE id = ?
                 """,
-                (modele["theme_id"],)
+                (identifiant,)
             )
+            return
 
-        else:
+        placeholders = ",".join("?" * len(types_de_ce_modele))
+
+        autres_modeles_concernes = self.db.lire(
+            f"""
+            SELECT DISTINCT mfp.id
+            FROM modeles_fiche_produit mfp
+
+            INNER JOIN modeles_fiche_types mft
+                ON mft.modele_id = mfp.id
+                AND mft.type_produit IN ({placeholders})
+
+            WHERE mfp.theme_id = ?
+            AND mfp.id != ?
+            """,
+            (*types_de_ce_modele, modele["theme_id"], identifiant)
+        )
+
+        for autre in autres_modeles_concernes:
 
             self.db.executer(
                 """
                 UPDATE modeles_fiche_produit
                 SET actif = 0
-                WHERE theme_id = ?
-                AND type_produit = ?
+                WHERE id = ?
                 """,
-                (modele["theme_id"], modele["type_produit"])
+                (autre["id"],)
             )
 
         self.db.executer(
@@ -203,6 +272,14 @@ class ModeleFicheManager:
         )
 
     def supprimer(self, identifiant):
+
+        self.db.executer(
+            """
+            DELETE FROM modeles_fiche_types
+            WHERE modele_id = ?
+            """,
+            (identifiant,)
+        )
 
         self.db.executer(
             """

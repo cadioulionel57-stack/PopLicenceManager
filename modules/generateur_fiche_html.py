@@ -1,5 +1,6 @@
 from modules.modele_fiche_manager import ModeleFicheManager
 from modules.parametre_manager import ParametreManager
+from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
 
 
 class GenerateurFicheHtml:
@@ -117,10 +118,25 @@ class GenerateurFicheHtml:
 
         reglages = GenerateurFicheHtml.reglages_globaux()
 
+        # Bloc réutilisable "éligible emballage cadeau" —
+        # vide si le produit n'y est pas éligible, sinon le
+        # badge (avec son propre prix substitué).
+        bloc_emballage_cadeau = ""
+
+        if produit["eligible_papier_cadeau"]:
+
+            bloc_emballage_cadeau = (
+                BlocEmballageCadeauManager().obtenir().replace(
+                    "{{prix_emballage_cadeau}}",
+                    f"{reglages['prix_emballage_cadeau']:.2f}"
+                )
+            )
+
         variables = {
             "nom_produit": nom_produit,
             "avec_licence": avec_licence,
             "image_fond_univers": produit["image_ambiance"] or "",
+            "bloc_emballage_cadeau": bloc_emballage_cadeau,
             "composition_matiere": produit["composition_matiere"] or "",
             "instructions_entretien": produit["instructions_entretien"] or "",
             "coupe_type": produit["coupe_type"] or "",

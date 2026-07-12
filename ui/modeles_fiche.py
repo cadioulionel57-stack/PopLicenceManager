@@ -9,27 +9,31 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QMessageBox,
     QCheckBox,
+    QTextEdit,
 )
 from PySide6.QtCore import Qt
 
 from modules.modele_fiche_manager import ModeleFicheManager
 from modules.reference_manager import ReferenceManager
+from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
 from ui.modele_fiche_dialog import ModeleFicheDialog
 
 
 LIBELLES_TYPE = {
-    "stock": "Produit en stock",
+    "stock": "Stock",
     "dropshipping": "Direct Fournisseur",
-    "les_deux": "Les deux (événementiel)",
+    "bundle": "Bundle",
+    "precommande": "Précommande",
 }
 
 
 class ModelesFichePage(QWidget):
     """
     Gestion des modèles de fiche produit (chartes HTML) par
-    thème + type de produit — plusieurs modèles possibles
-    par combinaison (Normal, Noël, Soldes...), un seul actif
-    à la fois (celui utilisé en mode "Automatique").
+    thème — chaque modèle couvre un ou plusieurs types de
+    produit (stock, dropshipping, bundle, précommande), un
+    seul actif à la fois par thème pour chaque type qu'il
+    couvre (celui utilisé en mode "Automatique").
     """
 
     def __init__(self):
@@ -38,6 +42,7 @@ class ModelesFichePage(QWidget):
 
         self.manager = ModeleFicheManager()
         self.managerThemes = ReferenceManager()
+        self.managerEmballageCadeau = BlocEmballageCadeauManager()
 
         self.setStyleSheet("""
         QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
@@ -56,6 +61,15 @@ class ModelesFichePage(QWidget):
             background:#0f2f5c; color:white; font-weight:600;
             border:none; padding:8px 6px;
         }
+        QCheckBox::indicator{
+            width:20px; height:20px;
+            border:2px solid #144b8b; border-radius:5px;
+            background:white;
+        }
+        QCheckBox::indicator:checked{
+            background:#144b8b;
+            image:none;
+        }
         """)
 
         layout = QVBoxLayout(self)
@@ -70,12 +84,13 @@ class ModelesFichePage(QWidget):
         layout.addLayout(entete)
 
         info = QLabel(
-            "Un seul modèle \"Automatique\" actif à la fois par thème "
-            "+ type de produit — coche \"Actif\" sur celui à utiliser "
-            "(ex : passe tout le thème \"Vêtements\" en mode Noël d'un "
-            "coup, puis reviens au modèle normal plus tard, rien n'est "
-            "perdu). Sur chaque fiche produit, tu peux aussi forcer un "
-            "modèle précis, indépendamment de ce réglage global."
+            "Un seul modèle \"Automatique\" actif à la fois par thème, "
+            "pour chaque type de produit qu'il couvre (coche \"Actif\" "
+            "sur celui à utiliser). Un modèle peut couvrir un seul "
+            "type (ex : Soldes → Stock uniquement) ou plusieurs à la "
+            "fois (ex : Noël → Stock + Direct Fournisseur + Bundle). "
+            "Sur chaque fiche produit, tu peux aussi forcer un modèle "
+            "précis, indépendamment de ce réglage global."
         )
         info.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
         info.setWordWrap(True)
@@ -103,7 +118,8 @@ class ModelesFichePage(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Nom", "Thème", "Type", "Types d'articles", "Actif"
+            "ID", "Nom", "Thème", "Types de produit",
+            "Types d'articles", "Actif"
         ])
         self.table.setColumnHidden(0, True)
         self.table.setAlternatingRowColors(True)
@@ -113,7 +129,60 @@ class ModelesFichePage(QWidget):
         self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
 
+        ####################################################
+        # Bloc réutilisable : éligibilité emballage cadeau
+        ####################################################
+
+        titreBloc = QLabel(
+            "🎁 Bloc réutilisable — Éligibilité emballage cadeau"
+        )
+        titreBloc.setStyleSheet(
+            "font-size:15px; font-weight:600; color:#0f2f5c; "
+            "margin-top:10px;"
+        )
+        layout.addWidget(titreBloc)
+
+        infoBloc = QLabel(
+            "Ce bloc HTML s'insère automatiquement dans toutes les "
+            "fiches Stock des produits cochés \"éligible emballage "
+            "cadeau\" — un seul exemplaire à modifier ici, pas besoin "
+            "de le dupliquer dans chaque modèle de thème. Variable "
+            "disponible : {{prix_emballage_cadeau}}."
+        )
+        infoBloc.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
+        infoBloc.setWordWrap(True)
+        layout.addWidget(infoBloc)
+
+        self.blocEmballageCadeau = QTextEdit()
+        self.blocEmballageCadeau.setPlainText(
+            self.managerEmballageCadeau.obtenir()
+        )
+        self.blocEmballageCadeau.setStyleSheet(
+            "font-family:Consolas,monospace; font-size:9.5pt;"
+        )
+        self.blocEmballageCadeau.setMaximumHeight(200)
+        layout.addWidget(self.blocEmballageCadeau)
+
+        self.btnEnregistrerBloc = QPushButton(
+            "💾 Enregistrer le bloc emballage cadeau"
+        )
+        self.btnEnregistrerBloc.clicked.connect(
+            self.enregistrerBlocEmballageCadeau
+        )
+        layout.addWidget(self.btnEnregistrerBloc)
+
         self.charger()
+
+    def enregistrerBlocEmballageCadeau(self):
+
+        self.managerEmballageCadeau.definir(
+            self.blocEmballageCadeau.toPlainText()
+        )
+
+        QMessageBox.information(
+            self, "Enregistré",
+            "Le bloc s'appliquera aux prochaines fiches générées."
+        )
 
     def charger(self):
 
@@ -132,14 +201,14 @@ class ModelesFichePage(QWidget):
             self.table.setItem(
                 ligne, 2, QTableWidgetItem(modele["nom_theme"] or "")
             )
-            self.table.setItem(
-                ligne, 3,
-                QTableWidgetItem(
-                    LIBELLES_TYPE.get(
-                        modele["type_produit"], modele["type_produit"]
-                    )
-                )
+
+            libelles_types = ", ".join(
+                LIBELLES_TYPE.get(t, t) for t in modele["types"]
             )
+            self.table.setItem(
+                ligne, 3, QTableWidgetItem(libelles_types)
+            )
+
             self.table.setItem(
                 ligne, 4,
                 QTableWidgetItem(modele["types_articles_concernes"] or "")
@@ -165,10 +234,10 @@ class ModelesFichePage(QWidget):
 
         if not coche:
             # On ne permet pas de décocher directement — il
-            # faut activer un AUTRE modèle du même thème+type
-            # pour que celui-ci se désactive automatiquement
-            # (sinon on pourrait finir sans aucun modèle
-            # "Automatique" du tout).
+            # faut activer un AUTRE modèle couvrant les mêmes
+            # types pour que celui-ci se désactive
+            # automatiquement (sinon on pourrait finir sans
+            # aucun modèle "Automatique" pour ce type).
             self.charger()
             return
 
@@ -200,7 +269,7 @@ class ModelesFichePage(QWidget):
         self.manager.ajouter(
             nom,
             dialog.themeTemplate.currentData(),
-            dialog.typeProduit.currentData(),
+            dialog.types_choisis(),
             dialog.htmlTemplate.toPlainText(),
             dialog.typesArticles.text().strip(),
         )
@@ -225,7 +294,7 @@ class ModelesFichePage(QWidget):
             themes,
             modele["nom"],
             modele["theme_id"],
-            modele["type_produit"],
+            modele["types"],
             modele["html_template"],
             modele["types_articles_concernes"] or "",
         )
@@ -242,7 +311,7 @@ class ModelesFichePage(QWidget):
             identifiant,
             nom,
             dialog.themeTemplate.currentData(),
-            dialog.typeProduit.currentData(),
+            dialog.types_choisis(),
             dialog.htmlTemplate.toPlainText(),
             dialog.typesArticles.text().strip(),
         )

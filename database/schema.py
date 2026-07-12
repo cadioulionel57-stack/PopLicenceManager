@@ -310,6 +310,20 @@ SCHEMA["themes_template"] = [
 ]
 
 
+SCHEMA["bloc_emballage_cadeau"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    # Singleton : le bloc HTML réutilisable "Produit éligible
+    # à l'emballage cadeau", inséré automatiquement dans
+    # toutes les fiches Stock où le produit est coché
+    # éligible — modifiable une seule fois ici plutôt que
+    # dupliqué dans chaque modèle de thème.
+    ("html_template", "TEXT")
+
+]
+
+
 SCHEMA["modeles_fiche_produit"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
@@ -330,22 +344,33 @@ SCHEMA["modeles_fiche_produit"] = [
     # catégories WiziShop.
     ("types_articles_concernes", "TEXT"),
 
-    # 'stock', 'dropshipping', ou 'les_deux' — un modèle
-    # événementiel (Noël, soldes...) peut s'appliquer aux
-    # deux types de produits à la fois, contrairement à un
-    # modèle normal qui reste propre à un seul type.
-    ("type_produit", "TEXT"),
-
     # Le code HTML complet de la charte, avec des variables
     # entre doubles accolades (ex: {{nom_produit}}) que le
     # logiciel remplace à l'export.
     ("html_template", "TEXT"),
 
-    # Un seul modèle actif à la fois par thème+type — celui
-    # utilisé automatiquement pour les produits en mode
-    # "Automatique". Les autres (Noël, soldes...) restent en
-    # mémoire, prêts à être réactivés d'un clic.
+    # Un seul modèle actif à la fois par thème, pour chacun
+    # des types de produit qu'il couvre (voir
+    # modeles_fiche_types) — celui utilisé automatiquement
+    # pour les produits en mode "Automatique". Les autres
+    # (Noël, soldes...) restent en mémoire, prêts à être
+    # réactivés d'un clic.
     ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
+SCHEMA["modeles_fiche_types"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("modele_id", "INTEGER"),
+
+    # 'stock', 'dropshipping', 'bundle' ou 'precommande' —
+    # un modèle peut couvrir un seul type (ex : soldes, qui
+    # ne s'applique qu'au stock) ou plusieurs à la fois (ex :
+    # Noël, sur stock + dropshipping + bundle).
+    ("type_produit", "TEXT")
 
 ]
 
