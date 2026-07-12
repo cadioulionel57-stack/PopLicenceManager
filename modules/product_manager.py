@@ -52,6 +52,8 @@ class ProductManager:
         type_manche=None,
         quantite_stock=0,
         categorie_site_id=None,
+        theme_template_id=None,
+        modele_fiche_id=None,
     ):
         """
         Crée un produit et renvoie son identifiant
@@ -106,11 +108,13 @@ class ProductManager:
                 type_manche,
                 quantite_stock,
                 categorie_site_id,
+                theme_template_id,
+                modele_fiche_id,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -157,6 +161,8 @@ class ProductManager:
                 type_manche,
                 quantite_stock,
                 categorie_site_id,
+                theme_template_id,
+                modele_fiche_id,
             )
         )
 
@@ -276,6 +282,8 @@ class ProductManager:
         type_manche=None,
         quantite_stock=0,
         categorie_site_id=None,
+        theme_template_id=None,
+        modele_fiche_id=None,
     ):
 
         self.db.executer(
@@ -323,7 +331,9 @@ class ProductManager:
                 coupe_type = ?,
                 type_manche = ?,
                 quantite_stock = ?,
-                categorie_site_id = ?
+                categorie_site_id = ?,
+                theme_template_id = ?,
+                modele_fiche_id = ?
             WHERE id = ?
             """,
             (
@@ -369,6 +379,8 @@ class ProductManager:
                 type_manche,
                 quantite_stock,
                 categorie_site_id,
+                theme_template_id,
+                modele_fiche_id,
                 identifiant
             )
         )

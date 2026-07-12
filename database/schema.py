@@ -133,6 +133,17 @@ SCHEMA = {
         # site (Site+Drop).
         ("categorie_site_id", "INTEGER"),
 
+        # Thème de template (Vêtements, Figurines...) —
+        # détermine quel modèle "Automatique" s'applique à ce
+        # produit. Distinct de la catégorie WiziShop
+        # ci-dessus.
+        ("theme_template_id", "INTEGER"),
+
+        # Force un modèle précis pour CE produit, en dehors
+        # du fonctionnement automatique par thème — laisser
+        # vide pour suivre le modèle actif du thème.
+        ("modele_fiche_id", "INTEGER"),
+
         # Identifiant attribué par WiziShop une fois le
         # produit importé (le #N) — vide tant qu'il n'a
         # jamais été exporté/importé, permet ensuite de
@@ -286,13 +297,31 @@ SCHEMA["marques"] = [
 ]
 
 
+SCHEMA["themes_template"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("nom", "TEXT UNIQUE"),
+
+    ("description", "TEXT"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+
+
 SCHEMA["modeles_fiche_produit"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
 
     ("nom", "TEXT"),
 
-    ("categorie_site_id", "INTEGER"),
+    # Thème large (Vêtements, Figurines...) — regroupe les
+    # templates pour s'y retrouver et permettre un bascule
+    # global (ex : passer tout le thème "Vêtements" en mode
+    # Noël d'un coup), distinct des catégories WiziShop
+    # précises.
+    ("theme_id", "INTEGER"),
 
     # 'stock' ou 'dropshipping'.
     ("type_produit", "TEXT"),
@@ -302,10 +331,10 @@ SCHEMA["modeles_fiche_produit"] = [
     # logiciel remplace à l'export.
     ("html_template", "TEXT"),
 
-    # Un seul modèle actif à la fois par combinaison
-    # catégorie+type — celui utilisé à l'export. Les autres
-    # (Noël, soldes...) restent en mémoire, prêts à être
-    # réactivés d'un clic.
+    # Un seul modèle actif à la fois par thème+type — celui
+    # utilisé automatiquement pour les produits en mode
+    # "Automatique". Les autres (Noël, soldes...) restent en
+    # mémoire, prêts à être réactivés d'un clic.
     ("actif", "INTEGER DEFAULT 1")
 
 ]

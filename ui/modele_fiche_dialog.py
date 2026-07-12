@@ -28,7 +28,7 @@ class ModeleFicheDialog(QDialog):
     ]
 
     def __init__(
-        self, titre, categories_site, nom="", categorie_site_id=None,
+        self, titre, themes, nom="", theme_id=None,
         type_produit="stock", html_template="",
     ):
 
@@ -72,15 +72,15 @@ class ModeleFicheDialog(QDialog):
         self.nom.setText(nom)
         form.addRow("Nom du modèle", self.nom)
 
-        self.categorieSite = QComboBox()
-        for cat in categories_site:
-            self.categorieSite.addItem(cat["nom"], cat["id"])
+        self.themeTemplate = QComboBox()
+        for theme in themes:
+            self.themeTemplate.addItem(theme["nom"], theme["id"])
 
-        index = self.categorieSite.findData(categorie_site_id)
+        index = self.themeTemplate.findData(theme_id)
         if index != -1:
-            self.categorieSite.setCurrentIndex(index)
+            self.themeTemplate.setCurrentIndex(index)
 
-        form.addRow("Catégorie site", self.categorieSite)
+        form.addRow("Thème", self.themeTemplate)
 
         self.typeProduit = QComboBox()
         for libelle, valeur in self.TYPES_PRODUIT:

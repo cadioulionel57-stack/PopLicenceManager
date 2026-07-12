@@ -78,16 +78,26 @@ class GenerateurFicheHtml:
     @staticmethod
     def generer(produit, licence_nom=None):
         """
-        Renvoie le HTML final, ou None si aucun modèle actif
-        n'existe pour cette catégorie+type de produit.
+        Renvoie le HTML final, ou None si aucun modèle n'est
+        disponible pour ce produit.
+
+        Priorité : le modèle forcé sur cette fiche précise
+        (produit["modele_fiche_id"]) s'il existe, sinon le
+        modèle "Automatique" actif pour le thème + type du
+        produit.
         """
 
-        if produit["categorie_site_id"] is None:
-            return None
+        modele = None
 
-        modele = ModeleFicheManager().obtenir_actif(
-            produit["categorie_site_id"], produit["type_produit"]
-        )
+        if produit["modele_fiche_id"] is not None:
+            modele = ModeleFicheManager().obtenir(
+                produit["modele_fiche_id"]
+            )
+
+        if modele is None and produit["theme_template_id"] is not None:
+            modele = ModeleFicheManager().obtenir_actif(
+                produit["theme_template_id"], produit["type_produit"]
+            )
 
         if modele is None:
             return None

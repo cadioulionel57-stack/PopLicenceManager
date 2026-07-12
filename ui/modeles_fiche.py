@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from modules.modele_fiche_manager import ModeleFicheManager
-from modules.categorie_site_manager import CategorieSiteManager
+from modules.reference_manager import ReferenceManager
 from ui.modele_fiche_dialog import ModeleFicheDialog
 
 
@@ -26,9 +26,9 @@ LIBELLES_TYPE = {
 class ModelesFichePage(QWidget):
     """
     Gestion des modèles de fiche produit (chartes HTML) par
-    catégorie du site et type de produit — plusieurs modèles
-    possibles par combinaison (Normal, Noël, Soldes...), un
-    seul actif à la fois.
+    thème + type de produit — plusieurs modèles possibles
+    par combinaison (Normal, Noël, Soldes...), un seul actif
+    à la fois (celui utilisé en mode "Automatique").
     """
 
     def __init__(self):
@@ -36,7 +36,7 @@ class ModelesFichePage(QWidget):
         super().__init__()
 
         self.manager = ModeleFicheManager()
-        self.managerCategories = CategorieSiteManager()
+        self.managerThemes = ReferenceManager()
 
         self.setStyleSheet("""
         QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
@@ -69,10 +69,12 @@ class ModelesFichePage(QWidget):
         layout.addLayout(entete)
 
         info = QLabel(
-            "Un seul modèle actif à la fois par catégorie + type de "
-            "produit — coche \"Actif\" sur celui à utiliser (ex : passe "
-            "en mode Noël, puis reviens au modèle normal plus tard, "
-            "rien n'est perdu)."
+            "Un seul modèle \"Automatique\" actif à la fois par thème "
+            "+ type de produit — coche \"Actif\" sur celui à utiliser "
+            "(ex : passe tout le thème \"Vêtements\" en mode Noël d'un "
+            "coup, puis reviens au modèle normal plus tard, rien n'est "
+            "perdu). Sur chaque fiche produit, tu peux aussi forcer un "
+            "modèle précis, indépendamment de ce réglage global."
         )
         info.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
         info.setWordWrap(True)
@@ -100,7 +102,7 @@ class ModelesFichePage(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Nom", "Catégorie", "Type", "Actif"
+            "ID", "Nom", "Thème", "Type", "Actif"
         ])
         self.table.setColumnHidden(0, True)
         self.table.setAlternatingRowColors(True)
@@ -127,7 +129,7 @@ class ModelesFichePage(QWidget):
                 ligne, 1, QTableWidgetItem(modele["nom"] or "")
             )
             self.table.setItem(
-                ligne, 2, QTableWidgetItem(modele["nom_categorie"] or "")
+                ligne, 2, QTableWidgetItem(modele["nom_theme"] or "")
             )
             self.table.setItem(
                 ligne, 3,
@@ -158,10 +160,10 @@ class ModelesFichePage(QWidget):
 
         if not coche:
             # On ne permet pas de décocher directement — il
-            # faut activer un AUTRE modèle de la même
-            # catégorie+type pour que celui-ci se désactive
-            # automatiquement (sinon on pourrait finir sans
-            # aucun modèle actif du tout).
+            # faut activer un AUTRE modèle du même thème+type
+            # pour que celui-ci se désactive automatiquement
+            # (sinon on pourrait finir sans aucun modèle
+            # "Automatique" du tout).
             self.charger()
             return
 
@@ -170,19 +172,17 @@ class ModelesFichePage(QWidget):
 
     def ajouter(self):
 
-        categories = self.managerCategories.toutes_sous_categories()
+        themes = self.managerThemes.tous("themes_template")
 
-        if not categories:
+        if not themes:
             QMessageBox.information(
                 self, "Information",
-                "Aucune sous-catégorie disponible. Une catégorie "
-                "principale seule ne suffit pas : va dans Catégories "
-                "Site et crée aussi une sous-catégorie rattachée à "
-                "elle (WiziShop exige toujours les deux niveaux)."
+                "Crée d'abord au moins un thème dans l'écran "
+                "\"Thèmes de template\"."
             )
             return
 
-        dialog = ModeleFicheDialog("Nouveau modèle", categories)
+        dialog = ModeleFicheDialog("Nouveau modèle", themes)
 
         if dialog.exec() != ModeleFicheDialog.DialogCode.Accepted:
             return
@@ -194,7 +194,7 @@ class ModelesFichePage(QWidget):
 
         self.manager.ajouter(
             nom,
-            dialog.categorieSite.currentData(),
+            dialog.themeTemplate.currentData(),
             dialog.typeProduit.currentData(),
             dialog.htmlTemplate.toPlainText(),
         )
@@ -212,13 +212,13 @@ class ModelesFichePage(QWidget):
         identifiant = int(self.table.item(ligne, 0).text())
         modele = self.manager.obtenir(identifiant)
 
-        categories = self.managerCategories.toutes_sous_categories()
+        themes = self.managerThemes.tous("themes_template")
 
         dialog = ModeleFicheDialog(
             "Modifier le modèle",
-            categories,
+            themes,
             modele["nom"],
-            modele["categorie_site_id"],
+            modele["theme_id"],
             modele["type_produit"],
             modele["html_template"],
         )
@@ -234,7 +234,7 @@ class ModelesFichePage(QWidget):
         self.manager.modifier(
             identifiant,
             nom,
-            dialog.categorieSite.currentData(),
+            dialog.themeTemplate.currentData(),
             dialog.typeProduit.currentData(),
             dialog.htmlTemplate.toPlainText(),
         )

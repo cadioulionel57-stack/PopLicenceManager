@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 
 from modules.canal_manager import CanalManager
 from modules.categorie_site_manager import CategorieSiteManager
+from modules.modele_fiche_manager import ModeleFicheManager
+from ui.widgets.reference_combobox import ReferenceComboBox
 
 
 STATUTS = [
@@ -141,6 +143,43 @@ class PublicationTab(QWidget):
 
         layout.addWidget(groupeCategorie)
 
+        ####################################################
+        # Thème + modèle de fiche HTML (WiziShop)
+        ####################################################
+
+        groupeModele = QGroupBox("📄 Fiche HTML (WiziShop)")
+        formModele = QFormLayout(groupeModele)
+
+        self.themeTemplate = ReferenceComboBox("themes_template")
+        formModele.addRow("Thème", self.themeTemplate)
+
+        self.modeleFiche = QComboBox()
+        self.modeleFiche.addItem(
+            "— Automatique (suit le thème) —", None
+        )
+
+        for modele in ModeleFicheManager().pour_type(self.type_produit):
+
+            self.modeleFiche.addItem(
+                f"{modele['nom_theme'] or '—'} — {modele['nom']}",
+                modele["id"]
+            )
+
+        formModele.addRow("Modèle forcé (optionnel)", self.modeleFiche)
+
+        infoModele = QLabel(
+            "Laisse \"Automatique\" pour que ce produit suive le "
+            "modèle actif de son thème — pratique pour basculer "
+            "plusieurs produits d'un coup (ex : mode Noël). Force un "
+            "modèle précis seulement si ce produit doit toujours "
+            "utiliser ce modèle, quoi qu'il arrive au thème."
+        )
+        infoModele.setWordWrap(True)
+        infoModele.setStyleSheet("color:#5a6b7d; font-size:9pt;")
+        formModele.addRow(infoModele)
+
+        layout.addWidget(groupeModele)
+
         layout.addStretch()
 
     def categorie_site_id(self):
@@ -153,6 +192,23 @@ class PublicationTab(QWidget):
 
         if index != -1:
             self.categorieSite.setCurrentIndex(index)
+
+    def theme_template_id(self):
+
+        return self.themeTemplate.id()
+
+    def modele_fiche_id(self):
+
+        return self.modeleFiche.currentData()
+
+    def definir_theme_et_modele(self, theme_template_id, modele_fiche_id):
+
+        self.themeTemplate.selectionner(theme_template_id)
+
+        index = self.modeleFiche.findData(modele_fiche_id)
+
+        if index != -1:
+            self.modeleFiche.setCurrentIndex(index)
 
     def canaux_selectionnes(self):
         """
