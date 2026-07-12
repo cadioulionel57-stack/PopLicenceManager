@@ -175,8 +175,10 @@ class ModelesFichePage(QWidget):
         if not categories:
             QMessageBox.information(
                 self, "Information",
-                "Crée d'abord au moins une catégorie/sous-catégorie "
-                "dans l'écran Paramètres."
+                "Aucune sous-catégorie disponible. Une catégorie "
+                "principale seule ne suffit pas : va dans Catégories "
+                "Site et crée aussi une sous-catégorie rattachée à "
+                "elle (WiziShop exige toujours les deux niveaux)."
             )
             return
 

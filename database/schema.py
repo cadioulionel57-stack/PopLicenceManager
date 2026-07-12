@@ -60,6 +60,15 @@ SCHEMA = {
         ("age_minimum", "INTEGER"),
         ("pays_fabrication", "TEXT"),
 
+        # Champs textile façon Amazon (liste à puces sur la
+        # fiche HTML) — génériques et libres, à laisser vides
+        # si non pertinents pour le type d'article (ex : un
+        # pantalon n'a pas de "manche").
+        ("composition_matiere", "TEXT"),
+        ("instructions_entretien", "TEXT"),
+        ("coupe_type", "TEXT"),
+        ("type_manche", "TEXT"),
+
         ("tva", "REAL"),
 
         ("ean_colis", "TEXT"),
@@ -100,6 +109,14 @@ SCHEMA = {
         ("image_principale", "TEXT"),
         ("image_2", "TEXT"),
         ("image_3", "TEXT"),
+
+        # Image de fond utilisée dans la section "Univers
+        # produit" des chartes HTML — volontairement séparée
+        # des Photos 1/2/3 (celles-ci vont à WiziShop, celle-
+        # là est une image d'ambiance propre à la charte
+        # graphique, à changer facilement sans toucher aux
+        # vraies photos produit).
+        ("image_ambiance", "TEXT"),
 
         # Catégorie du site (pointe vers la sous-catégorie,
         # WiziShop exigeant les deux niveaux — la catégorie

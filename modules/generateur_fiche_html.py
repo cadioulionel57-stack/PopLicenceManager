@@ -54,6 +54,28 @@ class GenerateurFicheHtml:
         }
 
     @staticmethod
+    def _traiter_bloc_conditionnel(html, condition_vraie):
+        """
+        Traite les blocs {{#si_emballage_cadeau}}...
+        {{/si_emballage_cadeau}} : si la condition est vraie,
+        garde le contenu (sans les balises) ; sinon, retire
+        tout le bloc — pour ne montrer la section "Emballage
+        cadeau" que sur les produits réellement éligibles.
+        """
+
+        import re
+
+        motif = re.compile(
+            r"\{\{#si_emballage_cadeau\}\}(.*?)\{\{/si_emballage_cadeau\}\}",
+            re.DOTALL
+        )
+
+        if condition_vraie:
+            return motif.sub(r"\1", html)
+
+        return motif.sub("", html)
+
+    @staticmethod
     def generer(produit, licence_nom=None):
         """
         Renvoie le HTML final, ou None si aucun modèle actif
@@ -72,6 +94,13 @@ class GenerateurFicheHtml:
 
         html = modele["html_template"]
 
+        # La section "Emballage cadeau" ne doit apparaître
+        # que si le produit y est réellement éligible (pas
+        # les vélos, trottinettes, objets volumineux...).
+        html = GenerateurFicheHtml._traiter_bloc_conditionnel(
+            html, bool(produit["eligible_papier_cadeau"])
+        )
+
         nom_produit = produit["nom"] or ""
 
         avec_licence = f" sous licence {licence_nom}" if licence_nom else ""
@@ -82,6 +111,10 @@ class GenerateurFicheHtml:
             "nom_produit": nom_produit,
             "avec_licence": avec_licence,
             "image_fond_univers": produit["image_ambiance"] or "",
+            "composition_matiere": produit["composition_matiere"] or "",
+            "instructions_entretien": produit["instructions_entretien"] or "",
+            "coupe_type": produit["coupe_type"] or "",
+            "type_manche": produit["type_manche"] or "",
             "prix_emballage_cadeau": f"{reglages['prix_emballage_cadeau']:.2f}",
             "seuil_livraison_gratuite_stock": f"{reglages['seuil_livraison_gratuite_stock']:.0f}",
             "tarif_livraison_df": f"{reglages['tarif_livraison_df']:.2f}",

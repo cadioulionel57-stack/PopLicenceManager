@@ -236,6 +236,41 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(infos)
 
         ####################################################
+        # Champs façon Amazon (textile) — génériques, à
+        # laisser vides si non pertinents pour ce type
+        # d'article (ex: pas de "manche" pour un pantalon).
+        ####################################################
+
+        groupeTextile = QGroupBox("👕 Détails textile (facultatif)")
+        formTextile = QFormLayout(groupeTextile)
+
+        self.compositionMatiere = QLineEdit()
+        self.compositionMatiere.setPlaceholderText(
+            "Ex : 100% Coton, ou 90% Coton / 10% Polyester"
+        )
+        formTextile.addRow("Composition", self.compositionMatiere)
+
+        self.instructionsEntretien = QLineEdit()
+        self.instructionsEntretien.setPlaceholderText(
+            "Ex : Lavage machine à froid, séchage basse température"
+        )
+        formTextile.addRow(
+            "Instructions d'entretien", self.instructionsEntretien
+        )
+
+        self.coupeType = QLineEdit()
+        self.coupeType.setPlaceholderText("Ex : À capuche, Regular fit...")
+        formTextile.addRow("Style de coupe", self.coupeType)
+
+        self.typeManche = QLineEdit()
+        self.typeManche.setPlaceholderText(
+            "Ex : Manche longue, Sans manche..."
+        )
+        formTextile.addRow("Type de manche", self.typeManche)
+
+        layout.addWidget(groupeTextile)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -447,6 +482,15 @@ class CaracteristiquesTab(QWidget):
         self.couleur.setText(produit["couleur"] or "")
         self.age.setValue(produit["age_minimum"] or 0)
         self.fabrication.setText(produit["pays_fabrication"] or "")
+
+        self.compositionMatiere.setText(
+            produit["composition_matiere"] or ""
+        )
+        self.instructionsEntretien.setText(
+            produit["instructions_entretien"] or ""
+        )
+        self.coupeType.setText(produit["coupe_type"] or "")
+        self.typeManche.setText(produit["type_manche"] or "")
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])

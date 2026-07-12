@@ -45,6 +45,11 @@ class ProductManager:
         image_principale=None,
         image_2=None,
         image_3=None,
+        image_ambiance=None,
+        composition_matiere=None,
+        instructions_entretien=None,
+        coupe_type=None,
+        type_manche=None,
         categorie_site_id=None,
     ):
         """
@@ -93,12 +98,17 @@ class ProductManager:
                 image_principale,
                 image_2,
                 image_3,
+                image_ambiance,
+                composition_matiere,
+                instructions_entretien,
+                coupe_type,
+                type_manche,
                 categorie_site_id,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -138,6 +148,11 @@ class ProductManager:
                 image_principale,
                 image_2,
                 image_3,
+                image_ambiance,
+                composition_matiere,
+                instructions_entretien,
+                coupe_type,
+                type_manche,
                 categorie_site_id,
             )
         )
@@ -251,6 +266,11 @@ class ProductManager:
         image_principale=None,
         image_2=None,
         image_3=None,
+        image_ambiance=None,
+        composition_matiere=None,
+        instructions_entretien=None,
+        coupe_type=None,
+        type_manche=None,
         categorie_site_id=None,
     ):
 
@@ -293,6 +313,11 @@ class ProductManager:
                 image_principale = ?,
                 image_2 = ?,
                 image_3 = ?,
+                image_ambiance = ?,
+                composition_matiere = ?,
+                instructions_entretien = ?,
+                coupe_type = ?,
+                type_manche = ?,
                 categorie_site_id = ?
             WHERE id = ?
             """,
@@ -332,6 +357,11 @@ class ProductManager:
                 image_principale,
                 image_2,
                 image_3,
+                image_ambiance,
+                composition_matiere,
+                instructions_entretien,
+                coupe_type,
+                type_manche,
                 categorie_site_id,
                 identifiant
             )

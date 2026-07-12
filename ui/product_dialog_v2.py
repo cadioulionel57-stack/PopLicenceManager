@@ -480,6 +480,7 @@ class ProductDialogV2(QDialog):
                 self.produit["image_principale"],
                 self.produit["image_2"],
                 self.produit["image_3"],
+                self.produit["image_ambiance"],
             )
 
         self.tabs.addTab(QWidget(), "📜 Historique")
@@ -642,6 +643,14 @@ class ProductDialogV2(QDialog):
 
                 pays_fabrication=self.pageCaracteristiques.fabrication.text(),
 
+                composition_matiere=self.pageCaracteristiques.compositionMatiere.text() or None,
+
+                instructions_entretien=self.pageCaracteristiques.instructionsEntretien.text() or None,
+
+                coupe_type=self.pageCaracteristiques.coupeType.text() or None,
+
+                type_manche=self.pageCaracteristiques.typeManche.text() or None,
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -665,6 +674,8 @@ class ProductDialogV2(QDialog):
                 image_2=self.pageImages.image_2(),
 
                 image_3=self.pageImages.image_3(),
+
+                image_ambiance=self.pageImages.image_ambiance(),
 
                 categorie_site_id=self.pagePublication.categorie_site_id(),
 
@@ -722,6 +733,14 @@ class ProductDialogV2(QDialog):
 
                 pays_fabrication=self.pageCaracteristiques.fabrication.text(),
 
+                composition_matiere=self.pageCaracteristiques.compositionMatiere.text() or None,
+
+                instructions_entretien=self.pageCaracteristiques.instructionsEntretien.text() or None,
+
+                coupe_type=self.pageCaracteristiques.coupeType.text() or None,
+
+                type_manche=self.pageCaracteristiques.typeManche.text() or None,
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -745,6 +764,8 @@ class ProductDialogV2(QDialog):
                 image_2=self.pageImages.image_2(),
 
                 image_3=self.pageImages.image_3(),
+
+                image_ambiance=self.pageImages.image_ambiance(),
 
                 categorie_site_id=self.pagePublication.categorie_site_id(),
 
