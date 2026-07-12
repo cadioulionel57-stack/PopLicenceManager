@@ -20,6 +20,7 @@ from ui.modele_fiche_dialog import ModeleFicheDialog
 LIBELLES_TYPE = {
     "stock": "Produit en stock",
     "dropshipping": "Direct Fournisseur",
+    "les_deux": "Les deux (événementiel)",
 }
 
 
@@ -100,9 +101,9 @@ class ModelesFichePage(QWidget):
         layout.addLayout(entêteBoutons)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Nom", "Thème", "Type", "Actif"
+            "ID", "Nom", "Thème", "Type", "Types d'articles", "Actif"
         ])
         self.table.setColumnHidden(0, True)
         self.table.setAlternatingRowColors(True)
@@ -139,6 +140,10 @@ class ModelesFichePage(QWidget):
                     )
                 )
             )
+            self.table.setItem(
+                ligne, 4,
+                QTableWidgetItem(modele["types_articles_concernes"] or "")
+            )
 
             case = QCheckBox()
             case.setChecked(bool(modele["actif"]))
@@ -154,7 +159,7 @@ class ModelesFichePage(QWidget):
             layoutCase.setAlignment(case, Qt.AlignmentFlag.AlignCenter)
             layoutCase.setContentsMargins(0, 0, 0, 0)
 
-            self.table.setCellWidget(ligne, 4, conteneur)
+            self.table.setCellWidget(ligne, 5, conteneur)
 
     def _basculerActif(self, modele_id, coche):
 
@@ -197,6 +202,7 @@ class ModelesFichePage(QWidget):
             dialog.themeTemplate.currentData(),
             dialog.typeProduit.currentData(),
             dialog.htmlTemplate.toPlainText(),
+            dialog.typesArticles.text().strip(),
         )
 
         self.charger()
@@ -221,6 +227,7 @@ class ModelesFichePage(QWidget):
             modele["theme_id"],
             modele["type_produit"],
             modele["html_template"],
+            modele["types_articles_concernes"] or "",
         )
 
         if dialog.exec() != ModeleFicheDialog.DialogCode.Accepted:
@@ -237,6 +244,7 @@ class ModelesFichePage(QWidget):
             dialog.themeTemplate.currentData(),
             dialog.typeProduit.currentData(),
             dialog.htmlTemplate.toPlainText(),
+            dialog.typesArticles.text().strip(),
         )
 
         self.charger()

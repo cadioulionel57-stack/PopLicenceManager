@@ -323,7 +323,17 @@ SCHEMA["modeles_fiche_produit"] = [
     # précises.
     ("theme_id", "INTEGER"),
 
-    # 'stock' ou 'dropshipping'.
+    # Note libre listant les types d'articles concernés par
+    # ce modèle (ex : "T-shirt, Sweat, Hoodie") — purement
+    # informatif, pour s'y retrouver dans la liste des
+    # modèles, sans lien technique avec les vraies
+    # catégories WiziShop.
+    ("types_articles_concernes", "TEXT"),
+
+    # 'stock', 'dropshipping', ou 'les_deux' — un modèle
+    # événementiel (Noël, soldes...) peut s'appliquer aux
+    # deux types de produits à la fois, contrairement à un
+    # modèle normal qui reste propre à un seul type.
     ("type_produit", "TEXT"),
 
     # Le code HTML complet de la charte, avec des variables

@@ -25,11 +25,13 @@ class ModeleFicheDialog(QDialog):
     TYPES_PRODUIT = [
         ("Produit en stock", "stock"),
         ("Direct Fournisseur", "dropshipping"),
+        ("Les deux (événementiel : Noël, soldes...)", "les_deux"),
     ]
 
     def __init__(
         self, titre, themes, nom="", theme_id=None,
         type_produit="stock", html_template="",
+        types_articles_concernes="",
     ):
 
         super().__init__()
@@ -91,6 +93,16 @@ class ModeleFicheDialog(QDialog):
             self.typeProduit.setCurrentIndex(index_type)
 
         form.addRow("Type de produit", self.typeProduit)
+
+        self.typesArticles = QLineEdit()
+        self.typesArticles.setPlaceholderText(
+            "Ex : T-shirt, Sweat, Hoodie, Jogging..."
+        )
+        self.typesArticles.setText(types_articles_concernes)
+        form.addRow(
+            "Types d'articles concernés (repère perso)",
+            self.typesArticles
+        )
 
         layout.addLayout(form)
 

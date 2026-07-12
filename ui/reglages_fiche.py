@@ -35,6 +35,7 @@ class ReglagesFichePage(QWidget):
         form = QFormLayout(groupe)
 
         self.prixEmballageCadeau = QDoubleSpinBox()
+        self.prixEmballageCadeau.setMaximum(9999)
         self.prixEmballageCadeau.setDecimals(2)
         self.prixEmballageCadeau.setSuffix(" € TTC")
         form.addRow(
@@ -42,6 +43,7 @@ class ReglagesFichePage(QWidget):
         )
 
         self.seuilLivraisonStock = QDoubleSpinBox()
+        self.seuilLivraisonStock.setMaximum(9999)
         self.seuilLivraisonStock.setDecimals(0)
         self.seuilLivraisonStock.setSuffix(" €")
         form.addRow(
@@ -50,6 +52,7 @@ class ReglagesFichePage(QWidget):
         )
 
         self.tarifLivraisonDf = QDoubleSpinBox()
+        self.tarifLivraisonDf.setMaximum(9999)
         self.tarifLivraisonDf.setDecimals(2)
         self.tarifLivraisonDf.setSuffix(" € TTC")
         form.addRow(
@@ -57,6 +60,7 @@ class ReglagesFichePage(QWidget):
         )
 
         self.seuilLivraisonDf = QDoubleSpinBox()
+        self.seuilLivraisonDf.setMaximum(9999)
         self.seuilLivraisonDf.setDecimals(0)
         self.seuilLivraisonDf.setSuffix(" €")
         form.addRow(
@@ -69,11 +73,13 @@ class ReglagesFichePage(QWidget):
         formStock = QFormLayout(groupeStock)
 
         self.tarifMondialRelay = QDoubleSpinBox()
+        self.tarifMondialRelay.setMaximum(9999)
         self.tarifMondialRelay.setDecimals(2)
         self.tarifMondialRelay.setSuffix(" € TTC")
         formStock.addRow("Mondial Relay — tarif", self.tarifMondialRelay)
 
         self.seuilMondialRelay = QDoubleSpinBox()
+        self.seuilMondialRelay.setMaximum(9999)
         self.seuilMondialRelay.setDecimals(0)
         self.seuilMondialRelay.setSuffix(" €")
         formStock.addRow(
@@ -81,21 +87,25 @@ class ReglagesFichePage(QWidget):
         )
 
         self.tarifColissimo = QDoubleSpinBox()
+        self.tarifColissimo.setMaximum(9999)
         self.tarifColissimo.setDecimals(2)
         self.tarifColissimo.setSuffix(" € TTC")
         formStock.addRow("Colissimo — tarif", self.tarifColissimo)
 
         self.seuilColissimo = QDoubleSpinBox()
+        self.seuilColissimo.setMaximum(9999)
         self.seuilColissimo.setDecimals(0)
         self.seuilColissimo.setSuffix(" €")
         formStock.addRow("Colissimo — offert dès", self.seuilColissimo)
 
         self.tarifChronoRelais = QDoubleSpinBox()
+        self.tarifChronoRelais.setMaximum(9999)
         self.tarifChronoRelais.setDecimals(2)
         self.tarifChronoRelais.setSuffix(" € TTC")
         formStock.addRow("Chrono Relais — tarif", self.tarifChronoRelais)
 
         self.seuilChronoRelais = QDoubleSpinBox()
+        self.seuilChronoRelais.setMaximum(9999)
         self.seuilChronoRelais.setDecimals(0)
         self.seuilChronoRelais.setSuffix(" €")
         formStock.addRow(
