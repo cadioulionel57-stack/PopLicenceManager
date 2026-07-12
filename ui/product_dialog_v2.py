@@ -476,7 +476,11 @@ class ProductDialogV2(QDialog):
         self.tabs.addTab(self.pageImages, "🖼 Images")
 
         if self.produit is not None:
-            self.pageImages.charger(self.produit["image_principale"])
+            self.pageImages.charger(
+                self.produit["image_principale"],
+                self.produit["image_2"],
+                self.produit["image_3"],
+            )
 
         self.tabs.addTab(QWidget(), "📜 Historique")
 
@@ -658,6 +662,10 @@ class ProductDialogV2(QDialog):
 
                 image_principale=self.pageImages.image_principale(),
 
+                image_2=self.pageImages.image_2(),
+
+                image_3=self.pageImages.image_3(),
+
                 categorie_site_id=self.pagePublication.categorie_site_id(),
 
             )
@@ -733,6 +741,10 @@ class ProductDialogV2(QDialog):
                 fiche_a_terminer=self.pageGeneral.ficheATerminer.isChecked(),
 
                 image_principale=self.pageImages.image_principale(),
+
+                image_2=self.pageImages.image_2(),
+
+                image_3=self.pageImages.image_3(),
 
                 categorie_site_id=self.pagePublication.categorie_site_id(),
 

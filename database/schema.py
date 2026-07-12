@@ -98,6 +98,8 @@ SCHEMA = {
         ("description_longue", "TEXT"),
 
         ("image_principale", "TEXT"),
+        ("image_2", "TEXT"),
+        ("image_3", "TEXT"),
 
         # Catégorie du site (pointe vers la sous-catégorie,
         # WiziShop exigeant les deux niveaux — la catégorie

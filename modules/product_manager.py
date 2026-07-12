@@ -43,6 +43,8 @@ class ProductManager:
         statut_stock="actif",
         fiche_a_terminer=False,
         image_principale=None,
+        image_2=None,
+        image_3=None,
         categorie_site_id=None,
     ):
         """
@@ -89,12 +91,14 @@ class ProductManager:
                 statut_stock,
                 fiche_a_terminer,
                 image_principale,
+                image_2,
+                image_3,
                 categorie_site_id,
                 actif
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -132,6 +136,8 @@ class ProductManager:
                 statut_stock,
                 1 if fiche_a_terminer else 0,
                 image_principale,
+                image_2,
+                image_3,
                 categorie_site_id,
             )
         )
@@ -243,6 +249,8 @@ class ProductManager:
         statut_stock="actif",
         fiche_a_terminer=False,
         image_principale=None,
+        image_2=None,
+        image_3=None,
         categorie_site_id=None,
     ):
 
@@ -283,6 +291,8 @@ class ProductManager:
                 statut_stock = ?,
                 fiche_a_terminer = ?,
                 image_principale = ?,
+                image_2 = ?,
+                image_3 = ?,
                 categorie_site_id = ?
             WHERE id = ?
             """,
@@ -320,6 +330,8 @@ class ProductManager:
                 statut_stock,
                 1 if fiche_a_terminer else 0,
                 image_principale,
+                image_2,
+                image_3,
                 categorie_site_id,
                 identifiant
             )

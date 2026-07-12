@@ -10,11 +10,11 @@ from PySide6.QtWidgets import (
 
 class ImagesTab(QWidget):
     """
-    URL de l'image principale du produit — nécessaire pour
-    l'export du catalogue vers WiziShop (colonne "Photo 1",
-    obligatoire). Les photos sont hébergées ailleurs (sur
-    WiziShop ou un autre service) ; on ne stocke ici que le
-    lien vers l'image.
+    URLs des images du produit (jusqu'à 3) — nécessaires
+    pour l'export du catalogue vers WiziShop (colonnes
+    "Photo 1", "Photo 2", "Photo 3"). Les photos sont
+    hébergées ailleurs (WiziShop ou un autre service) ; on
+    ne stocke ici que les liens vers les images.
     """
 
     def __init__(self):
@@ -23,23 +23,29 @@ class ImagesTab(QWidget):
 
         layout = QVBoxLayout(self)
 
-        groupe = QGroupBox("🖼 Image principale")
+        groupe = QGroupBox("🖼 Images")
         form = QFormLayout(groupe)
 
         info = QLabel(
-            "Colle ici l'URL d'une image déjà hébergée (WiziShop "
-            "ou ailleurs) — c'est ce lien qui sera utilisé comme "
-            "\"Photo 1\" lors de l'export du catalogue."
+            "Colle ici les URLs d'images déjà hébergées (WiziShop "
+            "ou ailleurs) — ces liens seront utilisés comme "
+            "\"Photo 1/2/3\" lors de l'export du catalogue."
         )
         info.setWordWrap(True)
         info.setStyleSheet("color:#5a6b7d; font-size:9pt;")
         form.addRow(info)
 
         self.imagePrincipale = QLineEdit()
-        self.imagePrincipale.setPlaceholderText(
-            "https://..."
-        )
-        form.addRow("URL de l'image", self.imagePrincipale)
+        self.imagePrincipale.setPlaceholderText("https://...")
+        form.addRow("Photo 1 (principale)", self.imagePrincipale)
+
+        self.image2 = QLineEdit()
+        self.image2.setPlaceholderText("https://...")
+        form.addRow("Photo 2", self.image2)
+
+        self.image3 = QLineEdit()
+        self.image3.setPlaceholderText("https://...")
+        form.addRow("Photo 3", self.image3)
 
         layout.addWidget(groupe)
         layout.addStretch()
@@ -48,6 +54,16 @@ class ImagesTab(QWidget):
 
         return self.imagePrincipale.text().strip() or None
 
-    def charger(self, image_principale):
+    def image_2(self):
+
+        return self.image2.text().strip() or None
+
+    def image_3(self):
+
+        return self.image3.text().strip() or None
+
+    def charger(self, image_principale, image_2, image_3):
 
         self.imagePrincipale.setText(image_principale or "")
+        self.image2.setText(image_2 or "")
+        self.image3.setText(image_3 or "")
