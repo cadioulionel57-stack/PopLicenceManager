@@ -69,6 +69,17 @@ SCHEMA = {
         ("coupe_type", "TEXT"),
         ("type_manche", "TEXT"),
 
+        # Champs Jeux & Jouets (puzzles, jeux de société,
+        # jouets divers) — génériques et libres, à laisser
+        # vides si non pertinents. La section correspondante
+        # disparaît automatiquement de la fiche publiée si le
+        # champ est vide (voir generateur_fiche_html.py).
+        ("age_conseille", "TEXT"),
+        ("nombre_joueurs", "TEXT"),
+        ("duree_partie", "TEXT"),
+        ("contenu_boite", "TEXT"),
+        ("nombre_pieces", "TEXT"),
+
         ("tva", "REAL"),
 
         ("ean_colis", "TEXT"),

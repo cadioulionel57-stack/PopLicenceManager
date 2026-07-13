@@ -659,6 +659,14 @@ class ProductDialogV2(QDialog):
 
                 type_manche=self.pageCaracteristiques.typeManche.text() or None,
 
+                age_conseille=self.pageCaracteristiques.ageConseille.text() or None,
+
+                nombre_joueurs=self.pageCaracteristiques.nombreJoueurs.text() or None,
+
+                duree_partie=self.pageCaracteristiques.dureePartie.text() or None,
+
+                contenu_boite=self.pageCaracteristiques.contenuBoite.text() or None,
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -752,6 +760,14 @@ class ProductDialogV2(QDialog):
                 coupe_type=self.pageCaracteristiques.coupeType.text() or None,
 
                 type_manche=self.pageCaracteristiques.typeManche.text() or None,
+
+                age_conseille=self.pageCaracteristiques.ageConseille.text() or None,
+
+                nombre_joueurs=self.pageCaracteristiques.nombreJoueurs.text() or None,
+
+                duree_partie=self.pageCaracteristiques.dureePartie.text() or None,
+
+                contenu_boite=self.pageCaracteristiques.contenuBoite.text() or None,
 
                 titre_seo=self.pageSeo.titreSeo.text(),
 

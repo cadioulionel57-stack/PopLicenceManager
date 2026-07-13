@@ -1,3 +1,5 @@
+import re
+
 from modules.modele_fiche_manager import ModeleFicheManager
 from modules.parametre_manager import ParametreManager
 from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
@@ -10,6 +12,22 @@ class GenerateurFicheHtml:
     informations du produit — remplace les variables
     {{...}} du modèle par les vraies valeurs.
     """
+
+    # Champs "optionnels" du produit : si l'un de ces champs
+    # n'est pas renseigné sur la fiche produit, le bloc
+    # {{#si_<champ>}}...{{/si_<champ>}} correspondant dans le
+    # template est retiré entièrement de la fiche publiée
+    # (au lieu d'afficher une section vide ou une variable
+    # brute {{...}} non remplacée). Ajouter un nom ici suffit
+    # à activer ce comportement pour un nouveau champ, sans
+    # toucher au reste du moteur.
+    CHAMPS_CONDITIONNELS = [
+        "age_conseille",
+        "nombre_joueurs",
+        "duree_partie",
+        "contenu_boite",
+        "nombre_pieces",
+    ]
 
     @staticmethod
     def reglages_globaux():
@@ -55,19 +73,22 @@ class GenerateurFicheHtml:
         }
 
     @staticmethod
-    def _traiter_bloc_conditionnel(html, condition_vraie):
+    def _traiter_bloc_conditionnel(html, nom_tag, condition_vraie):
         """
-        Traite les blocs {{#si_emballage_cadeau}}...
-        {{/si_emballage_cadeau}} : si la condition est vraie,
-        garde le contenu (sans les balises) ; sinon, retire
-        tout le bloc — pour ne montrer la section "Emballage
-        cadeau" que sur les produits réellement éligibles.
-        """
+        Traite un bloc générique {{#nom_tag}}...{{/nom_tag}} :
+        si condition_vraie, garde le contenu (sans les
+        balises) ; sinon, retire tout le bloc — pour ne
+        montrer une section que lorsqu'elle est réellement
+        renseignée/éligible sur le produit.
 
-        import re
+        Généralisé à partir de l'ancienne fonction qui ne
+        gérait que "si_emballage_cadeau" en dur : n'importe
+        quel nom_tag fonctionne désormais avec le même
+        mécanisme.
+        """
 
         motif = re.compile(
-            r"\{\{#si_emballage_cadeau\}\}(.*?)\{\{/si_emballage_cadeau\}\}",
+            r"\{\{#" + re.escape(nom_tag) + r"\}\}(.*?)\{\{/" + re.escape(nom_tag) + r"\}\}",
             re.DOTALL
         )
 
@@ -75,6 +96,23 @@ class GenerateurFicheHtml:
             return motif.sub(r"\1", html)
 
         return motif.sub("", html)
+
+    @staticmethod
+    def _valeur_champ(produit, champ):
+        """
+        Lit produit[champ] de façon sûre, que produit soit un
+        dict classique ou un sqlite3.Row (qui n'a pas de
+        .get()) — renvoie "" si le champ n'existe pas encore
+        en base (ex: avant une migration du schéma) ou si sa
+        valeur est None.
+        """
+
+        try:
+            valeur = produit[champ]
+        except (KeyError, IndexError):
+            return ""
+
+        return valeur if valeur is not None else ""
 
     @staticmethod
     def generer(produit, licence_nom=None):
@@ -118,8 +156,24 @@ class GenerateurFicheHtml:
         # que si le produit y est réellement éligible (pas
         # les vélos, trottinettes, objets volumineux...).
         html = GenerateurFicheHtml._traiter_bloc_conditionnel(
-            html, bool(produit["eligible_papier_cadeau"])
+            html, "si_emballage_cadeau", bool(produit["eligible_papier_cadeau"])
         )
+
+        # Champs optionnels génériques (âge conseillé, nombre
+        # de joueurs, durée de partie, contenu de la boîte,
+        # nombre de pièces...) : la section correspondante ne
+        # s'affiche que si le champ est réellement renseigné
+        # sur la fiche produit.
+        valeurs_champs_conditionnels = {}
+
+        for champ in GenerateurFicheHtml.CHAMPS_CONDITIONNELS:
+
+            valeur = GenerateurFicheHtml._valeur_champ(produit, champ)
+            valeurs_champs_conditionnels[champ] = valeur
+
+            html = GenerateurFicheHtml._traiter_bloc_conditionnel(
+                html, f"si_{champ}", bool(str(valeur).strip())
+            )
 
         nom_produit = produit["nom"] or ""
 
@@ -161,6 +215,14 @@ class GenerateurFicheHtml:
             "tarif_chrono_relais": f"{reglages['tarif_chrono_relais']:.2f}",
             "seuil_chrono_relais": f"{reglages['seuil_chrono_relais']:.0f}",
         }
+
+        # Ajoute les valeurs des champs conditionnels
+        # (age_conseille, nombre_joueurs, duree_partie,
+        # contenu_boite, nombre_pieces...) au dictionnaire de
+        # remplacement, pour que {{age_conseille}} etc. dans
+        # le texte du bloc conditionnel soit bien remplacé et
+        # ne s'affiche jamais en texte brut non substitué.
+        variables.update(valeurs_champs_conditionnels)
 
         for cle, valeur in variables.items():
             html = html.replace("{{" + cle + "}}", str(valeur))

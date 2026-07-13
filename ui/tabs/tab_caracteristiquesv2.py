@@ -271,6 +271,41 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(groupeTextile)
 
         ####################################################
+        # Champs Jeux & Jouets — génériques, à laisser vides
+        # si non pertinents pour ce type d'article. Si un
+        # champ reste vide, la section correspondante
+        # disparaît automatiquement de la fiche publiée
+        # (voir generateur_fiche_html.py).
+        ####################################################
+
+        groupeJeuxJouets = QGroupBox("🧩 Détails Jeux & Jouets (facultatif)")
+        formJeuxJouets = QFormLayout(groupeJeuxJouets)
+
+        self.ageConseille = QLineEdit()
+        self.ageConseille.setPlaceholderText("Ex : 3 ans et +, 8-12 ans...")
+        formJeuxJouets.addRow("Âge conseillé", self.ageConseille)
+
+        self.nombreJoueurs = QLineEdit()
+        self.nombreJoueurs.setPlaceholderText("Ex : 2 à 4 joueurs, 1 joueur...")
+        formJeuxJouets.addRow("Nombre de joueurs", self.nombreJoueurs)
+
+        self.dureePartie = QLineEdit()
+        self.dureePartie.setPlaceholderText("Ex : 15-30 minutes, 1 heure...")
+        formJeuxJouets.addRow("Durée d'une partie", self.dureePartie)
+
+        self.contenuBoite = QLineEdit()
+        self.contenuBoite.setPlaceholderText(
+            "Ex : 1 plateau, 54 cartes, 4 pions, règle du jeu"
+        )
+        formJeuxJouets.addRow("Contenu de la boîte", self.contenuBoite)
+
+        self.nombrePieces = QLineEdit()
+        self.nombrePieces.setPlaceholderText("Ex : 234 pièces, 1200 pièces...")
+        formJeuxJouets.addRow("Nombre de pièces", self.nombrePieces)
+
+        layout.addWidget(groupeJeuxJouets)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -491,6 +526,12 @@ class CaracteristiquesTab(QWidget):
         )
         self.coupeType.setText(produit["coupe_type"] or "")
         self.typeManche.setText(produit["type_manche"] or "")
+
+        self.ageConseille.setText(produit["age_conseille"] or "")
+        self.nombreJoueurs.setText(produit["nombre_joueurs"] or "")
+        self.dureePartie.setText(produit["duree_partie"] or "")
+        self.contenuBoite.setText(produit["contenu_boite"] or "")
+        self.nombrePieces.setText(produit["nombre_pieces"] or "")
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])
