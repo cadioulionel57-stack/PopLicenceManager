@@ -211,6 +211,7 @@ class ProductManager:
                 p.fournisseur_id,
                 p.statut_stock,
                 p.fiche_a_terminer,
+                p.exporte_wizishop,
                 l.nom AS licence,
                 m.nom AS marque,
                 f.nom AS fournisseur

@@ -24,7 +24,7 @@ class WizishopExportManager:
     # Nom du canal représentant le site WiziShop dans les
     # réglages du logiciel (Paramètres > Canaux) — confirmé
     # avec l'utilisateur, pas une convention WiziShop.
-    NOM_CANAL_SITE = "Site+Drop"
+    NOM_CANAL_SITE = "Site"
 
     # WiziShop limite chaque fichier CSV à 500 lignes.
     LIMITE_LIGNES = 500
