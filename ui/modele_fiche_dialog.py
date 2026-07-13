@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFrame,
     QFormLayout,
+    QCheckBox,
 )
 
 
@@ -20,24 +21,31 @@ class ModeleFicheDialog(QDialog):
     {{prix_emballage_cadeau}}, {{tarif_livraison_df}},
     {{seuil_livraison_gratuite_stock}},
     {{seuil_livraison_gratuite_df}}.
+
+    Un modèle peut couvrir un seul type de produit (ex :
+    Soldes, uniquement sur le stock) ou plusieurs à la fois
+    (ex : Noël, sur stock + dropshipping + bundle).
     """
 
     TYPES_PRODUIT = [
-        ("Produit en stock", "stock"),
-        ("Direct Fournisseur", "dropshipping"),
-        ("Les deux (événementiel : Noël, soldes...)", "les_deux"),
+        ("📦 Produit en stock", "stock"),
+        ("🚚 Direct Fournisseur", "dropshipping"),
+        ("🎁 Bundle", "bundle"),
+        ("⏳ Précommande", "precommande"),
     ]
 
     def __init__(
         self, titre, themes, nom="", theme_id=None,
-        type_produit="stock", html_template="",
+        types_selectionnes=None, html_template="",
         types_articles_concernes="",
     ):
 
         super().__init__()
 
+        types_selectionnes = types_selectionnes or []
+
         self.setWindowTitle(titre)
-        self.resize(900, 700)
+        self.resize(900, 750)
 
         self.setStyleSheet("""
             QDialog{ background:#f4f7fb; font-family:"Segoe UI"; }
@@ -69,7 +77,8 @@ class ModeleFicheDialog(QDialog):
 
         self.nom = QLineEdit()
         self.nom.setPlaceholderText(
-            "Ex : Textile Stock — Normal, Textile Stock — Noël..."
+            "Ex : Textile Stock — Normal, Textile — Soldes, "
+            "Vêtements — Noël..."
         )
         self.nom.setText(nom)
         form.addRow("Nom du modèle", self.nom)
@@ -84,16 +93,6 @@ class ModeleFicheDialog(QDialog):
 
         form.addRow("Thème", self.themeTemplate)
 
-        self.typeProduit = QComboBox()
-        for libelle, valeur in self.TYPES_PRODUIT:
-            self.typeProduit.addItem(libelle, valeur)
-
-        index_type = self.typeProduit.findData(type_produit)
-        if index_type != -1:
-            self.typeProduit.setCurrentIndex(index_type)
-
-        form.addRow("Type de produit", self.typeProduit)
-
         self.typesArticles = QLineEdit()
         self.typesArticles.setPlaceholderText(
             "Ex : T-shirt, Sweat, Hoodie, Jogging..."
@@ -105,6 +104,23 @@ class ModeleFicheDialog(QDialog):
         )
 
         layout.addLayout(form)
+
+        layout.addWidget(QLabel(
+            "Types de produit concernés (coche un ou plusieurs — "
+            "ex : Soldes ne coche que \"Produit en stock\", Noël "
+            "coche Stock + Direct Fournisseur + Bundle) :"
+        ))
+
+        self.casesTypes = {}
+
+        for libelle, valeur in self.TYPES_PRODUIT:
+
+            case = QCheckBox(libelle)
+            case.setChecked(valeur in types_selectionnes)
+            self.casesTypes[valeur] = case
+            layout.addWidget(case)
+
+        layout.addSpacing(6)
 
         info = QLabel(
             "Variables disponibles : {{nom_produit}}, {{avec_licence}} "
@@ -136,3 +152,14 @@ class ModeleFicheDialog(QDialog):
 
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self.accept)
+
+    def types_choisis(self):
+        """
+        Renvoie la liste des types de produit cochés (ex :
+        ['stock', 'bundle']).
+        """
+
+        return [
+            valeur for valeur, case in self.casesTypes.items()
+            if case.isChecked()
+        ]

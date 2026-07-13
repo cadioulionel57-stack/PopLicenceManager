@@ -144,35 +144,32 @@ class PublicationTab(QWidget):
         layout.addWidget(groupeCategorie)
 
         ####################################################
-        # Thème + modèle de fiche HTML (WiziShop)
+        # Modèle de fiche HTML (WiziShop)
         ####################################################
 
         groupeModele = QGroupBox("📄 Fiche HTML (WiziShop)")
         formModele = QFormLayout(groupeModele)
 
-        self.themeTemplate = ReferenceComboBox("themes_template")
-        formModele.addRow("Thème", self.themeTemplate)
-
         self.modeleFiche = QComboBox()
-        self.modeleFiche.addItem(
-            "— Automatique (suit le thème) —", None
-        )
+        self.modeleFiche.addItem("— Aucun —", None)
 
-        for modele in ModeleFicheManager().pour_type(self.type_produit):
+        for modele in ModeleFicheManager().actifs_pour_type(
+            self.type_produit
+        ):
 
             self.modeleFiche.addItem(
                 f"{modele['nom_theme'] or '—'} — {modele['nom']}",
                 modele["id"]
             )
 
-        formModele.addRow("Modèle forcé (optionnel)", self.modeleFiche)
+        formModele.addRow("Modèle de fiche", self.modeleFiche)
 
         infoModele = QLabel(
-            "Laisse \"Automatique\" pour que ce produit suive le "
-            "modèle actif de son thème — pratique pour basculer "
-            "plusieurs produits d'un coup (ex : mode Noël). Force un "
-            "modèle précis seulement si ce produit doit toujours "
-            "utiliser ce modèle, quoi qu'il arrive au thème."
+            "Liste uniquement les modèles actuellement \"Actif\" dans "
+            "Paramètres > Modèles de fiche, pour ce type de produit. "
+            "Si le modèle choisi est un jour désactivé (ex : un autre "
+            "modèle du même thème devient actif), ce produit basculera "
+            "automatiquement sur le nouveau modèle actif."
         )
         infoModele.setWordWrap(True)
         infoModele.setStyleSheet("color:#5a6b7d; font-size:9pt;")
@@ -193,17 +190,11 @@ class PublicationTab(QWidget):
         if index != -1:
             self.categorieSite.setCurrentIndex(index)
 
-    def theme_template_id(self):
-
-        return self.themeTemplate.id()
-
     def modele_fiche_id(self):
 
         return self.modeleFiche.currentData()
 
-    def definir_theme_et_modele(self, theme_template_id, modele_fiche_id):
-
-        self.themeTemplate.selectionner(theme_template_id)
+    def definir_modele_fiche(self, modele_fiche_id):
 
         index = self.modeleFiche.findData(modele_fiche_id)
 

@@ -58,6 +58,23 @@ class ReferenceManager:
             (filtre_valeur,)
         )
 
+    def tous_y_compris_inactifs(self, table):
+        """
+        Toutes les lignes d'une table de référence, actives
+        ET inactives — contrairement à tous(), qui masque
+        les inactives. Utile pour un écran qui veut afficher
+        les éléments désactivés en grisé plutôt que les
+        faire disparaître (ex : Thèmes de template).
+        """
+
+        return self.db.lire(
+            f"""
+            SELECT *
+            FROM {table}
+            ORDER BY nom
+            """
+        )
+
     def obtenir(self, table, identifiant):
 
         return self.db.lire_un(

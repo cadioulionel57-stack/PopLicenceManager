@@ -82,23 +82,32 @@ class GenerateurFicheHtml:
         Renvoie le HTML final, ou None si aucun modèle n'est
         disponible pour ce produit.
 
-        Priorité : le modèle forcé sur cette fiche précise
-        (produit["modele_fiche_id"]) s'il existe, sinon le
-        modèle "Automatique" actif pour le thème + type du
-        produit.
+        Le produit garde en mémoire le modèle choisi
+        directement sur sa fiche (produit["modele_fiche_id"]).
+        S'il est toujours actif, il est utilisé tel quel.
+        S'il a depuis été désactivé (un autre modèle du même
+        thème est devenu actif — bascule saisonnière type
+        Noël), le produit suit automatiquement le nouveau
+        modèle actif du même thème, sans rien à changer sur
+        sa fiche.
         """
+
+        gestionnaire = ModeleFicheManager()
 
         modele = None
 
         if produit["modele_fiche_id"] is not None:
-            modele = ModeleFicheManager().obtenir(
-                produit["modele_fiche_id"]
-            )
 
-        if modele is None and produit["theme_template_id"] is not None:
-            modele = ModeleFicheManager().obtenir_actif(
-                produit["theme_template_id"], produit["type_produit"]
-            )
+            choisi = gestionnaire.obtenir(produit["modele_fiche_id"])
+
+            if choisi is not None:
+
+                if choisi["actif"]:
+                    modele = choisi
+                else:
+                    modele = gestionnaire.obtenir_actif(
+                        choisi["theme_id"], produit["type_produit"]
+                    )
 
         if modele is None:
             return None

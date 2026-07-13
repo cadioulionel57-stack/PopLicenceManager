@@ -232,16 +232,11 @@ class ModelesFichePage(QWidget):
 
     def _basculerActif(self, modele_id, coche):
 
-        if not coche:
-            # On ne permet pas de décocher directement — il
-            # faut activer un AUTRE modèle couvrant les mêmes
-            # types pour que celui-ci se désactive
-            # automatiquement (sinon on pourrait finir sans
-            # aucun modèle "Automatique" pour ce type).
-            self.charger()
-            return
+        if coche:
+            self.manager.basculer_actif(modele_id)
+        else:
+            self.manager.desactiver(modele_id)
 
-        self.manager.basculer_actif(modele_id)
         self.charger()
 
     def ajouter(self):

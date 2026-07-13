@@ -357,9 +357,8 @@ class ProductDialogV2(QDialog):
                 self.produit["categorie_site_id"]
             )
 
-            self.pagePublication.definir_theme_et_modele(
-                self.produit["theme_template_id"],
-                self.produit["modele_fiche_id"],
+            self.pagePublication.definir_modele_fiche(
+                self.produit["modele_fiche_id"]
             )
 
         ####################################################
@@ -690,8 +689,6 @@ class ProductDialogV2(QDialog):
 
                 categorie_site_id=self.pagePublication.categorie_site_id(),
 
-                theme_template_id=self.pagePublication.theme_template_id(),
-
                 modele_fiche_id=self.pagePublication.modele_fiche_id(),
 
             )
@@ -785,8 +782,6 @@ class ProductDialogV2(QDialog):
                 image_ambiance=self.pageImages.image_ambiance(),
 
                 categorie_site_id=self.pagePublication.categorie_site_id(),
-
-                theme_template_id=self.pagePublication.theme_template_id(),
 
                 modele_fiche_id=self.pagePublication.modele_fiche_id(),
 

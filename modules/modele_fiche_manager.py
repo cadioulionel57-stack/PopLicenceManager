@@ -86,6 +86,36 @@ class ModeleFicheManager:
                 (modele_id, type_produit)
             )
 
+    def actifs_pour_type(self, type_produit):
+        """
+        Uniquement les modèles actuellement "Actif" qui
+        couvrent ce type de produit — sert à peupler le menu
+        déroulant unique de la fiche produit (tu choisis
+        directement parmi les actifs, pas de champ "Thème"
+        séparé à gérer).
+        """
+
+        return self.db.lire(
+            """
+            SELECT DISTINCT
+                mfp.*,
+                t.nom AS nom_theme
+            FROM modeles_fiche_produit mfp
+
+            INNER JOIN modeles_fiche_types mft
+                ON mft.modele_id = mfp.id
+                AND mft.type_produit = ?
+
+            LEFT JOIN themes_template t
+                ON t.id = mfp.theme_id
+
+            WHERE mfp.actif = 1
+
+            ORDER BY t.nom, mfp.nom
+            """,
+            (type_produit,)
+        )
+
     def pour_type(self, type_produit):
         """
         Tous les modèles couvrant ce type de produit — sert
@@ -266,6 +296,22 @@ class ModeleFicheManager:
             """
             UPDATE modeles_fiche_produit
             SET actif = 1
+            WHERE id = ?
+            """,
+            (identifiant,)
+        )
+
+    def desactiver(self, identifiant):
+        """
+        Désactive ce modèle directement, sans qu'un autre
+        n'ait besoin de prendre sa place — un thème+type
+        peut donc temporairement n'avoir aucun modèle actif.
+        """
+
+        self.db.executer(
+            """
+            UPDATE modeles_fiche_produit
+            SET actif = 0
             WHERE id = ?
             """,
             (identifiant,)
