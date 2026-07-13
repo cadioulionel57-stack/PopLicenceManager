@@ -667,6 +667,14 @@ class ProductDialogV2(QDialog):
 
                 contenu_boite=self.pageCaracteristiques.contenuBoite.text() or None,
 
+                nombre_pieces=self.pageCaracteristiques.nombrePieces.text() or None,
+
+                taille_literie=self.pageCaracteristiques.tailleLiterie.text() or None,
+
+                contenance=self.pageCaracteristiques.contenance.text() or None,
+
+                compatible_lave_vaisselle=self.pageCaracteristiques.compatibleLaveVaisselle.isChecked(),
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -768,6 +776,14 @@ class ProductDialogV2(QDialog):
                 duree_partie=self.pageCaracteristiques.dureePartie.text() or None,
 
                 contenu_boite=self.pageCaracteristiques.contenuBoite.text() or None,
+
+                nombre_pieces=self.pageCaracteristiques.nombrePieces.text() or None,
+
+                taille_literie=self.pageCaracteristiques.tailleLiterie.text() or None,
+
+                contenance=self.pageCaracteristiques.contenance.text() or None,
+
+                compatible_lave_vaisselle=self.pageCaracteristiques.compatibleLaveVaisselle.isChecked(),
 
                 titre_seo=self.pageSeo.titreSeo.text(),
 

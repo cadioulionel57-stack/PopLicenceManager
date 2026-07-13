@@ -306,6 +306,34 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(groupeJeuxJouets)
 
         ####################################################
+        # Champ Linge de Maison — générique, à laisser vide
+        # si non pertinent. Même principe que les champs
+        # Jeux & Jouets ci-dessus : la section correspondante
+        # disparaît automatiquement de la fiche publiée si le
+        # champ reste vide (voir generateur_fiche_html.py).
+        ####################################################
+
+        groupeLingeMaison = QGroupBox("🛏️ Détails Linge de Maison / Mugs & Vaisselle (facultatif)")
+        formLingeMaison = QFormLayout(groupeLingeMaison)
+
+        self.tailleLiterie = QLineEdit()
+        self.tailleLiterie.setPlaceholderText(
+            "Ex : 140x200 cm, 220x240 cm, 65x65 cm..."
+        )
+        formLingeMaison.addRow("Taille/dimensions literie", self.tailleLiterie)
+
+        self.contenance = QLineEdit()
+        self.contenance.setPlaceholderText("Ex : 325 ml, 500 ml, 1 L...")
+        formLingeMaison.addRow("Contenance", self.contenance)
+
+        self.compatibleLaveVaisselle = QCheckBox(
+            "🍽️ Compatible lave-vaisselle"
+        )
+        formLingeMaison.addRow("", self.compatibleLaveVaisselle)
+
+        layout.addWidget(groupeLingeMaison)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -532,6 +560,14 @@ class CaracteristiquesTab(QWidget):
         self.dureePartie.setText(produit["duree_partie"] or "")
         self.contenuBoite.setText(produit["contenu_boite"] or "")
         self.nombrePieces.setText(produit["nombre_pieces"] or "")
+
+        self.tailleLiterie.setText(produit["taille_literie"] or "")
+
+        self.contenance.setText(produit["contenance"] or "")
+
+        self.compatibleLaveVaisselle.setChecked(
+            bool(produit["compatible_lave_vaisselle"])
+        )
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])

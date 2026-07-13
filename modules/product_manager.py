@@ -55,6 +55,9 @@ class ProductManager:
         duree_partie=None,
         contenu_boite=None,
         nombre_pieces=None,
+        taille_literie=None,
+        contenance=None,
+        compatible_lave_vaisselle=0,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -116,6 +119,9 @@ class ProductManager:
                 duree_partie,
                 contenu_boite,
                 nombre_pieces,
+                taille_literie,
+                contenance,
+                compatible_lave_vaisselle,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -124,7 +130,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -174,6 +180,9 @@ class ProductManager:
                 duree_partie,
                 contenu_boite,
                 nombre_pieces,
+                taille_literie,
+                contenance,
+                compatible_lave_vaisselle,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -300,6 +309,9 @@ class ProductManager:
         duree_partie=None,
         contenu_boite=None,
         nombre_pieces=None,
+        taille_literie=None,
+        contenance=None,
+        compatible_lave_vaisselle=0,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -355,6 +367,9 @@ class ProductManager:
                 duree_partie = ?,
                 contenu_boite = ?,
                 nombre_pieces = ?,
+                taille_literie = ?,
+                contenance = ?,
+                compatible_lave_vaisselle = ?,
                 quantite_stock = ?,
                 categorie_site_id = ?,
                 theme_template_id = ?,
@@ -407,6 +422,9 @@ class ProductManager:
                 duree_partie,
                 contenu_boite,
                 nombre_pieces,
+                taille_literie,
+                contenance,
+                compatible_lave_vaisselle,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,

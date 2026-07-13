@@ -79,6 +79,9 @@ SCHEMA = {
         ("duree_partie", "TEXT"),
         ("contenu_boite", "TEXT"),
         ("nombre_pieces", "TEXT"),
+        ("taille_literie", "TEXT"),
+        ("contenance", "TEXT"),
+        ("compatible_lave_vaisselle", "INTEGER DEFAULT 0"),
 
         ("tva", "REAL"),
 

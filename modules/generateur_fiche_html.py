@@ -27,6 +27,18 @@ class GenerateurFicheHtml:
         "duree_partie",
         "contenu_boite",
         "nombre_pieces",
+        "taille_literie",
+        "contenance",
+    ]
+
+    # Champs "oui/non" (case à cocher, stockés en 0/1) : la
+    # section {{#si_<champ>}}...{{/si_<champ>}} ne s'affiche
+    # que si la case est cochée (valeur = 1). Contrairement à
+    # CHAMPS_CONDITIONNELS ci-dessus, il n'y a pas de variable
+    # {{<champ>}} à substituer à l'intérieur — juste un bloc à
+    # montrer ou masquer.
+    CHAMPS_BOOLEENS_CONDITIONNELS = [
+        "compatible_lave_vaisselle",
     ]
 
     @staticmethod
@@ -161,9 +173,9 @@ class GenerateurFicheHtml:
 
         # Champs optionnels génériques (âge conseillé, nombre
         # de joueurs, durée de partie, contenu de la boîte,
-        # nombre de pièces...) : la section correspondante ne
-        # s'affiche que si le champ est réellement renseigné
-        # sur la fiche produit.
+        # nombre de pièces, contenance...) : la section
+        # correspondante ne s'affiche que si le champ est
+        # réellement renseigné sur la fiche produit.
         valeurs_champs_conditionnels = {}
 
         for champ in GenerateurFicheHtml.CHAMPS_CONDITIONNELS:
@@ -173,6 +185,17 @@ class GenerateurFicheHtml:
 
             html = GenerateurFicheHtml._traiter_bloc_conditionnel(
                 html, f"si_{champ}", bool(str(valeur).strip())
+            )
+
+        # Champs "oui/non" (case à cocher) : la section ne
+        # s'affiche que si la case est cochée (1), pas selon
+        # qu'une valeur texte soit renseignée.
+        for champ in GenerateurFicheHtml.CHAMPS_BOOLEENS_CONDITIONNELS:
+
+            valeur_brute = GenerateurFicheHtml._valeur_champ(produit, champ)
+
+            html = GenerateurFicheHtml._traiter_bloc_conditionnel(
+                html, f"si_{champ}", bool(valeur_brute)
             )
 
         nom_produit = produit["nom"] or ""
