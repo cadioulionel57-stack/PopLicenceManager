@@ -82,6 +82,8 @@ SCHEMA = {
         ("taille_literie", "TEXT"),
         ("contenance", "TEXT"),
         ("compatible_lave_vaisselle", "INTEGER DEFAULT 0"),
+        ("type_alimentation", "TEXT"),
+        ("exporte_wizishop", "INTEGER DEFAULT 0"),
 
         ("tva", "REAL"),
 

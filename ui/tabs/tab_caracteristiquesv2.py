@@ -334,6 +334,25 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(groupeLingeMaison)
 
         ####################################################
+        # Champ Électronique — générique, à laisser vide si
+        # non pertinent. Même principe que les groupes
+        # ci-dessus : la section correspondante disparaît
+        # automatiquement de la fiche publiée si le champ
+        # reste vide (voir generateur_fiche_html.py).
+        ####################################################
+
+        groupeElectronique = QGroupBox("🔌 Détails Électronique (facultatif)")
+        formElectronique = QFormLayout(groupeElectronique)
+
+        self.typeAlimentation = QLineEdit()
+        self.typeAlimentation.setPlaceholderText(
+            "Ex : Pile (incluse), Secteur, USB..."
+        )
+        formElectronique.addRow("Type d'alimentation", self.typeAlimentation)
+
+        layout.addWidget(groupeElectronique)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -568,6 +587,8 @@ class CaracteristiquesTab(QWidget):
         self.compatibleLaveVaisselle.setChecked(
             bool(produit["compatible_lave_vaisselle"])
         )
+
+        self.typeAlimentation.setText(produit["type_alimentation"] or "")
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])

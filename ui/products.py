@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QComboBox,
     QMessageBox,
+    QAbstractItemView,
 )
 from PySide6.QtGui import QColor, QFont
 
@@ -35,6 +36,15 @@ class ProductsPage(ListPage):
         "fin_de_vie": "#c0392b",
     }
 
+    # Colonne "Exporté" — filtre rapide indépendant du filtre
+    # par type, pour repérer d'un coup d'œil ce qui reste à
+    # exporter vers WiziShop, même après une déconnexion/
+    # reconnexion (le statut est stocké en base, pas en session).
+    EXPORT_OPTIONS = {
+        "exportes": "✅ Exportés",
+        "non_exportes": "❌ Non exportés",
+    }
+
     def __init__(self):
 
         super().__init__("📦 Gestion des produits")
@@ -54,16 +64,29 @@ class ProductsPage(ListPage):
 
         self.filtreType.currentIndexChanged.connect(self.rechercher)
 
-        # Insère le filtre juste avant la recherche, dans la
+        ####################################################
+        # Filtre par statut d'export WiziShop
+        ####################################################
+
+        self.filtreExporte = QComboBox()
+        self.filtreExporte.addItem("Export : tous", None)
+
+        for cle, libelle in self.EXPORT_OPTIONS.items():
+            self.filtreExporte.addItem(libelle, cle)
+
+        self.filtreExporte.currentIndexChanged.connect(self.rechercher)
+
+        # Insère les filtres juste avant la recherche, dans la
         # même barre d'outils
         barreLayout = self.recherche.parentWidget().layout()
         barreLayout.insertWidget(0, self.filtreType)
+        barreLayout.insertWidget(1, self.filtreExporte)
 
         self.compteur = QLabel("")
         self.compteur.setStyleSheet("color:#7f8c8d; font-size:9.5pt;")
-        barreLayout.insertWidget(1, self.compteur)
+        barreLayout.insertWidget(2, self.compteur)
 
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(9)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -73,10 +96,20 @@ class ProductsPage(ListPage):
             "Licence",
             "Marque",
             "Fournisseur",
-            "EAN"
+            "EAN",
+            "Exporté",
         ])
 
         self.table.setColumnHidden(0, True)
+
+        # Sélection multiple (Ctrl/Shift + clic) — nécessaire
+        # pour pouvoir choisir plusieurs produits à exporter en
+        # une fois. Ce changement est local à l'écran Produits,
+        # les autres écrans de liste gardent leur comportement
+        # habituel (ListPage n'est pas modifiée).
+        self.table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
 
         self.recherche.textChanged.connect(self.rechercher)
 
@@ -84,7 +117,7 @@ class ProductsPage(ListPage):
         self.btnModifier.clicked.connect(self.ouvrirProduit)
         self.btnSupprimer.clicked.connect(self.supprimerProduit)
         self.btnImporter.setVisible(False)
-        self.btnExporter.setVisible(False)
+        self.btnExporter.clicked.connect(self.exporterProduits)
 
         self.table.doubleClicked.connect(self.ouvrirProduit)
 
@@ -155,6 +188,25 @@ class ProductsPage(ListPage):
                     item.setFont(police)
 
                 self.table.setItem(ligne, 2 + offset, item)
+
+            # Colonne "Exporté" — dernière colonne, toujours
+            # visible même sans recherche ni filtre, pour
+            # repérer en un coup d'œil ce qui a déjà été envoyé
+            # vers WiziShop, y compris après une reconnexion.
+            exporte = bool(produit["exporte_wizishop"])
+
+            itemExporte = QTableWidgetItem(
+                "✅ Exporté" if exporte else "❌ Non exporté"
+            )
+            itemExporte.setForeground(
+                QColor("#1e7d32" if exporte else "#c0392b")
+            )
+
+            policeExporte = QFont()
+            policeExporte.setBold(True)
+            itemExporte.setFont(policeExporte)
+
+            self.table.setItem(ligne, 8, itemExporte)
 
         self.table.clearSelection()
         self._majCompteur()
@@ -227,10 +279,76 @@ class ProductsPage(ListPage):
 
         self.charger()
 
+    def _lignesSelectionnees(self):
+        """
+        Renvoie la liste des numéros de ligne réellement
+        sélectionnées (une seule fois par ligne, même si
+        plusieurs cellules de la même ligne sont sélectionnées).
+        """
+
+        lignes = sorted({
+            index.row() for index in self.table.selectedIndexes()
+        })
+
+        return lignes
+
+    def _produitsSelectionnes(self):
+        """
+        Renvoie la liste des identifiants produit correspondant
+        aux lignes actuellement sélectionnées dans le tableau.
+        """
+
+        identifiants = []
+
+        for ligne in self._lignesSelectionnees():
+
+            item_id = self.table.item(ligne, 0)
+
+            if item_id is not None:
+                identifiants.append(int(item_id.text()))
+
+        return identifiants
+
+    def exporterProduits(self):
+        """
+        Ouvre la fenêtre d'export WiziShop pour les produits
+        actuellement sélectionnés dans la liste (et seulement
+        ceux-là — pas tout le catalogue filtré).
+        """
+
+        identifiants = self._produitsSelectionnes()
+
+        if not identifiants:
+
+            QMessageBox.information(
+                self,
+                "Information",
+                "Sélectionnez au moins un produit à exporter "
+                "(Ctrl ou Shift + clic pour en sélectionner "
+                "plusieurs)."
+            )
+            return
+
+        # La fenêtre de sélection des colonnes et le générateur
+        # CSV sont construits dans les fichiers suivants de ce
+        # chantier (ui/wizishop_export_dialog.py +
+        # modules/wizishop_export_manager.py). Cet import est
+        # donc volontairement en local à la méthode : tant que
+        # ces fichiers ne sont pas encore en place, ce bouton
+        # affichera une erreur si on clique dessus — normal à
+        # ce stade du chantier, pas un bug de ce fichier-ci.
+        from ui.wizishop_export_dialog import WizishopExportDialog
+
+        dialog = WizishopExportDialog(identifiants, parent=self)
+
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            self.charger()
+
     def rechercher(self):
 
         texte = self.recherche.text().lower()
         type_filtre = self.filtreType.currentData()
+        export_filtre = self.filtreExporte.currentData()
 
         for ligne in range(self.table.rowCount()):
 
@@ -255,9 +373,28 @@ class ProductsPage(ListPage):
                     and item_type.text() == libelle_attendu
                 )
 
+            correspond_export = True
+
+            if export_filtre is not None:
+
+                item_export = self.table.item(ligne, 8)
+                est_exporte = (
+                    item_export is not None
+                    and item_export.text().startswith("✅")
+                )
+
+                if export_filtre == "exportes":
+                    correspond_export = est_exporte
+                else:
+                    correspond_export = not est_exporte
+
             self.table.setRowHidden(
                 ligne,
-                not (correspond_texte and correspond_type)
+                not (
+                    correspond_texte
+                    and correspond_type
+                    and correspond_export
+                )
             )
 
         self._majCompteur()

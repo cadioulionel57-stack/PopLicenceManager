@@ -58,6 +58,7 @@ class ProductManager:
         taille_literie=None,
         contenance=None,
         compatible_lave_vaisselle=0,
+        type_alimentation=None,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -122,6 +123,7 @@ class ProductManager:
                 taille_literie,
                 contenance,
                 compatible_lave_vaisselle,
+                type_alimentation,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -130,7 +132,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -183,6 +185,7 @@ class ProductManager:
                 taille_literie,
                 contenance,
                 compatible_lave_vaisselle,
+                type_alimentation,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -312,6 +315,7 @@ class ProductManager:
         taille_literie=None,
         contenance=None,
         compatible_lave_vaisselle=0,
+        type_alimentation=None,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -370,6 +374,7 @@ class ProductManager:
                 taille_literie = ?,
                 contenance = ?,
                 compatible_lave_vaisselle = ?,
+                type_alimentation = ?,
                 quantite_stock = ?,
                 categorie_site_id = ?,
                 theme_template_id = ?,
@@ -425,6 +430,7 @@ class ProductManager:
                 taille_literie,
                 contenance,
                 compatible_lave_vaisselle,
+                type_alimentation,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -714,3 +720,55 @@ class ProductManager:
                 """,
                 (produit_id, canal_id, marge_pourcentage)
             )
+
+    def marquer_exporte_wizishop(self, produit_id):
+        """
+        Coche le statut "exporté vers WiziShop" d'un produit,
+        une fois qu'il a effectivement été inclus dans un
+        export CSV réussi. Volontairement séparée de
+        modifier() : si ce champ faisait partie des paramètres
+        habituels de modifier(), la moindre sauvegarde de
+        fiche produit depuis le formulaire risquerait de
+        décocher le statut par erreur (valeur par défaut non
+        transmise). Cette méthode est le seul chemin qui coche
+        ce statut.
+        """
+
+        self.db.executer(
+            """
+            UPDATE produits
+            SET exporte_wizishop = 1
+            WHERE id = ?
+            """,
+            (produit_id,)
+        )
+
+    def marquer_produits_exportes(self, produit_ids):
+        """
+        Coche le statut "exporté vers WiziShop" pour plusieurs
+        produits en une fois — utilisé juste après la
+        génération réussie d'un export CSV groupé.
+        """
+
+        for produit_id in produit_ids:
+            self.marquer_exporte_wizishop(produit_id)
+
+    def reinitialiser_export_wizishop(self, produit_id):
+        """
+        Décoche le statut "exporté vers WiziShop" d'un produit.
+        Pas encore appelée nulle part dans le logiciel — prête
+        pour le futur chantier Import, qui devra décocher ce
+        statut si un produit est réimporté depuis WiziShop
+        (import = le produit vient d'être remplacé/mis à jour
+        depuis la source, donc son statut d'export local n'est
+        plus à jour).
+        """
+
+        self.db.executer(
+            """
+            UPDATE produits
+            SET exporte_wizishop = 0
+            WHERE id = ?
+            """,
+            (produit_id,)
+        )

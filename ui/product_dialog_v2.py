@@ -675,6 +675,8 @@ class ProductDialogV2(QDialog):
 
                 compatible_lave_vaisselle=self.pageCaracteristiques.compatibleLaveVaisselle.isChecked(),
 
+                type_alimentation=self.pageCaracteristiques.typeAlimentation.text() or None,
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -784,6 +786,8 @@ class ProductDialogV2(QDialog):
                 contenance=self.pageCaracteristiques.contenance.text() or None,
 
                 compatible_lave_vaisselle=self.pageCaracteristiques.compatibleLaveVaisselle.isChecked(),
+
+                type_alimentation=self.pageCaracteristiques.typeAlimentation.text() or None,
 
                 titre_seo=self.pageSeo.titreSeo.text(),
 

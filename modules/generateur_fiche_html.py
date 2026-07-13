@@ -29,6 +29,7 @@ class GenerateurFicheHtml:
         "nombre_pieces",
         "taille_literie",
         "contenance",
+        "type_alimentation",
     ]
 
     # Champs "oui/non" (case à cocher, stockés en 0/1) : la
