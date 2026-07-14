@@ -84,6 +84,8 @@ SCHEMA = {
         ("compatible_lave_vaisselle", "INTEGER DEFAULT 0"),
         ("type_alimentation", "TEXT"),
         ("exporte_wizishop", "INTEGER DEFAULT 0"),
+        ("format_cartes", "TEXT"),
+        ("nombre_cartes", "TEXT"),
 
         ("tva", "REAL"),
 

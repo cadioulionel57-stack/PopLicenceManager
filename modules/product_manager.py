@@ -59,6 +59,8 @@ class ProductManager:
         contenance=None,
         compatible_lave_vaisselle=0,
         type_alimentation=None,
+        format_cartes=None,
+        nombre_cartes=None,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -124,6 +126,8 @@ class ProductManager:
                 contenance,
                 compatible_lave_vaisselle,
                 type_alimentation,
+                format_cartes,
+                nombre_cartes,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -132,7 +136,7 @@ class ProductManager:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
             )
             """,
             (
@@ -186,6 +190,8 @@ class ProductManager:
                 contenance,
                 compatible_lave_vaisselle,
                 type_alimentation,
+                format_cartes,
+                nombre_cartes,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,
@@ -317,6 +323,8 @@ class ProductManager:
         contenance=None,
         compatible_lave_vaisselle=0,
         type_alimentation=None,
+        format_cartes=None,
+        nombre_cartes=None,
         quantite_stock=0,
         categorie_site_id=None,
         theme_template_id=None,
@@ -376,6 +384,8 @@ class ProductManager:
                 contenance = ?,
                 compatible_lave_vaisselle = ?,
                 type_alimentation = ?,
+                format_cartes = ?,
+                nombre_cartes = ?,
                 quantite_stock = ?,
                 categorie_site_id = ?,
                 theme_template_id = ?,
@@ -432,6 +442,8 @@ class ProductManager:
                 contenance,
                 compatible_lave_vaisselle,
                 type_alimentation,
+                format_cartes,
+                nombre_cartes,
                 quantite_stock,
                 categorie_site_id,
                 theme_template_id,

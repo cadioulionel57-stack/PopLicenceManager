@@ -30,6 +30,8 @@ class GenerateurFicheHtml:
         "taille_literie",
         "contenance",
         "type_alimentation",
+        "format_cartes",
+        "nombre_cartes",
     ]
 
     # Champs "oui/non" (case à cocher, stockés en 0/1) : la

@@ -353,6 +353,32 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(groupeElectronique)
 
         ####################################################
+        # Champs Cartes à collectionner — génériques, à
+        # laisser vides si non pertinents. Même principe :
+        # la section correspondante disparaît automatiquement
+        # de la fiche publiée si le champ reste vide.
+        ####################################################
+
+        groupeCartes = QGroupBox(
+            "🃏 Détails Cartes à collectionner (facultatif)"
+        )
+        formCartes = QFormLayout(groupeCartes)
+
+        self.formatCartes = QLineEdit()
+        self.formatCartes.setPlaceholderText(
+            "Ex : Booster, Display, Coffret, Deck..."
+        )
+        formCartes.addRow("Format de produit", self.formatCartes)
+
+        self.nombreCartes = QLineEdit()
+        self.nombreCartes.setPlaceholderText(
+            "Ex : 60 cartes, 36 boosters..."
+        )
+        formCartes.addRow("Nombre de cartes", self.nombreCartes)
+
+        layout.addWidget(groupeCartes)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -589,6 +615,9 @@ class CaracteristiquesTab(QWidget):
         )
 
         self.typeAlimentation.setText(produit["type_alimentation"] or "")
+
+        self.formatCartes.setText(produit["format_cartes"] or "")
+        self.nombreCartes.setText(produit["nombre_cartes"] or "")
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])
