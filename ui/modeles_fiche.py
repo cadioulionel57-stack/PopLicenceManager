@@ -84,13 +84,13 @@ class ModelesFichePage(QWidget):
         layout.addLayout(entete)
 
         info = QLabel(
-            "Un seul modèle \"Automatique\" actif à la fois par thème, "
-            "pour chaque type de produit qu'il couvre (coche \"Actif\" "
-            "sur celui à utiliser). Un modèle peut couvrir un seul "
-            "type (ex : Soldes → Stock uniquement) ou plusieurs à la "
-            "fois (ex : Noël → Stock + Direct Fournisseur + Bundle). "
-            "Sur chaque fiche produit, tu peux aussi forcer un modèle "
-            "précis, indépendamment de ce réglage global."
+            "Coche \"Actif\" sur tous les modèles que tu veux rendre "
+            "disponibles — plusieurs modèles peuvent être actifs en "
+            "même temps, y compris pour un même thème (ex : la "
+            "version normale ET la version Noël). Ils apparaîtront "
+            "tous ensemble dans la liste déroulante \"Modèle de "
+            "fiche\" de chaque fiche produit, où tu choisis "
+            "librement lequel utiliser, produit par produit."
         )
         info.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
         info.setWordWrap(True)
@@ -188,6 +188,12 @@ class ModelesFichePage(QWidget):
 
         self.table.setRowCount(0)
 
+        # Référence vers chaque case affichée, indexée par
+        # l'id du modèle — permet de mettre à jour l'état
+        # coché/décoché sans jamais reconstruire le tableau
+        # (voir _rafraichirCasesActif ci-dessous).
+        self._cases = {}
+
         for ligne, modele in enumerate(self.manager.tous()):
 
             self.table.insertRow(ligne)
@@ -222,6 +228,8 @@ class ModelesFichePage(QWidget):
                 )
             )
 
+            self._cases[modele["id"]] = case
+
             conteneur = QWidget()
             layoutCase = QHBoxLayout(conteneur)
             layoutCase.addWidget(case)
@@ -237,7 +245,43 @@ class ModelesFichePage(QWidget):
         else:
             self.manager.desactiver(modele_id)
 
-        self.charger()
+        # Surtout NE PAS appeler self.charger() ici : ça
+        # détruirait la case en cours de clic (celle qui émet
+        # encore son propre signal toggled) et ferait remonter
+        # toute la liste en haut à chaque bascule. On se
+        # contente de mettre à jour l'état coché/décoché des
+        # cases déjà affichées, sans toucher au reste du
+        # tableau.
+        self._rafraichirCasesActif()
+
+    def _rafraichirCasesActif(self):
+        """
+        Relit les statuts "actif" en base et met à jour l'état
+        coché/décoché de chaque case déjà affichée à l'écran,
+        sans reconstruire le tableau (pas de perte de
+        défilement, pas de destruction de widget en cours de
+        clic).
+
+        blockSignals est indispensable ici : sans ça,
+        setChecked déclencherait à nouveau toggled → une
+        nouvelle bascule en base → un nouvel appel ici, en
+        boucle.
+        """
+
+        etats_actifs = {
+            modele["id"]: bool(modele["actif"])
+            for modele in self.manager.tous()
+        }
+
+        for modele_id, case in self._cases.items():
+
+            valeur = etats_actifs.get(modele_id, False)
+
+            if case.isChecked() != valeur:
+
+                case.blockSignals(True)
+                case.setChecked(valeur)
+                case.blockSignals(False)
 
     def ajouter(self):
 

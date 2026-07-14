@@ -229,68 +229,20 @@ class ModeleFicheManager:
 
     def basculer_actif(self, identifiant):
         """
-        Active ce modèle. Désactive tout autre modèle du
-        même thème qui couvre AU MOINS UN type en commun
-        avec celui-ci (ex : activer un modèle "Soldes" qui
-        ne couvre que le stock désactive le modèle stock
-        normal, mais laisse tranquille un modèle dédié
-        uniquement au dropshipping, qui ne partage aucun
-        type avec les soldes).
+        Active ce modèle — et seulement celui-ci. Ne désactive
+        plus les autres modèles du même thème : plusieurs
+        modèles peuvent désormais être actifs en même temps
+        pour un même thème+type, pour apparaître tous ensemble
+        dans la liste déroulante "Modèle de fiche" côté fiche
+        produit (choix manuel, produit par produit).
 
-        Bascule d'un coup tous les produits en mode
-        "Automatique" concernés, pour chacun des types
-        couverts par ce modèle.
+        Avant, cocher un modèle décochait automatiquement les
+        autres du même thème (pensé pour une bascule
+        saisonnière automatique appliquée à tous les produits
+        d'un coup) — ce comportement ne correspond plus à
+        l'usage réel : décision actée de repasser en sélection
+        manuelle libre.
         """
-
-        modele = self.obtenir(identifiant)
-
-        if modele is None:
-            return
-
-        types_de_ce_modele = modele["types"]
-
-        if not types_de_ce_modele:
-            # Aucun type coché : on l'active quand même,
-            # mais il ne sera jamais choisi automatiquement
-            # nulle part tant qu'aucun type ne lui est
-            # rattaché.
-            self.db.executer(
-                """
-                UPDATE modeles_fiche_produit
-                SET actif = 1
-                WHERE id = ?
-                """,
-                (identifiant,)
-            )
-            return
-
-        placeholders = ",".join("?" * len(types_de_ce_modele))
-
-        autres_modeles_concernes = self.db.lire(
-            f"""
-            SELECT DISTINCT mfp.id
-            FROM modeles_fiche_produit mfp
-
-            INNER JOIN modeles_fiche_types mft
-                ON mft.modele_id = mfp.id
-                AND mft.type_produit IN ({placeholders})
-
-            WHERE mfp.theme_id = ?
-            AND mfp.id != ?
-            """,
-            (*types_de_ce_modele, modele["theme_id"], identifiant)
-        )
-
-        for autre in autres_modeles_concernes:
-
-            self.db.executer(
-                """
-                UPDATE modeles_fiche_produit
-                SET actif = 0
-                WHERE id = ?
-                """,
-                (autre["id"],)
-            )
 
         self.db.executer(
             """
