@@ -129,6 +129,17 @@ class ProductDialogV2(QDialog):
             background:white;
         }
 
+        QLineEdit:disabled,
+        QTextEdit:disabled,
+        QComboBox:disabled,
+        QSpinBox:disabled,
+        QDoubleSpinBox:disabled,
+        QDateEdit:disabled{
+            background:#e2e6ea;
+            border:1px solid #c3cad3;
+            color:#9aa4b0;
+        }
+
         QSpinBox::up-button, QDoubleSpinBox::up-button{
             subcontrol-origin:border;
             subcontrol-position:top right;
@@ -681,6 +692,14 @@ class ProductDialogV2(QDialog):
 
                 nombre_cartes=self.pageCaracteristiques.nombreCartes.text() or None,
 
+                date_sortie_precommande=self.pageCaracteristiques.dateSortiePrecommande.text() or None,
+
+                remise_precommande=self.pageCaracteristiques.remisePrecommande.text() or None,
+
+                contenu_bundle=self.pageCaracteristiques.contenuBundle.text() or None,
+
+                date_fin_vente_flash=self.pageCaracteristiques.dateFinVenteFlash.text() or None,
+
                 titre_seo=self.pageSeo.titreSeo.text(),
 
                 meta_description=self.pageSeo.metaDescription.toPlainText(),
@@ -796,6 +815,14 @@ class ProductDialogV2(QDialog):
                 format_cartes=self.pageCaracteristiques.formatCartes.text() or None,
 
                 nombre_cartes=self.pageCaracteristiques.nombreCartes.text() or None,
+
+                date_sortie_precommande=self.pageCaracteristiques.dateSortiePrecommande.text() or None,
+
+                remise_precommande=self.pageCaracteristiques.remisePrecommande.text() or None,
+
+                contenu_bundle=self.pageCaracteristiques.contenuBundle.text() or None,
+
+                date_fin_vente_flash=self.pageCaracteristiques.dateFinVenteFlash.text() or None,
 
                 titre_seo=self.pageSeo.titreSeo.text(),
 

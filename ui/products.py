@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QMessageBox,
     QAbstractItemView,
+    QPushButton,
 )
 from PySide6.QtGui import QColor, QFont
 
@@ -118,6 +119,16 @@ class ProductsPage(ListPage):
         self.btnSupprimer.clicked.connect(self.supprimerProduit)
         self.btnImporter.setVisible(False)
         self.btnExporter.clicked.connect(self.exporterProduits)
+
+        # Second bouton d'export, ajouté juste à côté de celui
+        # de ListPage (btnExporter, réservé à WiziShop) — pas
+        # hérité, propre à cet écran puisque Base.com est un
+        # deuxième canal d'export distinct.
+        self.btnExporterBase = QPushButton("📤 Export Base.com")
+        self.btnExporterBase.setObjectName("btnSecondaire")
+        self.btnExporterBase.clicked.connect(self.exporterProduitsBase)
+
+        barreLayout.addWidget(self.btnExporterBase)
 
         self.table.doubleClicked.connect(self.ouvrirProduit)
 
@@ -340,6 +351,33 @@ class ProductsPage(ListPage):
         from ui.wizishop_export_dialog import WizishopExportDialog
 
         dialog = WizishopExportDialog(identifiants, parent=self)
+
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            self.charger()
+
+    def exporterProduitsBase(self):
+        """
+        Ouvre la fenêtre d'export Base.com pour les produits
+        actuellement sélectionnés dans la liste (et seulement
+        ceux-là — pas tout le catalogue filtré).
+        """
+
+        identifiants = self._produitsSelectionnes()
+
+        if not identifiants:
+
+            QMessageBox.information(
+                self,
+                "Information",
+                "Sélectionnez au moins un produit à exporter "
+                "(Ctrl ou Shift + clic pour en sélectionner "
+                "plusieurs)."
+            )
+            return
+
+        from ui.base_export_dialog import BaseExportDialog
+
+        dialog = BaseExportDialog(identifiants, parent=self)
 
         if dialog.exec() == dialog.DialogCode.Accepted:
             self.charger()

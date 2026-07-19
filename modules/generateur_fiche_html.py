@@ -32,6 +32,10 @@ class GenerateurFicheHtml:
         "type_alimentation",
         "format_cartes",
         "nombre_cartes",
+        "date_sortie_precommande",
+        "remise_precommande",
+        "contenu_bundle",
+        "date_fin_vente_flash",
     ]
 
     # Champs "oui/non" (case à cocher, stockés en 0/1) : la

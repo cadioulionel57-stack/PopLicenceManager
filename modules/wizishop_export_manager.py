@@ -317,7 +317,10 @@ class WizishopExportManager:
             "Description courte": produit["description_courte"] or "",
             "Description longue": description_longue,
             "Poids": produit["poids"] or "",
-            "Nombre de produits en stock": produit["quantite_stock"] or 0,
+            "Nombre de produits en stock": (
+                1 if produit["type_produit"] == "precommande"
+                else (produit["quantite_stock"] or 0)
+            ),
             "Photo 1": produit["image_principale"] or "",
             "État": etat,
             "ID Marque": id_marque_formate,

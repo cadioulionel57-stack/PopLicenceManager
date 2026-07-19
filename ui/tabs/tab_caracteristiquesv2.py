@@ -379,6 +379,71 @@ class CaracteristiquesTab(QWidget):
         layout.addWidget(groupeCartes)
 
         ####################################################
+        # Champs Précommande — génériques, à laisser vides
+        # si non pertinents (produits stock/dropshipping/
+        # bundle). Même principe : la section correspondante
+        # disparaît automatiquement de la fiche publiée si le
+        # champ reste vide.
+        ####################################################
+
+        groupePrecommande = QGroupBox("⏳ Détails Précommande (facultatif)")
+        formPrecommande = QFormLayout(groupePrecommande)
+
+        self.dateSortiePrecommande = QLineEdit()
+        self.dateSortiePrecommande.setPlaceholderText(
+            "Ex : 09/2026, 11/2026... (laisser vide si inconnue)"
+        )
+        formPrecommande.addRow(
+            "Date de sortie prévue", self.dateSortiePrecommande
+        )
+
+        self.remisePrecommande = QLineEdit()
+        self.remisePrecommande.setPlaceholderText(
+            "Ex : 10 (pour -10%), laisser vide si aucune remise"
+        )
+        formPrecommande.addRow("Remise précommande (%)", self.remisePrecommande)
+
+        layout.addWidget(groupePrecommande)
+
+        ####################################################
+        # Champ Bundle — générique, à laisser vide si non
+        # pertinent. Même principe : la section correspondante
+        # disparaît automatiquement de la fiche publiée si le
+        # champ reste vide.
+        ####################################################
+
+        groupeBundle = QGroupBox("🎁 Détails Bundle (facultatif)")
+        formBundle = QFormLayout(groupeBundle)
+
+        self.contenuBundle = QLineEdit()
+        self.contenuBundle.setPlaceholderText(
+            "Ex : 1 figurine, 1 mug, 1 t-shirt, 1 porte-clés..."
+        )
+        formBundle.addRow("Contenu du bundle", self.contenuBundle)
+
+        layout.addWidget(groupeBundle)
+
+        ####################################################
+        # Champ Vente Flash — générique, à laisser vide si
+        # non pertinent. Même principe : la section
+        # correspondante disparaît automatiquement de la
+        # fiche publiée si le champ reste vide.
+        ####################################################
+
+        groupeVenteFlash = QGroupBox("⚡ Détails Vente Flash (facultatif)")
+        formVenteFlash = QFormLayout(groupeVenteFlash)
+
+        self.dateFinVenteFlash = QLineEdit()
+        self.dateFinVenteFlash.setPlaceholderText(
+            "Ex : 31/07/2026 23h59, laisser vide si aucune offre en cours"
+        )
+        formVenteFlash.addRow(
+            "Date/heure de fin de l'offre", self.dateFinVenteFlash
+        )
+
+        layout.addWidget(groupeVenteFlash)
+
+        ####################################################
         # Emballage cadeau (site uniquement, produits stock)
         ####################################################
 
@@ -618,6 +683,20 @@ class CaracteristiquesTab(QWidget):
 
         self.formatCartes.setText(produit["format_cartes"] or "")
         self.nombreCartes.setText(produit["nombre_cartes"] or "")
+
+        self.dateSortiePrecommande.setText(
+            produit["date_sortie_precommande"] or ""
+        )
+
+        self.remisePrecommande.setText(
+            produit["remise_precommande"] or ""
+        )
+
+        self.contenuBundle.setText(produit["contenu_bundle"] or "")
+
+        self.dateFinVenteFlash.setText(
+            produit["date_fin_vente_flash"] or ""
+        )
 
         self.eligiblePapierCadeau.setChecked(
             bool(produit["eligible_papier_cadeau"])

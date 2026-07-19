@@ -86,6 +86,10 @@ SCHEMA = {
         ("exporte_wizishop", "INTEGER DEFAULT 0"),
         ("format_cartes", "TEXT"),
         ("nombre_cartes", "TEXT"),
+        ("date_sortie_precommande", "TEXT"),
+        ("remise_precommande", "TEXT"),
+        ("contenu_bundle", "TEXT"),
+        ("date_fin_vente_flash", "TEXT"),
 
         ("tva", "REAL"),
 
