@@ -989,24 +989,6 @@ SCHEMA["mouvements_stock"] = [
     ("commentaire", "TEXT")
 
 ]
-SCHEMA["bundles_composants"] = [
-
-    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-
-    # Le bundle lui-meme (un produit de type "bundle").
-    ("bundle_id", "INTEGER"),
-
-    # Le produit unitaire qui le compose.
-    ("produit_id", "INTEGER"),
-
-    # Combien d'exemplaires de ce composant dans un bundle.
-    ("quantite", "INTEGER DEFAULT 1"),
-
-    ("actif", "INTEGER DEFAULT 1")
-
-]
-
-
 SCHEMA["contributions_fonds_croissance"] = [
 
     ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),

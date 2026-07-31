@@ -65,7 +65,7 @@ class SeoTab(QWidget):
             "actuel de cet onglet — pense à sauvegarder tes "
             "modifications manuelles ailleurs si besoin."
         )
-        self.avertissement.setStyleSheet("color: #b9770e;")
+        self.avertissement.setStyleSheet("color:#8a5a00; font-weight:600;")
         self.avertissement.setWordWrap(True)
         layout.addWidget(self.avertissement)
 
@@ -119,7 +119,7 @@ class SeoTab(QWidget):
             "à l'autre."
         )
         noteDescriptionLongue.setWordWrap(True)
-        noteDescriptionLongue.setStyleSheet("color: #7f8c8d;")
+        noteDescriptionLongue.setStyleSheet("color:#64748b;")
         formDescriptions.addRow("", noteDescriptionLongue)
 
         layout.addWidget(groupeDescriptions)
@@ -170,7 +170,7 @@ class SeoTab(QWidget):
             "manuellement (dépend du prix de vente réel)."
         )
         noteSchema.setWordWrap(True)
-        noteSchema.setStyleSheet("color: #7f8c8d;")
+        noteSchema.setStyleSheet("color:#64748b;")
         layoutSchema.addWidget(noteSchema)
 
         self.schemaOrg = QTextEdit()
@@ -208,7 +208,7 @@ class SeoTab(QWidget):
         police = QFont()
         police.setPointSize(police.pointSize() - 1)
         label.setFont(police)
-        label.setStyleSheet("color: #7f8c8d;")
+        label.setStyleSheet("color:#64748b;")
 
     def _majCompteurTitre(self):
 
@@ -217,7 +217,8 @@ class SeoTab(QWidget):
 
         self.compteurTitre.setText(f"{longueur} / {limite} caractères")
         self.compteurTitre.setStyleSheet(
-            "color: #c0392b;" if longueur > limite else "color: #7f8c8d;"
+            "color:#c0392b; font-weight:600;" if longueur > limite
+            else "color:#64748b;"
         )
 
     def _majCompteurDescriptionCourte(self):
@@ -229,7 +230,8 @@ class SeoTab(QWidget):
             f"{longueur} / {limite} caractères"
         )
         self.compteurDescriptionCourte.setStyleSheet(
-            "color: #c0392b;" if longueur > limite else "color: #7f8c8d;"
+            "color:#c0392b; font-weight:600;" if longueur > limite
+            else "color:#64748b;"
         )
 
     def _majCompteurMetaDescription(self):
@@ -241,7 +243,8 @@ class SeoTab(QWidget):
             f"{longueur} / {limite} caractères"
         )
         self.compteurMetaDescription.setStyleSheet(
-            "color: #c0392b;" if longueur > limite else "color: #7f8c8d;"
+            "color:#c0392b; font-weight:600;" if longueur > limite
+            else "color:#64748b;"
         )
 
     def regenerer(self):

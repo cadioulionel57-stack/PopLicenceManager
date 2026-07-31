@@ -3,6 +3,13 @@ from pathlib import Path
 
 from database.schema import SCHEMA
 
+# Enrichit SCHEMA avec les tables de variations. L'import
+# doit rester ici : c'est le seul endroit traversé par tous
+# les points d'entrée du logiciel, donc la seule garantie
+# que les tables existent quoi qu'il arrive.
+import database.schema_variations  # noqa: F401
+import database.schema_templates   # noqa: F401
+
 
 class Database:
 

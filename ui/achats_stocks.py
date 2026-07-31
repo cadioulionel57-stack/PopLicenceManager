@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from ui.list_page import ListPage
 from ui.achat_fournisseur_dialog import AchatFournisseurDialog
 from modules.achat_fournisseur_manager import AchatFournisseurManager
+from modules.stock_manager import StockManager
 
 
 class AchatsStocksPage(ListPage):
@@ -58,8 +59,8 @@ class AchatsStocksPage(ListPage):
                 str(achat["id"]),
                 achat["numero"] or "",
                 achat["nom_fournisseur"] or "",
-                achat["date_achat"] or "",
-                achat["date_reception"] or "",
+                self._dateFr(achat["date_achat"]),
+                self._dateFr(achat["date_reception"]),
                 achat["statut"] or "",
                 f"{achat['montant_ht'] or 0:.2f} €",
             ]
@@ -69,6 +70,23 @@ class AchatsStocksPage(ListPage):
                 self.table.setItem(
                     ligne, colonne, QTableWidgetItem(valeur)
                 )
+
+    def _dateFr(self, valeur):
+        """
+        Les dates sont stockées en AAAA-MM-JJ dans la base.
+        On les affiche en JJ/MM/AAAA, comme les champs de
+        saisie du logiciel.
+        """
+
+        if not valeur:
+            return ""
+
+        morceaux = str(valeur)[:10].split("-")
+
+        if len(morceaux) != 3:
+            return str(valeur)
+
+        return f"{morceaux[2]}/{morceaux[1]}/{morceaux[0]}"
 
     def ajouterAchat(self):
 
@@ -143,6 +161,15 @@ class AchatsStocksPage(ListPage):
 
         self.manager.definir_lignes(identifiant, lignes_saisies)
 
+        # STOCK : la marchandise n'entre qu'au statut
+        # "Recu". Tout autre statut annule l'entree,
+        # ce qui permet de revenir en arriere.
+        stock = StockManager()
+        stock.annuler_entree_achat(identifiant)
+
+        if dialog.statut.currentText() == "Reçu":
+            stock.entrer_reception_achat(identifiant)
+
         self.charger()
 
     def supprimerAchat(self):
@@ -165,6 +192,9 @@ class AchatsStocksPage(ListPage):
             return
 
         identifiant = int(self.table.item(ligne, 0).text())
+
+        # STOCK : on retire l'entree avant de supprimer.
+        StockManager().annuler_entree_achat(identifiant)
 
         self.manager.supprimer(identifiant)
 

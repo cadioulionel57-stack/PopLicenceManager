@@ -18,6 +18,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 
 from modules.tresorerie_manager import TresorerieManager
+from ui import theme
 from modules.commande_manager import CommandeManager
 from ui.charge_dialog import ChargeDialog
 
@@ -40,43 +41,43 @@ class TresoreriePage(QWidget):
 
         self.manager = TresorerieManager()
 
-        self.setStyleSheet("""
-        QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
-        QLabel#titre{ font-size:24px; font-weight:600; color:#0f2f5c; }
-        QLabel#sousTitre{ font-size:15px; font-weight:600; color:#0f2f5c; }
-        QFrame#card{
-            background:white; border:1px solid #e1e8f0;
-            border-radius:12px;
-        }
-        QLabel#kpiTitre{ font-size:12px; color:#888; }
-        QLabel#kpiValeur{ font-size:24px; font-weight:bold; }
-        QDoubleSpinBox{
-            background:#f7f9fc; border:1px solid #d7e0ec;
-            border-radius:7px; padding:6px 8px; font-size:11pt;
-        }
-        QPushButton{
-            background:#144b8b; color:white; border:none;
-            border-radius:8px; padding:9px 16px; font-weight:500;
-        }
-        QPushButton:hover{ background:#1d61b4; }
-        QPushButton#btnSupprimer{ background:#c0392b; }
-        QTableWidget{
-            background:white; gridline-color:#eef1f6;
-            alternate-background-color:#f8fafc;
-        }
-        QHeaderView::section{
-            background:#0f2f5c; color:white; font-weight:600;
-            border:none; padding:8px 6px;
-        }
-        """)
+        # Le style vient du thème global (ui/theme.py), plus
+        # la couleur du module Trésorerie. Ne restent en local
+        # que les deux styles de carte KPI, propres à cet
+        # écran et à celui des Statistiques.
+        self.accent = theme.accent_pour("trésorerie")
+
+        self.setStyleSheet(
+            theme.feuille_accent(self.accent)
+            + """
+            QLabel#kpiTitre{
+                font-size:12px;
+                color:#64748b;
+            }
+            QLabel#kpiValeur{
+                font-size:24px;
+                font-weight:bold;
+            }
+            """
+        )
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
 
         entete = QHBoxLayout()
+        entete.setSpacing(12)
+
+        # Même repère coloré que les autres écrans.
+        bandeau = QFrame()
+        bandeau.setObjectName("bandeauAccent")
+        bandeau.setFixedWidth(6)
+        bandeau.setMinimumHeight(34)
+
         titre = QLabel("🏦 Trésorerie")
         titre.setObjectName("titre")
+
+        entete.addWidget(bandeau)
         entete.addWidget(titre)
         entete.addStretch()
         layout.addLayout(entete)
@@ -146,7 +147,7 @@ class TresoreriePage(QWidget):
 
         self.carteCroissance = carte("🌱 Fonds de Croissance", "#1e7d32")
         self.carteDeveloppement = carte("🛠 Fonds de Développement", "#8e44ad")
-        self.carteReserve = carte("🛡 Réserve de Trésorerie", "#e67e22")
+        self.carteReserve = carte("🛡 Réserve de Trésorerie", "#b35c10")
         self.carteRenouvellementStock = carte("📦 Renouvellement Stock", "#144b8b")
 
         ligneKpi2.addWidget(self.carteCroissance)

@@ -16,11 +16,14 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QTextEdit,
+    QSizePolicy,
 )
 from PySide6.QtCore import QDate
 
 from ui.widgets.reference_combobox import ReferenceComboBox
 from modules.product_manager import ProductManager
+from modules.variation_manager import VariationManager
+from ui import theme
 
 
 class AchatFournisseurDialog(QDialog):
@@ -37,136 +40,47 @@ class AchatFournisseurDialog(QDialog):
         self.lignes_existantes = lignes or []
 
         self.productManager = ProductManager()
+        self.variationManager = VariationManager()
 
         self.setWindowTitle(titre)
         # (taille fixée plus bas, une fois tout le contenu
         # de la fenêtre posé)
 
-        self.setStyleSheet("""
-            QDialog{
-                background:#f4f7fb;
-                font-family:"Segoe UI";
-            }
-
-            QFrame#card{
-                background:white;
-                border:1px solid #e1e8f0;
-                border-radius:12px;
-            }
-
-            QLabel#titre{
-                font-size:22px;
-                font-weight:600;
-                color:#0f2f5c;
-            }
-
-            QGroupBox{
-                font-weight:600;
-                color:#0f2f5c;
-                background:#fbfcfe;
-                border:1px solid #e1e8f0;
-                border-radius:10px;
-                margin-top:12px;
-                padding-top:12px;
-            }
-
-            QGroupBox::title{
-                subcontrol-origin:margin;
-                left:12px;
-                padding:0 8px;
-            }
-
-            QLineEdit, QComboBox, QDateEdit, QDoubleSpinBox,
-            QSpinBox, QTextEdit{
-                background:#f7f9fc;
-                border:1px solid #d7e0ec;
-                border-radius:7px;
-                padding:6px 8px;
-                font-size:10.5pt;
-                color:#1c2b3a;
-            }
-
-            QSpinBox::up-button, QDoubleSpinBox::up-button{
-                subcontrol-origin:border;
-                subcontrol-position:top right;
-                width:18px;
-                border-left:1px solid #d7e0ec;
-                border-bottom:1px solid #d7e0ec;
-                border-top-right-radius:7px;
-                background:#eef2f8;
-            }
-
-            QSpinBox::down-button, QDoubleSpinBox::down-button{
-                subcontrol-origin:border;
-                subcontrol-position:bottom right;
-                width:18px;
-                border-left:1px solid #d7e0ec;
-                border-bottom-right-radius:7px;
-                background:#eef2f8;
-            }
-
-            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover{
-                background:#dbe7f7;
-            }
-
-            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow{
-                image:none;
-                border-left:4px solid transparent;
-                border-right:4px solid transparent;
-                border-bottom:5px solid #144b8b;
-                width:0;
-                height:0;
-            }
-
-            QSpinBox::down-arrow, QDoubleSpinBox::down-arrow{
-                image:none;
-                border-left:4px solid transparent;
-                border-right:4px solid transparent;
-                border-top:5px solid #144b8b;
-                width:0;
-                height:0;
-            }
-
-            QPushButton{
-                background:#144b8b;
-                color:white;
-                border:none;
-                border-radius:8px;
-                padding:8px 16px;
-                font-weight:500;
-            }
-
-            QPushButton:hover{
-                background:#1d61b4;
-            }
-
-            QTableWidget{
-                background:white;
-                gridline-color:#eef1f6;
-                alternate-background-color:#f8fafc;
-            }
-
-            QHeaderView::section{
-                background:#0f2f5c;
-                color:white;
-                font-weight:600;
-                border:none;
-                padding:8px 6px;
-            }
-        """)
+        # Le style vient du thème global (ui/theme.py).
+        # Cette fenêtre prend la couleur du module Achats
+        # Stocks, comme l'écran qui l'ouvre.
+        self.accent = theme.accent_pour("achats stocks")
+        self.setStyleSheet(theme.feuille_accent(self.accent))
 
         principal = QVBoxLayout(self)
+        principal.setContentsMargins(18, 16, 18, 16)
 
         carte = QFrame()
         carte.setObjectName("card")
         principal.addWidget(carte)
 
         layout = QVBoxLayout(carte)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(12)
+
+        # Même repère coloré que les écrans de liste : on sait
+        # d'un coup d'œil dans quel module on se trouve.
+        entete = QHBoxLayout()
+        entete.setSpacing(12)
+
+        bandeau = QFrame()
+        bandeau.setObjectName("bandeauAccent")
+        bandeau.setFixedWidth(6)
+        bandeau.setMinimumHeight(32)
 
         titreLabel = QLabel(titre)
         titreLabel.setObjectName("titre")
-        layout.addWidget(titreLabel)
+
+        entete.addWidget(bandeau)
+        entete.addWidget(titreLabel)
+        entete.addStretch()
+
+        layout.addLayout(entete)
 
         ####################################################
         # En-tête
@@ -216,14 +130,27 @@ class AchatFournisseurDialog(QDialog):
         layoutProduits = QVBoxLayout(groupeProduits)
 
         self.tableLignes = QTableWidget()
-        self.tableLignes.setColumnCount(6)
+        self.tableLignes.setColumnCount(7)
         self.tableLignes.setHorizontalHeaderLabels([
-            "Code EAN/SKU", "Produit", "Qté",
+            "Code EAN/SKU", "Produit", "Taille", "Qté",
             "Prix d'achat HT unitaire", "", ""
         ])
-        self.tableLignes.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+
+        entete_lignes = self.tableLignes.horizontalHeader()
+        entete_lignes.setSectionResizeMode(0, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(1, QHeaderView.Stretch)
+        entete_lignes.setSectionResizeMode(2, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(3, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(4, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(5, QHeaderView.Fixed)
+        entete_lignes.setSectionResizeMode(6, QHeaderView.Fixed)
+
+        self.tableLignes.setColumnWidth(0, 150)
+        self.tableLignes.setColumnWidth(2, 150)
+        self.tableLignes.setColumnWidth(3, 70)
+        self.tableLignes.setColumnWidth(4, 180)
+        self.tableLignes.setColumnWidth(5, 150)
+        self.tableLignes.setColumnWidth(6, 50)
         self.tableLignes.setMinimumHeight(200)
 
         layoutProduits.addWidget(self.tableLignes)
@@ -250,16 +177,31 @@ class AchatFournisseurDialog(QDialog):
         # Boutons
         ####################################################
 
-        boutons = QHBoxLayout()
+        carteBoutons = QFrame()
+        carteBoutons.setObjectName("barreOutils")
+
+        boutons = QHBoxLayout(carteBoutons)
+        boutons.setContentsMargins(14, 10, 14, 10)
+        boutons.setSpacing(10)
         boutons.addStretch()
 
         self.btnAnnuler = QPushButton("Annuler")
-        self.btnEnregistrer = QPushButton("Enregistrer")
+        self.btnAnnuler.setObjectName("btnSecondaire")
+
+        self.btnEnregistrer = QPushButton("💾  Enregistrer l'achat")
+
+        # Largeur figée : le libellé ne sera jamais rogné,
+        # quelle que soit la taille de la fenêtre.
+        for bouton in (self.btnAnnuler, self.btnEnregistrer):
+            bouton.setSizePolicy(
+                QSizePolicy.Policy.Fixed,
+                QSizePolicy.Policy.Fixed,
+            )
 
         boutons.addWidget(self.btnAnnuler)
         boutons.addWidget(self.btnEnregistrer)
 
-        layout.addLayout(boutons)
+        layout.addWidget(carteBoutons)
 
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self._validerAvantAccept)
@@ -331,7 +273,13 @@ class AchatFournisseurDialog(QDialog):
         champCode.produit_id = None
 
         labelProduit = QLabel("—")
-        labelProduit.setStyleSheet("color:#7f8c8d;")
+        labelProduit.setStyleSheet("color:#64748b;")
+
+        # Taille réceptionnée. Grisée tant que le produit n'a
+        # pas de déclinaison : un mug n'a pas de taille.
+        champTaille = QComboBox()
+        champTaille.setEnabled(False)
+        champTaille.addItem("—", None)
 
         spinQuantite = QSpinBox()
         spinQuantite.setMinimum(1)
@@ -350,9 +298,53 @@ class AchatFournisseurDialog(QDialog):
 
         btnCreerProduit = QPushButton("+ Créer ce produit")
         btnCreerProduit.setVisible(False)
+        # Orange assombri : en #e67e22, le texte blanc tombait
+        # à 2,9 de contraste, sous le minimum lisible de 4,5.
         btnCreerProduit.setStyleSheet(
-            "background:#e67e22; min-width:0; padding:4px 8px;"
+            "background:#b35c10; min-width:0; padding:4px 8px;"
         )
+        btnCreerProduit.setMinimumHeight(30)
+
+        def remplir_tailles(produit_id):
+            """
+            Propose les tailles du produit. Sans elle, une
+            réception créditerait le produit entier et aucune
+            taille précise.
+            """
+
+            champTaille.clear()
+
+            variations = self.variationManager.variations(
+                produit_id, actives_seulement=True
+            )
+
+            if not variations:
+                champTaille.addItem("—", None)
+                champTaille.setEnabled(False)
+                return
+
+            champTaille.addItem("— à choisir —", None)
+
+            for variation in variations:
+                champTaille.addItem(
+                    variation["libelle"] or "", variation["id"]
+                )
+
+            champTaille.setEnabled(True)
+
+        def appliquer_taille():
+
+            variation_id = champTaille.currentData()
+
+            if not variation_id:
+                return
+
+            variation = self.variationManager.obtenir(variation_id)
+
+            if variation is not None and variation["prix_achat_ht"]:
+                spinPrixHt.setValue(variation["prix_achat_ht"])
+
+        champTaille.currentIndexChanged.connect(appliquer_taille)
 
         def rechercher_produit():
 
@@ -379,6 +371,7 @@ class AchatFournisseurDialog(QDialog):
             champCode.produit_id = produit["id"]
             labelProduit.setText(produit["nom"] or "")
             labelProduit.setStyleSheet("color:#2c3e50;")
+            remplir_tailles(produit["id"])
             spinPrixHt.setValue(produit["prix_fournisseur_ht"] or 0)
 
         def creer_produit():
@@ -410,12 +403,19 @@ class AchatFournisseurDialog(QDialog):
 
         champCode.returnPressed.connect(rechercher_produit)
 
+        # Le thème habille déjà les champs posés dans une
+        # cellule ; il ne reste qu'à leur donner une hauteur
+        # confortable, comme dans la fenêtre Commande.
+        for widget in (champCode, spinQuantite, spinPrixHt):
+            widget.setMinimumHeight(30)
+
         self.tableLignes.setCellWidget(ligne, 0, champCode)
         self.tableLignes.setCellWidget(ligne, 1, labelProduit)
-        self.tableLignes.setCellWidget(ligne, 2, spinQuantite)
-        self.tableLignes.setCellWidget(ligne, 3, spinPrixHt)
-        self.tableLignes.setCellWidget(ligne, 4, btnCreerProduit)
-        self.tableLignes.setCellWidget(ligne, 5, btnSupprimer)
+        self.tableLignes.setCellWidget(ligne, 2, champTaille)
+        self.tableLignes.setCellWidget(ligne, 3, spinQuantite)
+        self.tableLignes.setCellWidget(ligne, 4, spinPrixHt)
+        self.tableLignes.setCellWidget(ligne, 5, btnCreerProduit)
+        self.tableLignes.setCellWidget(ligne, 6, btnSupprimer)
 
         if donnees:
 
@@ -426,6 +426,15 @@ class AchatFournisseurDialog(QDialog):
 
                 if produit:
                     champCode.setText(produit["ean"] or produit["sku"] or "")
+
+                remplir_tailles(donnees["produit_id"])
+
+                if donnees.get("variation_id"):
+
+                    index = champTaille.findData(donnees["variation_id"])
+
+                    if index >= 0:
+                        champTaille.setCurrentIndex(index)
 
             labelProduit.setText(donnees.get("nom_produit") or "—")
             labelProduit.setStyleSheet("color:#2c3e50;")
@@ -440,7 +449,7 @@ class AchatFournisseurDialog(QDialog):
 
         for ligne in range(self.tableLignes.rowCount()):
 
-            if self.tableLignes.cellWidget(ligne, 5) == bouton:
+            if self.tableLignes.cellWidget(ligne, 6) == bouton:
                 self.tableLignes.removeRow(ligne)
                 return
 
@@ -452,11 +461,13 @@ class AchatFournisseurDialog(QDialog):
 
             champCode = self.tableLignes.cellWidget(ligne, 0)
             labelProduit = self.tableLignes.cellWidget(ligne, 1)
-            spinQuantite = self.tableLignes.cellWidget(ligne, 2)
-            spinPrixHt = self.tableLignes.cellWidget(ligne, 3)
+            champTaille = self.tableLignes.cellWidget(ligne, 2)
+            spinQuantite = self.tableLignes.cellWidget(ligne, 3)
+            spinPrixHt = self.tableLignes.cellWidget(ligne, 4)
 
             resultat.append({
                 "produit_id": champCode.produit_id,
+                "variation_id": champTaille.currentData(),
                 "nom_produit": labelProduit.text(),
                 "quantite": spinQuantite.value(),
                 "prix_unitaire_ht": spinPrixHt.value(),
@@ -481,6 +492,36 @@ class AchatFournisseurDialog(QDialog):
             QMessageBox.warning(
                 self, "Fournisseur manquant",
                 "Sélectionne un fournisseur."
+            )
+            return
+
+        # Sans taille précisée, la réception créditerait le
+        # produit entier : on ne saurait pas combien de XL
+        # sont réellement arrivés.
+        tailles_manquantes = []
+
+        for ligne in range(self.tableLignes.rowCount()):
+
+            champTaille = self.tableLignes.cellWidget(ligne, 2)
+            labelProduit = self.tableLignes.cellWidget(ligne, 1)
+
+            if champTaille is None or not champTaille.isEnabled():
+                continue
+
+            if champTaille.currentData() is None:
+                tailles_manquantes.append(
+                    labelProduit.text() or f"ligne {ligne + 1}"
+                )
+
+        if tailles_manquantes:
+
+            QMessageBox.warning(
+                self, "Taille non choisie",
+                "Ces produits existent en plusieurs tailles, il "
+                "faut dire laquelle est réceptionnée :\n\n"
+                + "\n".join(f"   • {n}" for n in tailles_manquantes)
+                + "\n\nUne ligne par taille : ajoute autant de "
+                "lignes que de tailles reçues."
             )
             return
 

@@ -180,7 +180,7 @@ class CaracteristiquesTab(QWidget):
             "⚠ Aucun emballage compatible avec ces dimensions/poids. "
             "Ajoutez-en un dans la grille d'emballages."
         )
-        self.emballageAlerte.setStyleSheet("color: red;")
+        self.emballageAlerte.setStyleSheet("color:#c0392b; font-weight:600;")
         self.emballageAlerte.setWordWrap(True)
         self.emballageAlerte.setVisible(False)
 
@@ -489,6 +489,13 @@ class CaracteristiquesTab(QWidget):
             self.hauteur.value(),
         )
 
+    # Règle UPS : longueur x largeur x hauteur en cm,
+    # divisé par 5000. Au-delà de 10 000 cm³ — soit 10 litres
+    # de carton — UPS facture au volume et devient plus cher
+    # que Mondial Relay.
+    DIVISEUR_UPS = 5000
+    VOLUME_LIMITE_UPS = 10000
+
     def _rafraichirEmballagesCompatibles(self):
         """
         Recalcule la liste des emballages compatibles à
@@ -509,8 +516,40 @@ class CaracteristiquesTab(QWidget):
         )
 
         for emballage in compatibles:
+
+            # Volume du carton, et transporteur le moins cher
+            # en Europe qui en découle.
+            #
+            # UPS facture au poids VOLUMÉTRIQUE (L x l x H /
+            # 5000) : au-delà de 10 litres de carton, il passe
+            # dans la tranche supérieure et devient plus cher
+            # que Mondial Relay, qui facture au poids réel.
+            #
+            # N'engage rien : en France, Mondial Relay reste le
+            # choix par défaut quel que soit l'emballage.
+            volume = (
+                (emballage["longueur_ext_cm"] or 0)
+                * (emballage["largeur_ext_cm"] or 0)
+                * (emballage["hauteur_ext_cm"] or 0)
+            )
+
+            if volume:
+
+                transporteur = (
+                    "UPS" if volume <= self.VOLUME_LIMITE_UPS
+                    else "Mondial Relay"
+                )
+
+                suffixe = (
+                    f"  —  {volume/self.DIVISEUR_UPS:.2f} kg vol."
+                    f"  —  Europe : {transporteur}"
+                )
+
+            else:
+                suffixe = ""
+
             self.emballageCombo.addItem(
-                f"{emballage['code']} — {emballage['nom']}",
+                f"{emballage['code']} — {emballage['nom']}{suffixe}",
                 emballage["id"]
             )
 

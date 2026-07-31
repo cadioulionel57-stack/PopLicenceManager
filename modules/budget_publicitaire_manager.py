@@ -501,12 +501,30 @@ class BudgetPublicitaireManager:
         dépense elle-même n'est saisie qu'au mois près).
         """
 
-        annee_debut, mois_debut = (
-            int(x) for x in periode["date_debut"][:7].split("-")
-        )
-        annee_fin, mois_fin = (
-            int(x) for x in periode["date_fin"][:7].split("-")
-        )
+        # Les dates des périodes ont longtemps été tapées à
+        # la main dans un champ libre : on en trouve au format
+        # français. Sans cette remise d'aplomb, l'écran entier
+        # plantait au démarrage sur une seule période mal
+        # saisie.
+        from modules.regle_template_manager import normaliser_date
+
+        debut = normaliser_date(periode["date_debut"])
+        fin = normaliser_date(periode["date_fin"])
+
+        if len(debut) < 7 or len(fin) < 7:
+            return 0.0
+
+        try:
+            annee_debut, mois_debut = (
+                int(x) for x in debut[:7].split("-")
+            )
+            annee_fin, mois_fin = (
+                int(x) for x in fin[:7].split("-")
+            )
+        except ValueError:
+            # Une date illisible ne doit jamais empêcher
+            # l'écran de s'ouvrir.
+            return 0.0
 
         mois_periode = []
         annee, mois = annee_debut, mois_debut

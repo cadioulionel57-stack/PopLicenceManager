@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from ui.list_page import ListPage
 from ui.commande_dialog import CommandeDialog
 from modules.commande_manager import CommandeManager
+from modules.stock_manager import StockManager
 
 
 class CommandesPage(ListPage):
@@ -84,7 +85,7 @@ class CommandesPage(ListPage):
             valeurs = [
                 str(commande["id"]),
                 commande["numero"] or "",
-                commande["date_commande"] or "",
+                self._dateFr(commande["date_commande"]),
                 commande["nom_canal"] or "",
                 commande["nom_client"] or "",
                 commande["statut"] or "",
@@ -110,6 +111,23 @@ class CommandesPage(ListPage):
                     colonne,
                     item
                 )
+
+    def _dateFr(self, valeur):
+        """
+        Les dates sont stockées en AAAA-MM-JJ dans la base.
+        On les affiche en JJ/MM/AAAA, comme les champs de
+        saisie du logiciel.
+        """
+
+        if not valeur:
+            return ""
+
+        morceaux = str(valeur)[:10].split("-")
+
+        if len(morceaux) != 3:
+            return str(valeur)
+
+        return f"{morceaux[2]}/{morceaux[1]}/{morceaux[0]}"
 
     def _couleurRouge(self):
 
@@ -250,6 +268,13 @@ class CommandesPage(ListPage):
         # Panier : remplacement complet des lignes
         self.manager.definir_lignes(identifiant, lignes_saisies)
 
+        # La taille vendue, écrite sur les lignes qui viennent
+        # d'être créées. On ne passe pas par definir_lignes()
+        # pour ne pas toucher au gestionnaire de commandes :
+        # les lignes sont insérées dans l'ordre du panier, on
+        # les retrouve donc par leur rang.
+        self._enregistrerTailles(identifiant, lignes_saisies)
+
         # Retours : rattachés aux nouvelles lignes fraîchement
         # créées, en les faisant correspondre par nom de
         # produit (les lignes sont toujours recréées à chaque
@@ -289,7 +314,52 @@ class CommandesPage(ListPage):
             if dialog.commandePayee.isChecked() else None,
         )
 
+        # STOCK : on efface les sorties de cette commande
+        # puis on les rejoue. Cela couvre aussi bien la
+        # creation que la modification du panier.
+        #
+        # Exception : une commande annulee ne sort rien. La
+        # marchandise redevient disponible a la vente, sans
+        # qu'il soit necessaire de supprimer la commande —
+        # elle reste dans l'historique.
+        stock = StockManager()
+        stock.annuler_sortie_commande(identifiant)
+
+        if dialog.statut.currentText() != "Annulée":
+            stock.sortir_commande(identifiant)
+
         self.charger()
+
+    def _enregistrerTailles(self, commande_id, lignes_saisies):
+        """
+        Reporte la taille vendue sur les lignes de la
+        commande.
+
+        Les lignes sont recréées à chaque sauvegarde, dans
+        l'ordre exact du panier : on peut donc les apparier
+        par leur rang, du plus ancien identifiant au plus
+        récent.
+        """
+
+        creees = self.manager.db.lire(
+            """
+            SELECT id FROM lignes_commandes
+            WHERE commande_id = ? AND actif = 1
+            ORDER BY id
+            """,
+            (commande_id,)
+        )
+
+        if len(creees) != len(lignes_saisies):
+            return
+
+        for ligne_bdd, saisie in zip(creees, lignes_saisies):
+
+            self.manager.db.executer(
+                "UPDATE lignes_commandes SET variation_id = ? "
+                "WHERE id = ?",
+                (saisie.get("variation_id"), ligne_bdd["id"])
+            )
 
     def supprimerCommande(self):
 
@@ -316,6 +386,10 @@ class CommandesPage(ListPage):
         identifiant = int(
             self.table.item(ligne, 0).text()
         )
+
+        # STOCK : la marchandise revient avant que la
+        # commande ne disparaisse.
+        StockManager().annuler_sortie_commande(identifiant)
 
         self.manager.supprimer(identifiant)
 

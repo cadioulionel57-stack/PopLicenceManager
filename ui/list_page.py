@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget,
+    QSizePolicy,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
@@ -9,6 +10,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QFrame,
 )
+
+from ui import theme
 
 
 class ListPage(QWidget):
@@ -23,141 +26,16 @@ class ListPage(QWidget):
 
         super().__init__()
 
-        self.setStyleSheet("""
-        QWidget{
-            background:#f4f7fb;
-            font-family:'Segoe UI';
-        }
-
-        QLabel#titre{
-            font-size:24px;
-            font-weight:600;
-            color:#0f2f5c;
-        }
-
-        QFrame#barreOutils{
-            background:white;
-            border:1px solid #e1e8f0;
-            border-radius:10px;
-        }
-
-        QFrame#carteTable{
-            background:white;
-            border:1px solid #e1e8f0;
-            border-radius:12px;
-        }
-
-        QLineEdit{
-            background:#f7f9fc;
-            border:1px solid #d7e0ec;
-            border-radius:8px;
-            padding:9px 12px;
-            font-size:10.5pt;
-            color:#1c2b3a;
-        }
-
-        QLineEdit:focus{
-            border:1px solid #144b8b;
-            background:white;
-        }
-
-        QPushButton{
-            background:#144b8b;
-            color:white;
-            border:none;
-            border-radius:8px;
-            padding:9px 16px;
-            min-width:100px;
-            font-size:10pt;
-            font-weight:500;
-        }
-
-        QPushButton:hover{
-            background:#1d61b4;
-        }
-
-        QPushButton:pressed{
-            background:#0d3a6e;
-        }
-
-        QPushButton#btnSupprimer{
-            background:#c0392b;
-        }
-
-        QPushButton#btnSupprimer:hover{
-            background:#d9483a;
-        }
-
-        QPushButton#btnSecondaire{
-            background:#eef2f8;
-            color:#144b8b;
-            border:1px solid #d7e0ec;
-        }
-
-        QPushButton#btnSecondaire:hover{
-            background:#e2eaf5;
-        }
-
-        QTableWidget{
-            background:white;
-            border:none;
-            border-radius:12px;
-            gridline-color:#eef1f6;
-            selection-background-color:#dbe7f7;
-            selection-color:#0f2f5c;
-            alternate-background-color:#f8fafc;
-            font-size:10pt;
-        }
-
-        QTableWidget::item{
-            padding:9px 6px;
-            border-bottom:1px solid #f0f3f8;
-        }
-
-        QTableWidget::item:hover{
-            background:#eef4fb;
-        }
-
-        QTableWidget::item:selected{
-            background:#dbe7f7;
-            color:#0f2f5c;
-        }
-
-        QHeaderView::section{
-            background:#0f2f5c;
-            color:white;
-            font-weight:600;
-            font-size:9.5pt;
-            border:none;
-            border-right:1px solid #1a4a8a;
-            padding:10px 6px;
-        }
-
-        QHeaderView::section:last{
-            border-right:none;
-        }
-
-        QScrollBar:vertical{
-            background:#f4f7fb;
-            width:10px;
-            margin:0;
-        }
-
-        QScrollBar::handle:vertical{
-            background:#c7d3e3;
-            border-radius:5px;
-            min-height:30px;
-        }
-
-        QScrollBar::handle:vertical:hover{
-            background:#a9bad2;
-        }
-
-        QScrollBar::add-line:vertical,
-        QScrollBar::sub-line:vertical{
-            height:0;
-        }
-        """)
+        # Le style de base vient du thème global
+        # (ui/theme.py), appliqué au démarrage dans main.py.
+        #
+        # On y ajoute ici la couleur du module, déduite
+        # automatiquement du titre de l'écran : titre,
+        # en-tête de tableau, boutons et surlignage prennent
+        # cette teinte. Aucun écran n'a besoin de déclarer
+        # quoi que ce soit — il suffit qu'il porte son nom.
+        self.accent = theme.accent_pour(titre)
+        self.setStyleSheet(theme.feuille_accent(self.accent))
 
         principal = QVBoxLayout(self)
         principal.setContentsMargins(24, 20, 24, 20)
@@ -168,10 +46,18 @@ class ListPage(QWidget):
         ####################################################
 
         entete = QHBoxLayout()
+        entete.setSpacing(12)
+
+        # Repère coloré du module, à gauche du titre.
+        bandeau = QFrame()
+        bandeau.setObjectName("bandeauAccent")
+        bandeau.setFixedWidth(6)
+        bandeau.setMinimumHeight(34)
 
         titreLabel = QLabel(titre)
         titreLabel.setObjectName("titre")
 
+        entete.addWidget(bandeau)
         entete.addWidget(titreLabel)
         entete.addStretch()
 
@@ -191,6 +77,13 @@ class ListPage(QWidget):
         self.recherche = QLineEdit()
         self.recherche.setPlaceholderText("🔍  Rechercher...")
 
+        # Sans largeur maximale, le champ de recherche prend
+        # toute la place disponible et comprime les boutons :
+        # Qt coupe alors leur libellé et il ne reste que
+        # l'icône, illisible.
+        self.recherche.setMinimumWidth(240)
+        self.recherche.setMaximumWidth(360)
+
         self.btnAjouter = QPushButton("➕ Nouveau")
         self.btnModifier = QPushButton("✏ Modifier")
         self.btnModifier.setObjectName("btnSecondaire")
@@ -200,6 +93,22 @@ class ListPage(QWidget):
         self.btnImporter.setObjectName("btnSecondaire")
         self.btnExporter = QPushButton("📤 Export")
         self.btnExporter.setObjectName("btnSecondaire")
+
+        # Les boutons gardent toujours leur largeur naturelle :
+        # leur libellé ne sera jamais tronqué, même dans une
+        # fenêtre étroite. C'est la barre qui défile plutôt que
+        # le texte qui disparaît.
+        for bouton in (
+            self.btnAjouter,
+            self.btnModifier,
+            self.btnSupprimer,
+            self.btnImporter,
+            self.btnExporter,
+        ):
+            bouton.setSizePolicy(
+                QSizePolicy.Policy.Fixed,
+                QSizePolicy.Policy.Fixed,
+            )
 
         barre.addWidget(self.recherche)
         barre.addStretch()
@@ -227,7 +136,9 @@ class ListPage(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setShowGrid(False)
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(38)
+        # Affichage aéré : des lignes hautes, plus lisibles
+        # qu'un tableau dense où tout se touche.
+        self.table.verticalHeader().setDefaultSectionSize(46)
         self.table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )

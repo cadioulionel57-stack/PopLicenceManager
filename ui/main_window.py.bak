@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFrame,
     QStackedWidget,
-    QScrollArea,
 )
 
 from PySide6.QtGui import QPixmap
@@ -32,9 +31,7 @@ from ui.politique_transport import PolitiqueTransportPage
 from ui.fournisseurs import FournisseursPage
 from ui.commandes import CommandesPage
 from ui.sav import SavPage
-from ui.stock import StockPage
 from modules.commande_manager import CommandeManager
-from ui import theme
 
 class MainWindow(QMainWindow):
 
@@ -44,44 +41,50 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Pop Licence Manager")
         self.resize(1600, 900)
 
-        # Le style général vient du thème (ui/theme.py).
-        # Ici on ne définit que le menu latéral, qui est le
-        # seul élément à contre-emploi : fond bleu marine et
-        # texte clair, là où tout le reste du logiciel est
-        # sur fond clair.
-        self.setStyleSheet(f"""
+        self.setStyleSheet("""
+        QMainWindow{
+            background:#edf3fa;
+        }
 
-        QFrame#menu {{
-            background: qlineargradient(
-                x1:0, y1:0, x2:0, y2:1,
-                stop:0 {theme.MARINE},
-                stop:1 #0a2444
-            );
-        }}
+        QWidget{
+            font-family:Segoe UI;
+            font-size:11pt;
+        }
 
-        QFrame#menu QLabel {{
-            background: transparent;
-            color: white;
-        }}
+        QLabel{
+            color:#2d3436;
+        }
 
-        QScrollArea#zoneMenu {{
-            background: transparent;
-            border: none;
-        }}
+        QPushButton{
+            border:none;
+            border-radius:10px;
+            background:transparent;
+            color:white;
+            padding:12px;
+            font-size:12pt;
+            text-align:left;
+        }
 
-        QScrollArea#zoneMenu QWidget {{
-            background: transparent;
-        }}
+        QPushButton:hover{
+            background:rgba(255,255,255,0.12);
+        }
 
-        QFrame#content {{
-            background: {theme.FOND};
-        }}
+        QPushButton:pressed{
+            background:rgba(255,255,255,0.22);
+        }
 
-        QFrame#card {{
-            background: white;
-            border: 1px solid {theme.BORDURE};
-            border-radius: 15px;
-        }}
+        QFrame#menu{
+            background:#144b8b;
+        }
+
+        QFrame#card{
+            background:white;
+            border-radius:15px;
+        }
+
+        QFrame#content{
+            background:#edf3fa;
+        }
         """)
 
         central = QWidget()
@@ -102,46 +105,29 @@ class MainWindow(QMainWindow):
         principal.addWidget(menu)
 
         menuLayout = QVBoxLayout(menu)
-        menuLayout.setContentsMargins(12, 12, 12, 10)
-        menuLayout.setSpacing(6)
+        menuLayout.setContentsMargins(20,20,20,20)
 
         logo = QLabel()
 
         pix = QPixmap("resources/images/logo.png")
 
         if not pix.isNull():
-            logo.setPixmap(
-                pix.scaledToWidth(
-                    140, Qt.TransformationMode.SmoothTransformation
-                )
-            )
+            logo.setPixmap(pix.scaledToWidth(170))
 
         logo.setAlignment(Qt.AlignCenter)
-        logo.setContentsMargins(0, 2, 0, 0)
         menuLayout.addWidget(logo)
 
-        # Le logo porte déjà le nom de la marque : répéter
-        # « POP LICENCE » juste en dessous faisait doublon et
-        # écrasait tout le haut du menu. Il ne reste que le
-        # mot qui distingue le logiciel de la boutique.
-        titre = QLabel("M A N A G E R")
+        titre = QLabel("POP LICENCE\nMANAGER")
         titre.setAlignment(Qt.AlignCenter)
 
         titre.setStyleSheet("""
-            color:#8fa8c9;
-            font-size:7.5pt;
-            font-weight:700;
-            padding:0 0 4px 0;
+            color:white;
+            font-size:20pt;
+            font-weight:bold;
+            padding-bottom:20px;
         """)
 
         menuLayout.addWidget(titre)
-
-        separateur = QFrame()
-        separateur.setFixedHeight(1)
-        separateur.setStyleSheet(
-            "background:rgba(255,255,255,0.14); border:none;"
-        )
-        menuLayout.addWidget(separateur)
 
         boutons = [
             "🏠  Tableau de bord",
@@ -159,7 +145,6 @@ class MainWindow(QMainWindow):
             "🛒  Commandes",
             "🔧  SAV / Retours",
             "🧾  Achats Stocks",
-            "🗃️  Stock",
             "🏦  Trésorerie",
             "📣  Budget Publicité",
             "📊  Statistiques",
@@ -167,49 +152,18 @@ class MainWindow(QMainWindow):
             "⚙️  Paramètres",
         ]
 
-        # Le menu compte 21 entrées : sur un écran peu haut,
-        # les dernières se faisaient couper. On le rend donc
-        # défilant, sans barre visible.
-        zoneMenu = QScrollArea()
-        zoneMenu.setObjectName("zoneMenu")
-        zoneMenu.setWidgetResizable(True)
-        zoneMenu.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-
-        contenuMenu = QWidget()
-        listeMenu = QVBoxLayout(contenuMenu)
-        listeMenu.setContentsMargins(0, 0, 4, 0)
-        listeMenu.setSpacing(2)
-
         self.boutons = {}
-        self.accentsMenu = {}
 
         for texte in boutons:
 
             bouton = QPushButton(texte)
-            bouton.setMinimumHeight(32)
-            bouton.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            # Chaque module a sa couleur, la même que celle de
-            # son écran : le liseré de gauche sert de repère.
-            accent = theme.accent_pour(texte)
-            self.accentsMenu[texte] = accent
-
-            bouton.setStyleSheet(self._styleMenu(accent, actif=False))
-
-            bouton.clicked.connect(
-                lambda _=False, t=texte: self._activerMenu(t)
-            )
+            bouton.setMinimumHeight(48)
 
             self.boutons[texte] = bouton
 
-            listeMenu.addWidget(bouton)
+            menuLayout.addWidget(bouton)
 
-        listeMenu.addStretch()
-
-        zoneMenu.setWidget(contenuMenu)
-        menuLayout.addWidget(zoneMenu)
+        menuLayout.addStretch()
 
         #################################################
         # CONTENU
@@ -224,12 +178,6 @@ class MainWindow(QMainWindow):
 
         dashboard = QWidget()
 
-        # Le tableau de bord prend la couleur de son module,
-        # comme tous les autres écrans.
-        dashboard.setStyleSheet(
-            theme.feuille_accent(theme.accent_pour("tableau de bord"))
-        )
-
         dashboardLayout = QVBoxLayout(dashboard)
         dashboardLayout.setContentsMargins(20,20,20,20)
         dashboardLayout.setSpacing(20)
@@ -239,19 +187,15 @@ class MainWindow(QMainWindow):
         header.setFixedHeight(80)
 
         headerLayout = QHBoxLayout(header)
-        headerLayout.setContentsMargins(18, 12, 18, 12)
-        headerLayout.setSpacing(12)
-
-        # Même repère coloré que les écrans de liste.
-        bandeauDashboard = QFrame()
-        bandeauDashboard.setObjectName("bandeauAccent")
-        bandeauDashboard.setFixedWidth(6)
-        bandeauDashboard.setMinimumHeight(34)
 
         titre = QLabel("Tableau de bord")
-        titre.setObjectName("titre")
 
-        headerLayout.addWidget(bandeauDashboard)
+        titre.setStyleSheet("""
+            font-size:28px;
+            font-weight:bold;
+            color:#144b8b;
+        """)
+
         headerLayout.addWidget(titre)
         headerLayout.addStretch()
 
@@ -277,9 +221,7 @@ class MainWindow(QMainWindow):
             layout = QVBoxLayout(cadre)
 
             t = QLabel(titre)
-            # #888 tombait à 3,54 de contraste : trop pâle
-            # pour un libellé qu'on lit tous les jours.
-            t.setStyleSheet("font-size:13px; color:#64748b;")
+            t.setStyleSheet("font-size:13px;color:#888;")
 
             v = QLabel(valeur)
             v.setStyleSheet(f"""
@@ -302,7 +244,7 @@ class MainWindow(QMainWindow):
         self.carteBenefice = carte("📈 Bénéfice", "0 €", "#1e7d32")
         self.carteTresorerieKpi = carte("🏦 Trésorerie", "0 €", "#000000")
         self.carteSav = carte("🔧 Coûts SAV", "0 €", "#7b241c")
-        self.carteTvaCollectee = carte("🧾 TVA collectée (mois)", "0 €", "#b35c10")
+        self.carteTvaCollectee = carte("🧾 TVA collectée (mois)", "0 €", "#e67e22")
         self.carteTvaDeductible = carte("🧾 TVA déductible (mois)", "0 €", "#8e44ad")
         self.carteTvaNette = carte("🧾 TVA nette à payer (mois)", "0 €", "#c0392b")
 
@@ -376,11 +318,6 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.pageBudgetPublicite)
         self.pages.addWidget(self.pageStatistiques)
         self.pages.addWidget(self.pageCategoriesSite)
-
-        # Ecran Stock ajoute en FIN de pile : il prend
-        # l'index 20 et aucun index existant ne bouge.
-        self.pageStock = StockPage()
-        self.pages.addWidget(self.pageStock)
 
                 #################################################
         # CONNEXIONS
@@ -483,12 +420,6 @@ class MainWindow(QMainWindow):
                 self.pageCategoriesSite.charger()
             )
         )
-        self.boutons["🗃️  Stock"].clicked.connect(
-            lambda: (
-                self.pages.setCurrentIndex(20),
-                self.pageStock.charger()
-            )
-        )
         #################################################
         # BARRE D'ETAT
         #################################################
@@ -504,78 +435,6 @@ class MainWindow(QMainWindow):
         """)
 
         status.addPermanentWidget(version)
-
-        # Au démarrage c'est le tableau de bord qui s'affiche :
-        # son entrée de menu doit l'indiquer, sinon rien ne dit
-        # où l'on se trouve.
-        self._activerMenu("🏠  Tableau de bord")
-
-
-    ########################################################
-    # Menu latéral
-    ########################################################
-
-    def _styleMenu(self, accent, actif):
-        """
-        Style d'un bouton du menu. Le liseré de gauche porte
-        la couleur du module : discret au repos, plein et
-        large quand l'écran est ouvert.
-        """
-
-        if actif:
-
-            return f"""
-                QPushButton {{
-                    border: none;
-                    border-left: 5px solid {accent};
-                    border-radius: 8px;
-                    background: rgba(255,255,255,0.16);
-                    color: white;
-                    padding: 6px 11px;
-                    font-size: 10pt;
-                    font-weight: 700;
-                    text-align: left;
-                }}
-                QPushButton:hover {{
-                    background: rgba(255,255,255,0.20);
-                }}
-            """
-
-        return f"""
-            QPushButton {{
-                border: none;
-                border-left: 5px solid {accent};
-                border-radius: 8px;
-                background: transparent;
-                color: #dbe6f5;
-                padding: 6px 11px;
-                font-size: 10pt;
-                font-weight: 500;
-                text-align: left;
-            }}
-            QPushButton:hover {{
-                background: rgba(255,255,255,0.10);
-                color: white;
-            }}
-            QPushButton:pressed {{
-                background: rgba(255,255,255,0.18);
-            }}
-        """
-
-    def _activerMenu(self, texte_actif):
-        """
-        Met en évidence l'écran ouvert : un seul bouton est
-        actif à la fois.
-        """
-
-        for texte, bouton in self.boutons.items():
-
-            bouton.setStyleSheet(
-                self._styleMenu(
-                    self.accentsMenu.get(texte, theme.BLEU),
-                    actif=(texte == texte_actif),
-                )
-            )
 
     def _rafraichirKpiSav(self):
         """

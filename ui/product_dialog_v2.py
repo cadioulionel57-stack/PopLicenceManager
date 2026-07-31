@@ -6,10 +6,13 @@ from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
     QMessageBox,
+    QLabel,
+    QFrame,
 )
 
 from ui.tabs.tab_general import GeneralTab
 from ui.tabs.tab_caracteristiquesv2 import CaracteristiquesTab
+from ui.tabs.tab_variations import VariationsTab
 from ui.tabs.tab_publication import PublicationTab
 from ui.tabs.tab_tarification import TarificationTab
 from ui.tabs.tab_seo import SeoTab
@@ -17,6 +20,7 @@ from ui.tabs.tab_images import ImagesTab
 
 from modules.numerotation_manager import NumerotationManager
 from modules.product_manager import ProductManager
+from ui import theme
 
 
 class ProductDialogV2(QDialog):
@@ -53,171 +57,45 @@ class ProductDialogV2(QDialog):
         # de la fenêtre posé — sinon Qt l'agrandit tout seul
         # ensuite pour faire de la place à son contenu)
 
-        self.setStyleSheet("""
-        QDialog{
-            background:#f4f7fb;
-            font-family:"Segoe UI";
-        }
-
-        QTabWidget::pane{
-            background:white;
-            border:1px solid #e1e8f0;
-            border-radius:10px;
-            top:-1px;
-        }
-
-        QTabBar::tab{
-            background:#e7edf6;
-            color:#3d5773;
-            padding:11px 22px;
-            margin-right:3px;
-            border-top-left-radius:8px;
-            border-top-right-radius:8px;
-            font-size:10pt;
-        }
-
-        QTabBar::tab:hover{
-            background:#d9e4f2;
-        }
-
-        QTabBar::tab:selected{
-            background:white;
-            font-weight:600;
-            color:#0f2f5c;
-            border-bottom:3px solid #144b8b;
-        }
-
-        QGroupBox{
-            background:white;
-            border:1px solid #e1e8f0;
-            border-radius:10px;
-            margin-top:14px;
-            padding-top:14px;
-            font-weight:600;
-            font-size:10.5pt;
-            color:#0f2f5c;
-        }
-
-        QGroupBox::title{
-            subcontrol-origin:margin;
-            left:12px;
-            padding:0 8px;
-        }
-
-        QLineEdit,
-        QTextEdit,
-        QComboBox,
-        QSpinBox,
-        QDoubleSpinBox,
-        QDateEdit{
-            background:#f7f9fc;
-            border:1px solid #d7e0ec;
-            border-radius:7px;
-            padding:6px 8px;
-            font-size:10pt;
-            color:#1c2b3a;
-            selection-background-color:#dbe7f7;
-        }
-
-        QLineEdit:focus,
-        QTextEdit:focus,
-        QComboBox:focus,
-        QSpinBox:focus,
-        QDoubleSpinBox:focus,
-        QDateEdit:focus{
-            border:1px solid #144b8b;
-            background:white;
-        }
-
-        QLineEdit:disabled,
-        QTextEdit:disabled,
-        QComboBox:disabled,
-        QSpinBox:disabled,
-        QDoubleSpinBox:disabled,
-        QDateEdit:disabled{
-            background:#e2e6ea;
-            border:1px solid #c3cad3;
-            color:#9aa4b0;
-        }
-
-        QSpinBox::up-button, QDoubleSpinBox::up-button{
-            subcontrol-origin:border;
-            subcontrol-position:top right;
-            width:18px;
-            border-left:1px solid #d7e0ec;
-            border-bottom:1px solid #d7e0ec;
-            border-top-right-radius:7px;
-            background:#eef2f8;
-        }
-
-        QSpinBox::down-button, QDoubleSpinBox::down-button{
-            subcontrol-origin:border;
-            subcontrol-position:bottom right;
-            width:18px;
-            border-left:1px solid #d7e0ec;
-            border-bottom-right-radius:7px;
-            background:#eef2f8;
-        }
-
-        QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-        QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover{
-            background:#dbe7f7;
-        }
-
-        QSpinBox::up-arrow, QDoubleSpinBox::up-arrow{
-            image:none;
-            border-left:4px solid transparent;
-            border-right:4px solid transparent;
-            border-bottom:5px solid #144b8b;
-            width:0;
-            height:0;
-        }
-
-        QSpinBox::down-arrow, QDoubleSpinBox::down-arrow{
-            image:none;
-            border-left:4px solid transparent;
-            border-right:4px solid transparent;
-            border-top:5px solid #144b8b;
-            width:0;
-            height:0;
-        }
-
-        QCheckBox{
-            font-size:10pt;
-            color:#1c2b3a;
-            spacing:8px;
-        }
-
-        QLabel{
-            color:#1c2b3a;
-        }
-
-        QPushButton{
-            background:#144b8b;
-            color:white;
-            border:none;
-            border-radius:8px;
-            padding:10px 20px;
-            min-width:140px;
-            font-weight:500;
-        }
-
-        QPushButton:hover{
-            background:#1d61b4;
-        }
-
-        QPushButton:pressed{
-            background:#0d3a6e;
-        }
-        """)
+        # Le style vient du thème global (ui/theme.py).
+        # Cette fiche ne définit plus ses propres couleurs :
+        # elle prend la teinte du module Produits, comme
+        # l'écran qui l'ouvre.
+        self.accent = theme.accent_pour("produits")
+        self.setStyleSheet(theme.feuille_accent(self.accent))
 
         ####################################################
         # Layout principal
         ####################################################
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 18, 22, 18)
+        layout.setSpacing(14)
+
+        ####################################################
+        # En-tête : même repère coloré que les écrans de
+        # liste, pour qu'on sache d'un coup d'œil où l'on est
+        ####################################################
+
+        entete = QHBoxLayout()
+        entete.setSpacing(12)
+
+        bandeau = QFrame()
+        bandeau.setObjectName("bandeauAccent")
+        bandeau.setFixedWidth(6)
+        bandeau.setMinimumHeight(34)
+
+        titreFiche = QLabel(self.windowTitle())
+        titreFiche.setObjectName("titre")
+
+        entete.addWidget(bandeau)
+        entete.addWidget(titreFiche)
+        entete.addStretch()
+
+        layout.addLayout(entete)
 
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
 
         layout.addWidget(self.tabs)
 
@@ -344,6 +222,24 @@ class ProductDialogV2(QDialog):
                 self.produit,
                 categories_canaux
             )
+
+        ####################################################
+        # Onglet Variations
+        #
+        # Les tailles, couleurs et pointures : une référence
+        # vendable par combinaison, avec son code-barres et
+        # son stock. Il faut que le produit soit enregistré
+        # pour pouvoir les créer, puisque leur SKU dérive du
+        # sien.
+        ####################################################
+
+        self.pageVariations = VariationsTab()
+
+        self.tabs.addTab(self.pageVariations, "📐 Variations")
+
+        self.pageVariations.charger(
+            self.produit["id"] if self.produit is not None else None
+        )
 
         ####################################################
         # Onglet Publication
@@ -508,17 +404,26 @@ class ProductDialogV2(QDialog):
         # Boutons
         ####################################################
 
-        boutons = QHBoxLayout()
+        # Barre d'actions posée sur une carte : elle se
+        # détache du contenu et on ne la cherche plus.
+        carteBoutons = QFrame()
+        carteBoutons.setObjectName("barreOutils")
+
+        boutons = QHBoxLayout(carteBoutons)
+        boutons.setContentsMargins(14, 10, 14, 10)
+        boutons.setSpacing(10)
 
         boutons.addStretch()
 
         self.btnAnnuler = QPushButton("Annuler")
-        self.btnEnregistrer = QPushButton("Enregistrer")
+        self.btnAnnuler.setObjectName("btnSecondaire")
+
+        self.btnEnregistrer = QPushButton("💾  Enregistrer le produit")
 
         boutons.addWidget(self.btnAnnuler)
         boutons.addWidget(self.btnEnregistrer)
 
-        layout.addLayout(boutons)
+        layout.addWidget(carteBoutons)
 
         self.btnAnnuler.clicked.connect(self.reject)
         self.btnEnregistrer.clicked.connect(self.enregistrer)

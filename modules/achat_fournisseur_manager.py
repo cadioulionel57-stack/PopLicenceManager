@@ -150,17 +150,19 @@ class AchatFournisseurManager:
                 """
                 INSERT INTO achats_fournisseurs_lignes
                 (
-                    achat_id, produit_id, nom_produit,
-                    quantite, prix_unitaire_ht, actif
+                    achat_id, produit_id, variation_id,
+                    nom_produit, quantite, prix_unitaire_ht,
+                    actif
                 )
                 VALUES
                 (
-                    ?, ?, ?, ?, ?, 1
+                    ?, ?, ?, ?, ?, ?, 1
                 )
                 """,
                 (
                     achat_id,
                     ligne.get("produit_id"),
+                    ligne.get("variation_id"),
                     ligne.get("nom_produit"),
                     ligne.get("quantite", 1),
                     ligne.get("prix_unitaire_ht"),

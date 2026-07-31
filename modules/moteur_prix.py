@@ -93,7 +93,34 @@ class MoteurPrix:
             prix_achat_ht,
             inclure_emballage=not canal["utilise_grille_fba"],
             emballage_id_produit=emballage_id_produit,
+        )# 1 bis. Port du fournisseur sur les produits Direct
+        #        Fournisseur.
+        #
+        #        Le fournisseur facture l'expédition à chaque
+        #        article, qu'on le répercute au client ou non.
+        #        En l'ajoutant ici, au coût de revient, le prix
+        #        de vente calculé le couvre déjà : on peut
+        #        alors annoncer « livraison offerte » sans
+        #        rogner la marge.
+        #
+        #        Le montant se règle une fois dans Paramètres →
+        #        Réglages ; le jour où le fournisseur change
+        #        son tarif, tous les prix se recalculent.
+        cout_port_fournisseur = 0
+
+        type_produit = (
+            produit["type_produit"]
+            if "type_produit" in produit.keys()
+            else None
         )
+
+        if type_produit == "dropshipping":
+
+            cout_port_fournisseur = self.parametres.obtenir_nombre(
+                "cout_port_df_ht", 0
+            )
+
+            cout_produit += cout_port_fournisseur
 
         # 2. Frais fixes du canal + contribution transport
         #    minimale (si définie pour ce canal) — ajoutée
@@ -456,6 +483,7 @@ class MoteurPrix:
         return {
             "erreur": None,
             "cout_produit": round(cout_produit, 2),
+            "cout_port_fournisseur": round(cout_port_fournisseur, 4),
             "cout_fixe_total": round(cout_fixe, 2),
             "transport": transport,
             "ratio_transport_pourcentage": ratio_transport,

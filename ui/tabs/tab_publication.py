@@ -93,7 +93,7 @@ class PublicationTab(QWidget):
             nomCanal = QLabel(texteCanal)
 
             if not compatible:
-                nomCanal.setStyleSheet("color:#a0a0a0;")
+                nomCanal.setStyleSheet("color:#767676;")
 
             venduIci = QCheckBox()
             reference = QLineEdit()

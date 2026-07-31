@@ -3,6 +3,7 @@ from ui.product_type_dialog import ProductTypeDialog
 from ui.list_page import ListPage
 
 from modules.product_manager import ProductManager
+from modules.stock_manager import StockManager
 
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -242,10 +243,106 @@ class ProductsPage(ListPage):
         if choix.exec() != choix.DialogCode.Accepted:
             return
 
+        # On note les produits déjà présents : ce qui
+        # apparaîtra en plus après la fermeture de la fiche,
+        # c'est le produit qui vient d'être créé.
+        avant = {produit["id"] for produit in self.manager.tous()}
+
         dialog = ProductDialogV2(choix.typeProduit())
 
         if dialog.exec() == dialog.DialogCode.Accepted:
+
+            nouveaux = self._initialiserStock(avant)
+
+            for identifiant in nouveaux:
+                self._enregistrerComposition(dialog, identifiant)
+
             self.charger()
+
+    def _initialiserStock(self, identifiants_avant):
+        """
+        STOCK : un produit de type "stock" tout juste créé
+        entre en stock avec la quantité et le prix d'achat
+        saisis dans sa fiche.
+
+        Sans ça, il apparaîtrait à zéro dans l'écran Stock
+        alors que sa fiche annonce une quantité.
+
+        Les autres types (direct fournisseur, précommande) et
+        les fiches sans quantité sont ignorés par le moteur.
+        """
+
+        nouveaux = []
+
+        try:
+
+            stock = StockManager()
+
+            nouveaux = [
+                produit["id"]
+                for produit in self.manager.tous()
+                if produit["id"] not in identifiants_avant
+            ]
+
+            for identifiant in nouveaux:
+                stock.initialiser_produit(identifiant)
+
+        except Exception as erreur:
+
+            QMessageBox.warning(
+                self,
+                "Stock non initialisé",
+                "Le produit est bien enregistré, mais son "
+                "stock de départ n'a pas pu être créé :\n\n"
+                f"{erreur}\n\n"
+                "Tu peux le saisir depuis l'écran Stock, "
+                "bouton « Entrée / Sortie »."
+            )
+
+        return nouveaux
+
+    def _enregistrerComposition(self, dialog, identifiant):
+        """
+        BUNDLE : enregistre la liste des composants saisis
+        dans la fiche.
+
+        Sans cette liste, l'écran Stock ne peut ni calculer
+        combien de bundles sont montables, ni déduire les bons
+        produits quand un bundle est vendu.
+        """
+
+        onglet = dialog.pageGeneral
+
+        if not onglet.est_bundle():
+            return
+
+        oublis = onglet.composants_non_reconnus()
+
+        if oublis:
+
+            QMessageBox.warning(
+                self,
+                "Composants non reconnus",
+                "Ces codes ne correspondent à aucun produit et "
+                "n'ont pas été enregistrés dans la composition "
+                ":\n\n"
+                + "\n".join(f"   • {code}" for code in oublis)
+                + "\n\nRouvre la fiche et saisis un SKU ou un "
+                "EAN existant, puis appuie sur Entrée."
+            )
+
+        try:
+
+            onglet.enregistrer_composants(identifiant)
+
+        except Exception as erreur:
+
+            QMessageBox.warning(
+                self,
+                "Composition non enregistrée",
+                f"La composition du bundle n'a pas pu être "
+                f"enregistrée :\n\n{erreur}"
+            )
 
     def ouvrirProduit(self):
 
@@ -260,7 +357,13 @@ class ProductsPage(ListPage):
 
         dialog = ProductDialogV2(produit=produit)
 
+        # BUNDLE : on affiche sa composition actuelle.
+        dialog.pageGeneral.charger_composants(identifiant)
+
         if dialog.exec() == dialog.DialogCode.Accepted:
+
+            self._enregistrerComposition(dialog, identifiant)
+
             self.charger()
 
     def supprimerProduit(self):

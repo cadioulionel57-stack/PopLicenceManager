@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from modules.modele_fiche_manager import ModeleFicheManager
 from modules.reference_manager import ReferenceManager
 from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
+from modules.bloc_livraison_manager import BlocLivraisonManager
 from ui.modele_fiche_dialog import ModeleFicheDialog
 
 
@@ -43,6 +44,7 @@ class ModelesFichePage(QWidget):
         self.manager = ModeleFicheManager()
         self.managerThemes = ReferenceManager()
         self.managerEmballageCadeau = BlocEmballageCadeauManager()
+        self.managerLivraison = BlocLivraisonManager()
 
         self.setStyleSheet("""
         QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
@@ -171,7 +173,66 @@ class ModelesFichePage(QWidget):
         )
         layout.addWidget(self.btnEnregistrerBloc)
 
+        ####################################################
+        # Bloc réutilisable : livraison
+        ####################################################
+
+        titreLivraison = QLabel(
+            "🚚 Bloc réutilisable — Optimisez votre livraison"
+        )
+        titreLivraison.setStyleSheet(
+            "font-size:15px; font-weight:600; color:#0f2f5c; "
+            "margin-top:10px;"
+        )
+        layout.addWidget(titreLivraison)
+
+        infoLivraison = QLabel(
+            "Ce pavé s'insère dans toutes les fiches via "
+            "{{bloc_livraison}} — écris-le une fois ici plutôt "
+            "que de le recopier dans chaque modèle. Un "
+            "changement de tarif se répercute alors partout. "
+            "Variables disponibles : {{tarif_livraison_df}}, "
+            "{{seuil_livraison_gratuite_df}}, "
+            "{{seuil_livraison_gratuite_stock}}, "
+            "{{tarif_mondial_relay}}, {{seuil_mondial_relay}}, "
+            "{{tarif_colissimo}}, {{seuil_colissimo}}, "
+            "{{tarif_chrono_relais}}, {{seuil_chrono_relais}}."
+        )
+        infoLivraison.setStyleSheet("color:#5a6b7d; font-size:9.5pt;")
+        infoLivraison.setWordWrap(True)
+        layout.addWidget(infoLivraison)
+
+        self.blocLivraison = QTextEdit()
+        self.blocLivraison.setPlainText(
+            self.managerLivraison.obtenir()
+        )
+        self.blocLivraison.setStyleSheet(
+            "font-family:Consolas,monospace; font-size:9.5pt;"
+        )
+        self.blocLivraison.setMaximumHeight(200)
+        layout.addWidget(self.blocLivraison)
+
+        self.btnEnregistrerLivraison = QPushButton(
+            "💾 Enregistrer le bloc livraison"
+        )
+        self.btnEnregistrerLivraison.clicked.connect(
+            self.enregistrerBlocLivraison
+        )
+        layout.addWidget(self.btnEnregistrerLivraison)
+
         self.charger()
+
+    def enregistrerBlocLivraison(self):
+
+        self.managerLivraison.definir(
+            self.blocLivraison.toPlainText()
+        )
+
+        QMessageBox.information(
+            self, "Enregistré",
+            "Le bloc livraison s'appliquera aux prochaines "
+            "fiches générées, dans tous tes modèles."
+        )
 
     def enregistrerBlocEmballageCadeau(self):
 

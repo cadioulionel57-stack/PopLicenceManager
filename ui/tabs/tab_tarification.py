@@ -124,11 +124,52 @@ class TarificationTab(QWidget):
             "Décision",
             "Détail",
         ])
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+        # Largeurs adaptées au contenu : les colonnes de
+        # chiffres n'ont pas besoin de la même place que la
+        # décision ou le détail, qui sont du texte. Tout
+        # étirer à l'identique coupait « CANAL NON RECOMMANDÉ »
+        # et les explications de transport.
+        entete = self.table.horizontalHeader()
+
+        entete.setSectionResizeMode(0, QHeaderView.Fixed)   # Canal
+        entete.setSectionResizeMode(1, QHeaderView.Fixed)   # Marge
+        entete.setSectionResizeMode(2, QHeaderView.Fixed)   # Gain net
+        entete.setSectionResizeMode(3, QHeaderView.Fixed)   # Prix TTC
+        entete.setSectionResizeMode(4, QHeaderView.Fixed)   # Seuil
+        entete.setSectionResizeMode(5, QHeaderView.Fixed)   # Prix marché
+        entete.setSectionResizeMode(6, QHeaderView.Fixed)   # Décision
+        entete.setSectionResizeMode(7, QHeaderView.Stretch)  # Détail
+
+        self.table.setColumnWidth(0, 165)
+        self.table.setColumnWidth(1, 105)
+        self.table.setColumnWidth(2, 105)
+        self.table.setColumnWidth(3, 130)
+        self.table.setColumnWidth(4, 140)
+        self.table.setColumnWidth(5, 150)
+        self.table.setColumnWidth(6, 235)
+
+        # Un mot coupé n'apprend rien : on montre la fin du
+        # texte plutôt que de le tronquer au milieu, et
+        # l'infobulle donne toujours la phrase entière.
+        self.table.setWordWrap(False)
+        self.table.setTextElideMode(Qt.ElideRight)
+
+        # Pas de colonne de numéros : c'est le nom du canal
+        # qui identifie la ligne. Elle est masquée partout
+        # ailleurs dans le logiciel, et c'était elle qui se
+        # faisait rogner en bas du tableau.
+        self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(34)
         self.table.setMinimumHeight(300)
+
+        # Le tableau ne doit JAMAIS défiler à l'intérieur :
+        # on risquerait d'oublier un canal de vente au
+        # moment de fixer les prix. Sa hauteur est donc
+        # recalculée sur son contenu après chaque
+        # remplissage (voir _ajusterHauteur).
+        self.table.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
 
         layoutCanaux.addWidget(self.table)
 
@@ -159,6 +200,57 @@ class TarificationTab(QWidget):
         self._marges_existantes = {}
         self._marche_existant = {}
 
+    def _couleurLisible(self, couleur):
+        """
+        Assombrit une couleur jusqu'à ce qu'elle soit lisible
+        sur fond blanc.
+
+        Les couleurs de marque des canaux sont faites pour des
+        logos, pas pour du texte : l'orange d'Amazon et le
+        jaune de la Fnac tombent à un contraste de 2 sur 21,
+        très en dessous du minimum lisible de 4,5. On garde
+        la teinte, on descend juste la luminosité.
+        """
+
+        couleur = (couleur or "#144b8b").lstrip("#")
+
+        if len(couleur) != 6:
+            couleur = "144b8b"
+
+        composantes = [
+            int(couleur[i:i + 2], 16) for i in (0, 2, 4)
+        ]
+
+        def contraste(rvb):
+
+            canaux = []
+
+            for valeur in rvb:
+                v = valeur / 255
+                canaux.append(
+                    v / 12.92 if v <= 0.03928
+                    else ((v + 0.055) / 1.055) ** 2.4
+                )
+
+            luminance = (
+                0.2126 * canaux[0]
+                + 0.7152 * canaux[1]
+                + 0.0722 * canaux[2]
+            )
+
+            return 1.05 / (luminance + 0.05)
+
+        # 12 passes suffisent largement pour atteindre 4,5
+        # depuis n'importe quelle couleur claire.
+        for _ in range(12):
+
+            if contraste(composantes) >= 4.5:
+                break
+
+            composantes = [int(c * 0.85) for c in composantes]
+
+        return "#%02x%02x%02x" % tuple(composantes)
+
     def _canaux_compatibles(self):
         """
         Ne montre que les canaux compatibles avec le type
@@ -183,6 +275,49 @@ class TarificationTab(QWidget):
             "transport peut représenter avant qu'un produit "
             "soit signalé non recommandé sur un canal."
         )
+
+    def _ajusterHauteur(self):
+        """
+        Donne au tableau exactement la hauteur de son contenu,
+        pour que tous les canaux de vente soient visibles d'un
+        seul coup d'œil, sans défilement interne.
+        """
+
+        lignes = self.table.rowCount()
+
+        # Hauteur réelle de chaque ligne plutôt qu'une valeur
+        # théorique : c'est la seule mesure fiable, une ligne
+        # pouvant être plus haute que la valeur par défaut.
+        hauteur_lignes = sum(
+            self.table.rowHeight(l) for l in range(lignes)
+        )
+
+        entete = self.table.horizontalHeader()
+
+        hauteur_entete = max(
+            entete.height(), entete.sizeHint().height()
+        )
+
+        # Bordures du cadre, plus la place de la barre de
+        # défilement horizontale : sans elle, elle vient
+        # manger le bas du tableau et la dernière ligne se
+        # retrouve tronquée.
+        cadre = 2 * self.table.frameWidth()
+
+        barre_horizontale = (
+            self.table.horizontalScrollBar().sizeHint().height()
+        )
+
+        hauteur = (
+            hauteur_entete
+            + hauteur_lignes
+            + cadre
+            + barre_horizontale
+            + 4
+        )
+
+        self.table.setMinimumHeight(max(120, hauteur))
+        self.table.setMaximumHeight(max(120, hauteur))
 
     def calculer(self):
 
@@ -227,7 +362,9 @@ class TarificationTab(QWidget):
 
             itemCanal = QTableWidgetItem(canal["nom"])
 
-            couleurCanal = QColor(canal["couleur"] or "#144b8b")
+            couleurCanal = QColor(
+                self._couleurLisible(canal["couleur"])
+            )
             itemCanal.setForeground(couleurCanal)
 
             policeCanal = QFont()
@@ -271,6 +408,11 @@ class TarificationTab(QWidget):
             self._recalculerLigne(ligne)
 
         self._comparerCanauxSimilaires(canaux)
+
+        # Tous les canaux visibles d'un coup, sans défilement
+        # interne : c'est ici qu'on fixe la hauteur du tableau
+        # sur son contenu réel.
+        self._ajusterHauteur()
 
     def _comparerCanauxSimilaires(self, canaux):
         """
@@ -407,6 +549,11 @@ class TarificationTab(QWidget):
         )
 
         produit = {
+            # Sans le type, le moteur ne peut pas savoir qu'il
+            # s'agit d'un produit Direct Fournisseur, et le
+            # port facturé par le fournisseur n'entre jamais
+            # dans le coût de revient.
+            "type_produit": self.type_produit,
             "prix_fournisseur_ht": self._prix_achat_ht(),
             "famille_produit_id": self._famille_produit_id(),
             "marge_visee_pourcentage": marge,
@@ -437,6 +584,7 @@ class TarificationTab(QWidget):
             self.table.setItem(ligne, 6, itemDecision)
 
             itemDetail = QTableWidgetItem(resultat["erreur"])
+            itemDetail.setToolTip(resultat["erreur"])
             itemDetail.setForeground(QColor("#c0392b"))
             self.table.setItem(ligne, 7, itemDetail)
 
@@ -475,6 +623,7 @@ class TarificationTab(QWidget):
         )
 
         itemDecision = QTableWidgetItem(resultat["decision"])
+        itemDecision.setToolTip(resultat["decision"])
 
         if resultat["decision"].startswith("❌"):
             self._appliquerStyleAlerte(itemDecision, "erreur")
@@ -495,7 +644,9 @@ class TarificationTab(QWidget):
 
         self.detailsBase[canal_id] = detail
 
-        self.table.setItem(ligne, 7, QTableWidgetItem(detail))
+        itemDetail = QTableWidgetItem(detail)
+        itemDetail.setToolTip(detail)
+        self.table.setItem(ligne, 7, itemDetail)
 
         # Si un prix marché est déjà saisi sur cette ligne,
         # on met à jour la décision en conséquence.
@@ -575,10 +726,30 @@ class TarificationTab(QWidget):
             )
             return
 
-        lignes_detail = [
-            f"Coût produit (achat + emballage + provision retour) : "
-            f"{resultat['cout_produit']:.2f} € HT",
-        ]
+        # Le port du fournisseur est déjà compté dans le coût
+        # produit, mais on le montre à part : sinon on cherche
+        # en vain d'où vient l'écart de prix.
+        port_fournisseur = resultat.get("cout_port_fournisseur", 0) or 0
+
+        if port_fournisseur:
+
+            lignes_detail = [
+                f"Coût produit (achat + emballage + provision "
+                f"retour) : "
+                f"{resultat['cout_produit'] - port_fournisseur:.2f} € HT",
+                f"+ Port facturé par le fournisseur : "
+                f"{port_fournisseur:.2f} € HT",
+                f"= Coût produit total : "
+                f"{resultat['cout_produit']:.2f} € HT",
+            ]
+
+        else:
+
+            lignes_detail = [
+                f"Coût produit (achat + emballage + provision "
+                f"retour) : "
+                f"{resultat['cout_produit']:.2f} € HT",
+            ]
 
         if resultat["transport"]:
 
@@ -615,23 +786,63 @@ class TarificationTab(QWidget):
             f"= Coût direct total : {resultat['cout_fixe_total']:.2f} € HT"
         )
         lignes_detail.append("")
+
+        # Les pourcentages seuls ne suffisent pas à retrouver
+        # l'écart entre le coût et le prix : la marge se
+        # calcule sur le HT, tandis que la commission et les
+        # frais de paiement se prélèvent sur le TTC. On donne
+        # donc le montant en euros à côté de chaque taux.
+        prix_ht = resultat["prix_vente_ht"]
+        prix_ttc = resultat["prix_vente_ttc"]
+
+        montant_marge = prix_ht * resultat["marge_pourcentage"] / 100
+
         lignes_detail.append(
-            f"Marge visée : {resultat['marge_pourcentage']:.1f} %"
+            f"Ta marge : {resultat['marge_pourcentage']:.1f} % "
+            f"du prix HT  =  {montant_marge:.2f} €"
         )
+
+        montant_commission = (
+            prix_ttc * resultat["commission_pourcentage"] / 100
+        )
+
         lignes_detail.append(
-            f"Commission de vente : {resultat['commission_pourcentage']:.1f} %"
+            f"Commission de vente : "
+            f"{resultat['commission_pourcentage']:.1f} % "
+            f"du prix TTC  =  {montant_commission:.2f} €"
         )
+
+        montant_paiement = 0
 
         if resultat["taux_paiement_pourcentage"]:
-            lignes_detail.append(
-                f"Frais de paiement : "
-                f"{resultat['taux_paiement_pourcentage']:.1f} %"
+
+            montant_paiement = (
+                prix_ttc * resultat["taux_paiement_pourcentage"] / 100
             )
 
-        if resultat["taux_tsn_effectif"]:
             lignes_detail.append(
-                f"TSN effective : {resultat['taux_tsn_effectif']:.2f} %"
+                f"Frais de paiement : "
+                f"{resultat['taux_paiement_pourcentage']:.1f} % "
+                f"du prix TTC  =  {montant_paiement:.2f} €"
             )
+
+        montant_tsn = 0
+
+        if resultat["taux_tsn_effectif"]:
+
+            montant_tsn = prix_ht * resultat["taux_tsn_effectif"] / 100
+
+            lignes_detail.append(
+                f"TSN effective : {resultat['taux_tsn_effectif']:.2f} % "
+                f"=  {montant_tsn:.2f} €"
+            )
+
+        # Le total, pour que l'écart entre le coût direct et
+        # le prix de vente se vérifie d'un coup d'œil.
+        lignes_detail.append(
+            f"    → total prélevé : "
+            f"{montant_marge + montant_commission + montant_paiement + montant_tsn:.2f} €"
+        )
 
         lignes_detail.append("")
         lignes_detail.append(
@@ -705,6 +916,9 @@ class TarificationTab(QWidget):
 
     def _hauteur_expedition(self):
         return 0
+
+    def _emballage_id(self):
+        return None
 
     def _categorie_pour_canal(self, canal_id):
         return None

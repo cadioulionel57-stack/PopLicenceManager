@@ -1,6 +1,8 @@
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QMessageBox,
     QTableWidgetItem,
+    QLabel,
 )
 
 from ui.list_page import ListPage
@@ -15,13 +17,19 @@ class EmballagesPage(ListPage):
     de produit pour calculer leur coût d'emballage.
     """
 
+    # Règle UPS : L x l x H en cm, divisé par 5000.
+    DIVISEUR_UPS = 5000
+
+    # 10 000 cm³, soit 10 litres : au-delà, UPS décroche.
+    VOLUME_LIMITE_UPS = 10000
+
     def __init__(self):
 
         super().__init__("📮 Grille d'emballage")
 
         self.manager = EmballageManager()
 
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(9)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -31,13 +39,31 @@ class EmballagesPage(ListPage):
             "Poids",
             "Coût HT",
             "Calage HT",
+            "Volume",
+            "Transporteur Europe",
         ])
 
         self.table.setColumnHidden(0, True)
 
+        aide = QLabel(
+            "La colonne « Transporteur Europe » indique, pour "
+            "chaque emballage, lequel de tes deux transporteurs "
+            "revient le moins cher sur une commande européenne. "
+            "UPS facture au volume au-delà de 10 litres de "
+            "carton ; Mondial Relay facture toujours au poids "
+            "réel. En France, Mondial Relay reste le choix par "
+            "défaut quel que soit l'emballage."
+        )
+        aide.setWordWrap(True)
+        aide.setStyleSheet("color:#64748b; font-size:12px;")
+        self.layout().addWidget(aide)
+
         self.btnAjouter.clicked.connect(self.ajouterEmballage)
         self.btnModifier.clicked.connect(self.modifierEmballage)
         self.btnSupprimer.clicked.connect(self.supprimerEmballage)
+
+        self.btnImporter.setVisible(False)
+        self.btnExporter.setVisible(False)
 
         self.table.doubleClicked.connect(self.modifierEmballage)
 
@@ -67,13 +93,63 @@ class EmballagesPage(ListPage):
                 f"{emb['calage_ht']:.2f} €",
             ]
 
+            # Volume du carton, et transporteur le moins cher
+            # en Europe qui en découle.
+            #
+            # UPS facture au poids VOLUMÉTRIQUE : longueur x
+            # largeur x hauteur / 5000. Au-delà de 10 litres de
+            # carton, il passe dans la tranche supérieure et
+            # devient plus cher que Mondial Relay, qui facture
+            # au poids réel.
+            #
+            # Cette indication ne concerne QUE les commandes
+            # européennes : en France, Mondial Relay reste le
+            # choix par défaut.
+            volume = (
+                (emb["longueur_ext_cm"] or 0)
+                * (emb["largeur_ext_cm"] or 0)
+                * (emb["hauteur_ext_cm"] or 0)
+            )
+
+            if volume:
+
+                valeurs.append(
+                    f"{volume:.0f} cm³  ({volume/1000:.1f} L)"
+                )
+
+                if volume <= self.VOLUME_LIMITE_UPS:
+                    valeurs.append(
+                        f"UPS  — {volume/self.DIVISEUR_UPS:.2f} kg "
+                        f"volumétriques"
+                    )
+                else:
+                    valeurs.append(
+                        f"Mondial Relay  — trop volumineux "
+                        f"pour UPS"
+                    )
+
+            else:
+                valeurs.append("—")
+                valeurs.append("— dimensions manquantes")
+
             for colonne, valeur in enumerate(valeurs):
 
-                self.table.setItem(
-                    ligne,
-                    colonne,
-                    QTableWidgetItem(valeur)
-                )
+                item = QTableWidgetItem(valeur)
+
+                if colonne == 8:
+
+                    if valeur.startswith("UPS"):
+                        item.setForeground(QColor("#15803d"))
+                    elif valeur.startswith("Mondial"):
+                        item.setForeground(QColor("#b35c10"))
+                    else:
+                        item.setForeground(QColor("#767676"))
+
+                    police = QFont()
+                    police.setBold(True)
+                    item.setFont(police)
+
+                self.table.setItem(ligne, colonne, item)
 
     def ajouterEmballage(self):
 
@@ -82,21 +158,29 @@ class EmballagesPage(ListPage):
         if dialog.exec() != EmballageDialog.DialogCode.Accepted:
             return
 
-        code = dialog.code.text().strip()
+        valeurs = dialog.valeurs()
 
-        if code == "":
+        if not valeurs["code"] or not valeurs["nom"]:
+
+            QMessageBox.warning(
+                self,
+                "Champs manquants",
+                "Le code et le nom sont obligatoires."
+            )
             return
 
-        self.manager.ajouter(
-            code=code,
-            nom=dialog.nom.text().strip(),
-            longueur_ext_cm=dialog.longueurExt.value(),
-            largeur_ext_cm=dialog.largeurExt.value(),
-            hauteur_ext_cm=dialog.hauteurExt.value(),
-            poids_g=dialog.poids.value(),
-            cout_ht=dialog.coutHt.value(),
-            calage_ht=dialog.calageHt.value(),
-        )
+        try:
+
+            self.manager.ajouter(**valeurs)
+
+        except Exception as erreur:
+
+            QMessageBox.warning(
+                self,
+                "Enregistrement impossible",
+                f"Cet emballage n'a pas pu être créé :\n\n{erreur}"
+            )
+            return
 
         self.charger()
 
@@ -104,7 +188,7 @@ class EmballagesPage(ListPage):
 
         ligne = self.table.currentRow()
 
-        if ligne == -1:
+        if ligne < 0:
 
             QMessageBox.information(
                 self,
@@ -113,38 +197,31 @@ class EmballagesPage(ListPage):
             )
             return
 
-        identifiant = int(
-            self.table.item(ligne, 0).text()
-        )
+        identifiant = int(self.table.item(ligne, 0).text())
 
-        emb = self.manager.obtenir(identifiant)
+        emballage = self.manager.obtenir(identifiant)
 
         dialog = EmballageDialog(
-            "Modifier l'emballage",
-            code=emb["code"],
-            nom=emb["nom"],
-            longueur_ext_cm=emb["longueur_ext_cm"],
-            largeur_ext_cm=emb["largeur_ext_cm"],
-            hauteur_ext_cm=emb["hauteur_ext_cm"],
-            poids_g=emb["poids_g"],
-            cout_ht=emb["cout_ht"],
-            calage_ht=emb["calage_ht"],
+            "Modifier l'emballage", emballage=emballage
         )
 
         if dialog.exec() != EmballageDialog.DialogCode.Accepted:
             return
 
-        self.manager.modifier(
-            identifiant=identifiant,
-            code=dialog.code.text().strip(),
-            nom=dialog.nom.text().strip(),
-            longueur_ext_cm=dialog.longueurExt.value(),
-            largeur_ext_cm=dialog.largeurExt.value(),
-            hauteur_ext_cm=dialog.hauteurExt.value(),
-            poids_g=dialog.poids.value(),
-            cout_ht=dialog.coutHt.value(),
-            calage_ht=dialog.calageHt.value(),
-        )
+        valeurs = dialog.valeurs()
+
+        try:
+
+            self.manager.modifier(identifiant, **valeurs)
+
+        except Exception as erreur:
+
+            QMessageBox.warning(
+                self,
+                "Enregistrement impossible",
+                f"Cet emballage n'a pas pu être modifié :\n\n{erreur}"
+            )
+            return
 
         self.charger()
 
@@ -152,7 +229,7 @@ class EmballagesPage(ListPage):
 
         ligne = self.table.currentRow()
 
-        if ligne == -1:
+        if ligne < 0:
 
             QMessageBox.information(
                 self,
@@ -164,15 +241,13 @@ class EmballagesPage(ListPage):
         reponse = QMessageBox.question(
             self,
             "Confirmation",
-            "Voulez-vous vraiment désactiver cet emballage ?"
+            "Voulez-vous vraiment supprimer cet emballage ?"
         )
 
         if reponse != QMessageBox.StandardButton.Yes:
             return
 
-        identifiant = int(
-            self.table.item(ligne, 0).text()
-        )
+        identifiant = int(self.table.item(ligne, 0).text())
 
         self.manager.supprimer(identifiant)
 
@@ -184,17 +259,14 @@ class EmballagesPage(ListPage):
 
         for ligne in range(self.table.rowCount()):
 
-            afficher = False
+            visible = False
 
             for colonne in range(1, self.table.columnCount()):
 
                 item = self.table.item(ligne, colonne)
 
                 if item and texte in item.text().lower():
-                    afficher = True
+                    visible = True
                     break
 
-            self.table.setRowHidden(
-                ligne,
-                not afficher
-            )
+            self.table.setRowHidden(ligne, not visible)

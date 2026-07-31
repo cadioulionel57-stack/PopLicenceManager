@@ -25,6 +25,7 @@ from PySide6.QtGui import QPainter, QColor, QFont
 from PySide6.QtCore import Qt
 
 from modules.commande_manager import CommandeManager
+from ui import theme
 from modules.tresorerie_manager import TresorerieManager
 
 
@@ -35,8 +36,11 @@ class StatistiquesPage(QWidget):
     """
 
     COULEURS = [
-        "#144b8b", "#1e7d32", "#e67e22", "#c0392b", "#8e44ad",
-        "#0064d2", "#eaba00", "#0057a8", "#7b241c", "#16a085",
+        "#144b8b", "#1e7d32", "#cc6a14", "#c0392b", "#8e44ad",
+        # Le jaune d'origine (#eaba00) était à 1,82 de contraste
+        # sur blanc : la part correspondante disparaissait
+        # littéralement dans le camembert.
+        "#0064d2", "#b08600", "#0057a8", "#7b241c", "#16a085",
     ]
 
     def __init__(self):
@@ -46,19 +50,10 @@ class StatistiquesPage(QWidget):
         self.manager = CommandeManager()
         self.managerTresorerie = TresorerieManager()
 
-        self.setStyleSheet("""
-        QWidget{ background:#f4f7fb; font-family:'Segoe UI'; }
-        QLabel#titre{ font-size:24px; font-weight:600; color:#0f2f5c; }
-        QLabel#sousTitre{ font-size:15px; font-weight:600; color:#0f2f5c; }
-        QFrame#card{
-            background:white; border:1px solid #e1e8f0;
-            border-radius:12px;
-        }
-        QComboBox{
-            background:#f7f9fc; border:1px solid #d7e0ec;
-            border-radius:7px; padding:6px 8px; font-size:10.5pt;
-        }
-        """)
+        # Le style vient du thème global (ui/theme.py) et
+        # de la couleur du module Statistiques.
+        self.accent = theme.accent_pour("statistiques")
+        self.setStyleSheet(theme.feuille_accent(self.accent))
 
         exterieur = QVBoxLayout(self)
         exterieur.setContentsMargins(0, 0, 0, 0)
@@ -78,8 +73,18 @@ class StatistiquesPage(QWidget):
         exterieur.addWidget(zoneDefilement)
 
         entete = QHBoxLayout()
+        entete.setSpacing(12)
+
+        # Même repère coloré que les autres écrans.
+        bandeau = QFrame()
+        bandeau.setObjectName("bandeauAccent")
+        bandeau.setFixedWidth(6)
+        bandeau.setMinimumHeight(34)
+
         titre = QLabel("📊 Statistiques")
         titre.setObjectName("titre")
+
+        entete.addWidget(bandeau)
         entete.addWidget(titre)
         entete.addStretch()
         layout.addLayout(entete)
@@ -113,7 +118,7 @@ class StatistiquesPage(QWidget):
         self.labelVide = QLabel(
             "Aucune commande pour ce mois — rien à répartir."
         )
-        self.labelVide.setStyleSheet("color:#7f8c8d; padding:20px;")
+        self.labelVide.setStyleSheet("color:#64748b; padding:20px;")
         layoutCarte.addWidget(self.labelVide)
 
         self.chartView = QChartView()
@@ -187,7 +192,7 @@ class StatistiquesPage(QWidget):
         self.labelVideLicences = QLabel(
             "Aucune vente avec licence pour ce mois."
         )
-        self.labelVideLicences.setStyleSheet("color:#7f8c8d; padding:20px;")
+        self.labelVideLicences.setStyleSheet("color:#64748b; padding:20px;")
         layoutLicences.addWidget(self.labelVideLicences)
 
         self.chartViewLicences = QChartView()
@@ -228,7 +233,7 @@ class StatistiquesPage(QWidget):
         self.labelVideBenefice = QLabel(
             "Aucune commande pour ce mois."
         )
-        self.labelVideBenefice.setStyleSheet("color:#7f8c8d; padding:20px;")
+        self.labelVideBenefice.setStyleSheet("color:#64748b; padding:20px;")
         layoutBenefice.addWidget(self.labelVideBenefice)
 
         self.chartViewBenefice = QChartView()
@@ -258,7 +263,7 @@ class StatistiquesPage(QWidget):
             "cette courbe."
         )
         self.labelVideTresorerie.setStyleSheet(
-            "color:#7f8c8d; padding:20px;"
+            "color:#64748b; padding:20px;"
         )
         self.labelVideTresorerie.setWordWrap(True)
         layoutTresorerie.addWidget(self.labelVideTresorerie)
@@ -301,7 +306,7 @@ class StatistiquesPage(QWidget):
         self.labelVideCharges = QLabel(
             "Aucune commande pour ce mois."
         )
-        self.labelVideCharges.setStyleSheet("color:#7f8c8d; padding:20px;")
+        self.labelVideCharges.setStyleSheet("color:#64748b; padding:20px;")
         layoutCharges.addWidget(self.labelVideCharges)
 
         self.chartViewCharges = QChartView()
@@ -342,7 +347,7 @@ class StatistiquesPage(QWidget):
         self.labelVideProduits = QLabel(
             "Aucune vente pour ce mois."
         )
-        self.labelVideProduits.setStyleSheet("color:#7f8c8d; padding:20px;")
+        self.labelVideProduits.setStyleSheet("color:#64748b; padding:20px;")
         layoutProduits.addWidget(self.labelVideProduits)
 
         self.chartViewProduits = QChartView()
