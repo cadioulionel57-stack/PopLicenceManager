@@ -21,13 +21,17 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QCheckBox,
     QSizePolicy,
+    QFileDialog,
+    QInputDialog,
 )
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, Qt, QUrl
+from PySide6.QtGui import QPixmap, QDesktopServices
 
 from ui.widgets.reference_combobox import ReferenceComboBox
 from modules.client_manager import ClientManager
 from modules.product_manager import ProductManager
 from modules.variation_manager import VariationManager
+from modules.photo_commande_manager import PhotoCommandeManager
 from ui import theme
 
 
@@ -50,6 +54,7 @@ class CommandeDialog(QDialog):
         self.clientManager = ClientManager()
         self.productManager = ProductManager()
         self.variationManager = VariationManager()
+        self.photoManager = PhotoCommandeManager()
 
         self.setWindowTitle(titre)
         # (taille fixée plus bas, une fois tout le contenu
@@ -264,10 +269,11 @@ class CommandeDialog(QDialog):
         layoutRetours = QVBoxLayout(groupeRetours)
 
         self.tableRetours = QTableWidget()
-        self.tableRetours.setColumnCount(7)
+        self.tableRetours.setColumnCount(8)
         self.tableRetours.setHorizontalHeaderLabels([
             "Produit concerné", "Date", "Motif", "Statut",
-            "Remboursé TTC", "Coût retour HT", ""
+            "Remboursé TTC", "Coût retour HT",
+            "Contrôle EAN", ""
         ])
         self.tableRetours.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -276,10 +282,63 @@ class CommandeDialog(QDialog):
 
         layoutRetours.addWidget(self.tableRetours)
 
+        boutonsRetours = QHBoxLayout()
+
         self.btnAjouterRetour = QPushButton("+ Signaler un retour")
-        layoutRetours.addWidget(self.btnAjouterRetour)
+        boutonsRetours.addWidget(self.btnAjouterRetour)
+
+        self.btnControlerRetour = QPushButton(
+            "🔍  Contrôler le retour (scan EAN)"
+        )
+        boutonsRetours.addWidget(self.btnControlerRetour)
+
+        boutonsRetours.addStretch()
+
+        layoutRetours.addLayout(boutonsRetours)
 
         layout.addWidget(groupeRetours)
+
+        ####################################################
+        # Photos d'expédition
+        ####################################################
+
+        groupePhotos = QGroupBox("📷 Photos d'expédition")
+        layoutPhotos = QVBoxLayout(groupePhotos)
+
+        explication = QLabel(
+            "Photographie le produit puis le colis fermé avant "
+            "de l'expédier. En cas de contestation, c'est cette "
+            "preuve qui compte, pas les conditions de vente."
+        )
+        explication.setWordWrap(True)
+        layoutPhotos.addWidget(explication)
+
+        boutonsPhotos = QHBoxLayout()
+
+        self.btnAjouterPhoto = QPushButton("+ Ajouter des photos")
+        boutonsPhotos.addWidget(self.btnAjouterPhoto)
+
+        self.labelNbPhotos = QLabel("")
+        boutonsPhotos.addWidget(self.labelNbPhotos)
+
+        boutonsPhotos.addStretch()
+
+        layoutPhotos.addLayout(boutonsPhotos)
+
+        self.zoneMiniatures = QScrollArea()
+        self.zoneMiniatures.setWidgetResizable(True)
+        self.zoneMiniatures.setFixedHeight(150)
+
+        self.contenuMiniatures = QWidget()
+        self.layoutMiniatures = QHBoxLayout(self.contenuMiniatures)
+        self.layoutMiniatures.setSpacing(10)
+        self.layoutMiniatures.addStretch()
+
+        self.zoneMiniatures.setWidget(self.contenuMiniatures)
+
+        layoutPhotos.addWidget(self.zoneMiniatures)
+
+        layout.addWidget(groupePhotos)
 
         ####################################################
         # Emballage cadeau
@@ -392,6 +451,8 @@ class CommandeDialog(QDialog):
         self.btnAjouterLigne.clicked.connect(self.ajouterLigne)
         self.btnNouveauClient.clicked.connect(self.creerClient)
         self.btnAjouterRetour.clicked.connect(self.ajouterRetour)
+        self.btnControlerRetour.clicked.connect(self._controlerRetour)
+        self.btnAjouterPhoto.clicked.connect(self._ajouterPhotos)
 
         ####################################################
         # Pré-remplissage si modification
@@ -411,6 +472,8 @@ class CommandeDialog(QDialog):
         # visible sans avoir à chercher le bouton.
         if self.tableLignes.rowCount() == 0:
             self.ajouterLigne()
+
+        self._rafraichirPhotos()
 
         self._adapterTailleEcran(1250, 850)
 
@@ -943,7 +1006,21 @@ class CommandeDialog(QDialog):
         btnSupprimer.clicked.connect(
             lambda: self._supprimerRetourTableau(btnSupprimer)
         )
-        self.tableRetours.setCellWidget(ligne, 6, btnSupprimer)
+        etat = donnees.get("ean_controle")
+
+        if etat:
+            texte_controle = (
+                f"✅ {etat}" if donnees.get("ean_conforme")
+                else f"❌ {etat}"
+            )
+        else:
+            texte_controle = "— non contrôlé"
+
+        self.tableRetours.setItem(
+            ligne, 6, QTableWidgetItem(texte_controle)
+        )
+
+        self.tableRetours.setCellWidget(ligne, 7, btnSupprimer)
 
         self._donnees_retours = getattr(self, "_donnees_retours", [])
         self._donnees_retours.append(donnees)
@@ -952,13 +1029,269 @@ class CommandeDialog(QDialog):
 
         for ligne in range(self.tableRetours.rowCount()):
 
-            if self.tableRetours.cellWidget(ligne, 6) == bouton:
+            if self.tableRetours.cellWidget(ligne, 7) == bouton:
                 self.tableRetours.removeRow(ligne)
                 return
 
     def retours_saisis(self):
 
         return getattr(self, "_donnees_retours", [])
+
+    def _eansProduit(self, produit_id):
+        """
+        Codes-barres acceptables pour ce produit : le sien et
+        ceux de ses déclinaisons, chaque taille ayant le sien.
+        """
+
+        codes = []
+
+        if produit_id is None:
+            return codes
+
+        produit = self.productManager.obtenir(produit_id)
+
+        if produit is not None and produit["ean"]:
+            codes.append(str(produit["ean"]).strip())
+
+        for variation in self.variationManager.variations(produit_id):
+
+            if variation["ean"]:
+                codes.append(str(variation["ean"]).strip())
+
+        return codes
+
+    def _controlerRetour(self):
+        """
+        Scanne le code-barres de l'article reçu et le compare
+        à celui qui avait été expédié.
+        """
+
+        ligne = self.tableRetours.currentRow()
+
+        if ligne < 0:
+
+            QMessageBox.information(
+                self,
+                "Aucun retour sélectionné",
+                "Clique d'abord sur la ligne du retour que tu "
+                "veux contrôler."
+            )
+            return
+
+        donnees = self.retours_saisis()
+
+        if ligne >= len(donnees):
+            return
+
+        retour = donnees[ligne]
+
+        index_produit = retour.get("produit_index")
+
+        produit_id = None
+
+        if index_produit is not None:
+
+            if 0 <= index_produit < self.tableLignes.rowCount():
+
+                champCode = self.tableLignes.cellWidget(
+                    index_produit, 0
+                )
+
+                produit_id = champCode.produit_id
+
+        attendus = self._eansProduit(produit_id)
+
+        if not attendus:
+
+            QMessageBox.warning(
+                self,
+                "Aucun code connu",
+                "Ce produit n'a pas de code-barres enregistré : "
+                "le contrôle est impossible."
+            )
+            return
+
+        scanne, valide = QInputDialog.getText(
+            self,
+            "Contrôle du retour",
+            "Scanne ou saisis le code-barres de l'article reçu :"
+        )
+
+        if not valide:
+            return
+
+        scanne = (scanne or "").strip()
+
+        conforme = scanne != "" and scanne in attendus
+
+        retour["ean_controle"] = scanne
+        retour["ean_conforme"] = 1 if conforme else 0
+
+        self.tableRetours.setItem(
+            ligne,
+            6,
+            QTableWidgetItem(
+                f"✅ {scanne}" if conforme else f"❌ {scanne}"
+            )
+        )
+
+        if conforme:
+
+            QMessageBox.information(
+                self,
+                "Article conforme",
+                "Le code-barres correspond bien à ce qui avait "
+                "été expédié."
+            )
+
+        else:
+
+            QMessageBox.warning(
+                self,
+                "Article NON conforme",
+                "Le code-barres scanné ne correspond à aucun "
+                "de ceux expédiés pour cette ligne.\n\n"
+                "Photographie l'article reçu et son emballage "
+                "avant toute autre manipulation."
+            )
+
+    def _ajouterPhotos(self):
+        """
+        Choisit une ou plusieurs images et les range dans le
+        dossier de la commande.
+        """
+
+        if self.commande is None:
+
+            QMessageBox.information(
+                self,
+                "Commande non enregistrée",
+                "Enregistre d'abord la commande : les photos "
+                "sont rangées dans un dossier portant son "
+                "numéro."
+            )
+            return
+
+        fichiers, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Choisir les photos",
+            "",
+            "Images (*.jpg *.jpeg *.png *.webp *.bmp)"
+        )
+
+        if not fichiers:
+            return
+
+        for fichier in fichiers:
+
+            self.photoManager.ajouter(
+                self.commande["id"],
+                self.commande["numero"],
+                fichier,
+                "expedition"
+            )
+
+        self._rafraichirPhotos()
+
+    def _rafraichirPhotos(self):
+        """
+        Reconstruit la bande de miniatures.
+        """
+
+        while self.layoutMiniatures.count():
+
+            element = self.layoutMiniatures.takeAt(0)
+
+            widget = element.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        if self.commande is None:
+
+            self.labelNbPhotos.setText(
+                "Commande non encore enregistrée"
+            )
+            self.layoutMiniatures.addStretch()
+            return
+
+        photos = self.photoManager.lister(self.commande["id"])
+
+        self.labelNbPhotos.setText(
+            f"{len(photos)} photo(s)" if photos
+            else "Aucune photo"
+        )
+
+        for photo in photos:
+
+            vignette = QWidget()
+            colonne = QVBoxLayout(vignette)
+            colonne.setContentsMargins(0, 0, 0, 0)
+            colonne.setSpacing(4)
+
+            bouton = QPushButton()
+            bouton.setFixedSize(110, 90)
+            bouton.setToolTip(photo["chemin"])
+
+            image = QPixmap(photo["chemin"])
+
+            if not image.isNull():
+
+                bouton.setIcon(image)
+                bouton.setIconSize(
+                    image.scaled(
+                        104,
+                        84,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    ).size()
+                )
+
+            else:
+                bouton.setText("Image\nintrouvable")
+
+            chemin = photo["chemin"]
+
+            bouton.clicked.connect(
+                lambda _=False, c=chemin: self._ouvrirPhoto(c)
+            )
+
+            colonne.addWidget(bouton)
+
+            btnRetirer = QPushButton("🗑 Retirer")
+            btnRetirer.setObjectName("btnSecondaire")
+
+            identifiant = photo["id"]
+
+            btnRetirer.clicked.connect(
+                lambda _=False, i=identifiant:
+                self._supprimerPhoto(i)
+            )
+
+            colonne.addWidget(btnRetirer)
+
+            self.layoutMiniatures.addWidget(vignette)
+
+        self.layoutMiniatures.addStretch()
+
+    def _ouvrirPhoto(self, chemin):
+
+        QDesktopServices.openUrl(QUrl.fromLocalFile(chemin))
+
+    def _supprimerPhoto(self, photo_id):
+
+        reponse = QMessageBox.question(
+            self,
+            "Retirer la photo",
+            "Supprimer définitivement cette photo ?"
+        )
+
+        if reponse != QMessageBox.StandardButton.Yes:
+            return
+
+        self.photoManager.supprimer(photo_id)
+
+        self._rafraichirPhotos()
 
     def _validerAvantAccept(self):
 

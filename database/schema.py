@@ -1153,6 +1153,9 @@ SCHEMA["commandes_retours"] = [
     # Coût du retour lui-même (étiquette retour, remise en
     # stock, produit invendable...).
     ("cout_retour_ht", "REAL"),
+    ("ean_controle", "TEXT"),
+
+    ("ean_conforme", "INTEGER DEFAULT 0"),
 
     ("notes", "TEXT"),
 
@@ -1718,6 +1721,23 @@ SCHEMA["numerotations"] = [
     ("dernier_numero", "INTEGER DEFAULT 0"),
 
     ("longueur", "INTEGER DEFAULT 6"),
+
+    ("actif", "INTEGER DEFAULT 1")
+
+]
+SCHEMA["commandes_photos"] = [
+
+    ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+
+    ("commande_id", "INTEGER"),
+
+    ("type", "TEXT DEFAULT 'expedition'"),
+
+    ("chemin", "TEXT"),
+
+    ("date_ajout", "TEXT"),
+
+    ("commentaire", "TEXT"),
 
     ("actif", "INTEGER DEFAULT 1")
 
