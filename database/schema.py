@@ -1203,6 +1203,8 @@ SCHEMA["achats_fournisseurs_lignes"] = [
 
     ("quantite", "INTEGER DEFAULT 1"),
 
+    ("quantite_recue", "INTEGER DEFAULT 0"),
+
     ("prix_unitaire_ht", "REAL"),
 
     ("actif", "INTEGER DEFAULT 1")

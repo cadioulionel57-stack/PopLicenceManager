@@ -23,6 +23,7 @@ from PySide6.QtGui import QColor, QFont, QTextDocument, QPageLayout
 from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 
 from ui.list_page import ListPage
+from ui.inventaire_import_dialog import InventaireImportDialog
 from modules.stock_manager import StockManager
 
 
@@ -511,7 +512,9 @@ class StockPage(ListPage):
         self.btnExporter.clicked.connect(self.imprimer)
 
         self.btnSupprimer.setVisible(False)
-        self.btnImporter.setVisible(False)
+
+        self.btnImporter.setText("📥 Importer un inventaire")
+        self.btnImporter.clicked.connect(self.importerInventaire)
 
         ####################################################
         # Date du jour
@@ -823,6 +826,22 @@ class StockPage(ListPage):
             "Le mouvement est visible dans l'historique du "
             "produit."
         )
+
+    ########################################################
+    # Import d'un inventaire au collecteur
+    ########################################################
+
+    def importerInventaire(self):
+        """
+        Ouvre la fenêtre d'import d'un comptage réalisé au
+        collecteur de données. Le tableau est rechargé après
+        coup pour que les nouvelles quantités s'affichent.
+        """
+
+        dialog = InventaireImportDialog(self)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.charger()
 
     ########################################################
     # Historique

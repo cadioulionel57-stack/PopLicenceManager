@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
 
 from ui.list_page import ListPage
 from ui.achat_fournisseur_dialog import AchatFournisseurDialog
+from ui.reception_scan_dialog import ReceptionScanDialog
 from modules.achat_fournisseur_manager import AchatFournisseurManager
+from modules.reception_scan_manager import ReceptionScanManager
 from modules.stock_manager import StockManager
 
 
@@ -38,6 +40,9 @@ class AchatsStocksPage(ListPage):
         self.btnAjouter.clicked.connect(self.ajouterAchat)
         self.btnModifier.clicked.connect(self.modifierAchat)
         self.btnSupprimer.clicked.connect(self.supprimerAchat)
+
+        self.btnImporter.setText("📥 Contrôler la réception")
+        self.btnImporter.clicked.connect(self.controlerReception)
 
         self.table.doubleClicked.connect(self.modifierAchat)
 
@@ -123,7 +128,53 @@ class AchatsStocksPage(ListPage):
 
         self._enregistrerDepuisDialogue(dialog, identifiant)
 
+    ########################################################
+    # Réception au collecteur
+    ########################################################
+
+    def _dejaReceptionne(self, identifiant):
+        """
+        Vrai dès qu'une livraison a été enregistrée au scan.
+        Les lignes ne doivent alors plus être remplacées :
+        elles portent les quantités déjà reçues.
+        """
+
+        if identifiant is None:
+            return False
+
+        lignes = ReceptionScanManager().lignes_commande(identifiant)
+
+        return any((l["quantite_recue"] or 0) > 0 for l in lignes)
+
+    def controlerReception(self):
+
+        ligne = self.table.currentRow()
+
+        if ligne == -1:
+
+            QMessageBox.information(
+                self, "Information", "Sélectionnez une commande."
+            )
+            return
+
+        identifiant = int(self.table.item(ligne, 0).text())
+        numero = self.table.item(ligne, 1).text()
+
+        dialog = ReceptionScanDialog(identifiant, numero, self)
+
+        if dialog.exec() == ReceptionScanDialog.DialogCode.Accepted:
+            self.charger()
+
+    ########################################################
+    # Enregistrement
+    ########################################################
+
     def _enregistrerDepuisDialogue(self, dialog, identifiant=None):
+
+        # Une commande déjà réceptionnée au scan ne voit plus
+        # ses lignes remplacées : elles portent les quantités
+        # reçues, et les recréer les remettrait à zéro.
+        verrouille = self._dejaReceptionne(identifiant)
 
         lignes_saisies = dialog.lignes_saisies()
 
@@ -158,6 +209,21 @@ class AchatsStocksPage(ListPage):
                 frais_port_ht=dialog.fraisPort.value(),
                 commentaire=dialog.commentaire.toPlainText(),
             )
+
+        if verrouille:
+
+            QMessageBox.information(
+                self,
+                "Commande déjà réceptionnée",
+                "L'en-tête a été enregistré, mais les lignes "
+                "n'ont pas été modifiées : cette commande a "
+                "déjà fait l'objet d'une réception au scan.\n\n"
+                "Pour corriger une ligne, passe par un "
+                "mouvement de stock manuel."
+            )
+
+            self.charger()
+            return
 
         self.manager.definir_lignes(identifiant, lignes_saisies)
 

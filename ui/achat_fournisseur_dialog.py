@@ -110,7 +110,7 @@ class AchatFournisseurDialog(QDialog):
         self.statut = QComboBox()
         self.statut.addItems([
             "Commandé", "Expédié par le fournisseur",
-            "Reçu", "Annulé"
+            "Partiellement reçu", "Reçu", "Annulé"
         ])
         formEntete.addRow("Statut", self.statut)
 
