@@ -59,3 +59,30 @@ SCHEMA["bloc_livraison"] = [
 
     ("html_template", "TEXT"),
 ]
+
+
+# ==========================================================
+# Accroche commerciale par modèle de fiche
+#
+# La description courte d'un produit — le premier texte que
+# lit le client, juste sous le nom — se compose de deux
+# parties :
+#
+#   la partie factuelle, tirée des champs du produit
+#   (poids, dimensions, matière, coloris), automatique ;
+#
+#   et une phrase qui vend, propre à la famille de produit
+#   (« taillé pour les journées d'école des plus petits »),
+#   qu'aucun générateur ne peut inventer.
+#
+# Cette phrase est donc écrite une seule fois par modèle de
+# fiche, et reprise sur tous les produits qui l'utilisent.
+#
+# La colonne est ajoutée automatiquement à la base existante
+# au prochain lancement du logiciel : aucune manipulation,
+# aucune donnée perdue.
+# ==========================================================
+
+SCHEMA["modeles_fiche_produit"].append(
+    ("accroche", "TEXT")
+)

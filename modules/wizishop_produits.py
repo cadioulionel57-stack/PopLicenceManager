@@ -4,8 +4,11 @@ modules/wizishop_produits.py
 Pousse les produits de PopLicenceManager vers WiziShop par
 l'API v3.
 
-Un produit part TOUJOURS MASQUE. Il n'apparait sur la
+Un produit part TOUJOURS EN BROUILLON. Il n'apparait sur la
 boutique qu'apres la commande "publier".
+
+C'est le champ "complete" qui commande l'etat chez WiziShop,
+et lui seul : les champs "visible" et "status" sont ignores.
 
 Usage depuis la racine du projet :
     python -m modules.wizishop_produits etat
@@ -99,9 +102,7 @@ class PousseeProduits:
         # --- marque -------------------------------------
         #
         # La MARQUE cote WiziShop porte la LICENCE, pas le
-        # fabricant : c'est la convention retenue pour le site
-        # (une marque Bluey, une marque Marvel...). Le
-        # fabricant reste une information interne.
+        # fabricant : une marque Bluey, une marque Marvel.
 
         licence = self._valeur("licences", produit["licence_id"], "nom")
 
@@ -214,14 +215,18 @@ class PousseeProduits:
                 "keywords": produit["mots_cles"] or "",
             },
             "customizations": [],
-            "complete": True,
+
+            # C'EST CE CHAMP QUI COMMANDE L'ETAT, et lui seul.
+            # Une fiche incomplete reste en Brouillon, une
+            # fiche complete passe en Affiche.
+            "complete": bool(visible),
         }
 
         return corps, avertissements
 
     def pousser(self, identifiant, visible=False):
         """
-        Envoie le produit. Par defaut il part MASQUE.
+        Envoie le produit. Par defaut il part EN BROUILLON.
         """
 
         produit = self.produit(identifiant)
@@ -233,7 +238,22 @@ class PousseeProduits:
         deja = produit["id_wizishop"]
 
         if deja:
+
             chemin = f"/v3/shops/{shop}/products/{deja}"
+
+            # WiziShop RE-IMPORTE les images a chaque envoi :
+            # renvoyer les adresses d'origine cree un doublon
+            # dans le gestionnaire d'images a chaque mise a
+            # jour. On lui rend donc les images qu'il possede
+            # deja, telles qu'il les a rangees sur son CDN.
+
+            try:
+                existant = self.api._appel("GET", chemin)
+                corps["images"] = existant.get("images") or []
+
+            except WiziShopAPIError:
+                corps["images"] = []
+
             self.api._appel("PUT", chemin, corps)
             action = "mis a jour"
             id_wizishop = deja
@@ -258,7 +278,7 @@ class PousseeProduits:
 
     def publier(self, identifiant):
         """
-        Rend le produit visible sur la boutique.
+        Passe le produit en Affiche sur la boutique.
         """
 
         produit = self.produit(identifiant)
@@ -344,7 +364,7 @@ if __name__ == "__main__":
 
             print(f"\nProduit {fait}. Id WiziShop : {id_wizishop}")
             print(
-                "Il est envoye MASQUE : verifie la fiche dans "
+                "Il est en BROUILLON : verifie la fiche dans "
                 "WiziShop, puis publie-la avec\n"
                 f"   python -m modules.wizishop_produits publier "
                 f"{identifiant}\n"
@@ -364,10 +384,10 @@ if __name__ == "__main__":
 
             print(f"\nProduit : {produit['nom']}")
 
-            reponse = input("Le rendre VISIBLE sur la boutique ? (tape oui) : ")
+            reponse = input("Le publier sur la boutique ? (tape oui) : ")
 
             if reponse.strip().lower() not in ("oui", "o"):
-                print("\nAnnule. Le produit reste masque.\n")
+                print("\nAnnule. Le produit reste en brouillon.\n")
                 sys.exit(0)
 
             poussee.publier(identifiant)

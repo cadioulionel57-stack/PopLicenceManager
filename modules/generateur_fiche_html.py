@@ -23,6 +23,14 @@ class GenerateurFicheHtml:
         "coupe_type",
         "type_manche",
 
+        # Champs de la fiche produit qui manquaient a
+        # l'appel : sans eux, impossible d'ecrire une
+        # description propre au produit.
+        "matiere",
+        "couleur",
+        "age_minimum",
+        "pays_fabrication",
+
         "age_conseille",
         "nombre_joueurs",
         "duree_partie",
@@ -42,6 +50,58 @@ class GenerateurFicheHtml:
     CHAMPS_BOOLEENS_CONDITIONNELS = [
         "compatible_lave_vaisselle",
     ]
+
+    @staticmethod
+    def _poids_lisible(poids):
+        """
+        0.24 -> "240 g" ; 1.5 -> "1,5 kg". Chaine vide si le
+        poids n'est pas renseigne.
+        """
+
+        try:
+            valeur = float(poids)
+        except (TypeError, ValueError):
+            return ""
+
+        if valeur <= 0:
+            return ""
+
+        if valeur < 1:
+            return f"{int(round(valeur * 1000))} g"
+
+        texte = f"{valeur:.1f}".replace(".", ",")
+        texte = texte.rstrip("0").rstrip(",")
+
+        return f"{texte} kg"
+
+    @staticmethod
+    def _dimensions_lisibles(longueur, largeur, hauteur):
+        """
+        Renvoie "30 x 15,5 x 10 cm". Chaine vide si moins de
+        deux mesures sont renseignees.
+        """
+
+        mesures = []
+
+        for valeur in (hauteur, longueur, largeur):
+
+            try:
+                nombre = float(valeur)
+            except (TypeError, ValueError):
+                continue
+
+            if nombre <= 0:
+                continue
+
+            texte = f"{nombre:.1f}".replace(".", ",")
+            texte = texte.rstrip("0").rstrip(",")
+
+            mesures.append(texte)
+
+        if len(mesures) < 2:
+            return ""
+
+        return " x ".join(mesures) + " cm"
 
     @staticmethod
     def reglages_globaux():
@@ -251,6 +311,28 @@ class GenerateurFicheHtml:
 
         avec_licence = f" sous licence {licence_nom}" if licence_nom else ""
 
+        # Poids et dimensions, mis en forme pour etre lisibles
+        # dans une phrase : 0.24 devient "240 g", et les trois
+        # mesures deviennent "30 x 15,5 x 10 cm".
+
+        poids_lisible = GenerateurFicheHtml._poids_lisible(
+            GenerateurFicheHtml._valeur_champ(produit, "poids")
+        )
+
+        dimensions = GenerateurFicheHtml._dimensions_lisibles(
+            GenerateurFicheHtml._valeur_champ(produit, "longueur"),
+            GenerateurFicheHtml._valeur_champ(produit, "largeur"),
+            GenerateurFicheHtml._valeur_champ(produit, "hauteur"),
+        )
+
+        for nom_bloc, valeur in (
+            ("si_poids", poids_lisible),
+            ("si_dimensions", dimensions),
+        ):
+            html = GenerateurFicheHtml._traiter_bloc_conditionnel(
+                html, nom_bloc, bool(valeur)
+            )
+
         reglages = GenerateurFicheHtml.reglages_globaux()
 
         bloc_emballage_cadeau = ""
@@ -331,6 +413,9 @@ class GenerateurFicheHtml:
             "tarif_chrono_relais": f"{reglages['tarif_chrono_relais']:.2f}",
             "seuil_chrono_relais": f"{reglages['seuil_chrono_relais']:.0f}",
         }
+
+        variables["poids_lisible"] = poids_lisible
+        variables["dimensions"] = dimensions
 
         variables.update(valeurs_champs_conditionnels)
 

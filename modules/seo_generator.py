@@ -10,21 +10,16 @@ class SeoGenerator:
     mots-clés, URL, données structurées Schema.org) à
     partir des informations déjà saisies sur le produit.
 
-    Objectif : que le contenu généré soit exploitable tel
-    quel à l'export vers WiziShop/Base.com, sans retouche
-    systématique — la Description longue reste toutefois
-    pensée comme un bon brouillon à enrichir toi-même sur
-    les produits les plus importants, pour éviter le
-    contenu trop générique d'une fiche à l'autre.
+    La description courte est une ACCROCHE COMMERCIALE :
+    aucune mention de livraison ni de délai, qui seraient
+    fausses sur un Direct Fournisseur et intenables sur une
+    précommande.
 
     Toutes les méthodes sont statiques : ce module ne touche
-    jamais à la base de données lui-même, il reçoit les
-    informations déjà résolues (noms de licence/marque/
-    catégorie/famille, pas juste leurs identifiants) et
-    renvoie du texte.
+    jamais à la base de données lui-même.
     """
 
-    NOM_SITE = "PopLicence"
+    NOM_SITE = "Pop Licence"
 
     LONGUEUR_MAX_TITRE = 60
     LONGUEUR_MAX_DESCRIPTION_COURTE = 160
@@ -57,8 +52,7 @@ class SeoGenerator:
     def _slugifier(texte):
         """
         Convertit un texte en URL propre : minuscules, sans
-        accents, espaces remplacés par des tirets, aucun
-        caractère spécial.
+        accents, espaces remplacés par des tirets.
         """
 
         if not texte:
@@ -74,11 +68,60 @@ class SeoGenerator:
         return avec_tirets.strip("-")
 
     @staticmethod
+    def _poids_lisible(poids):
+        """
+        0.24 -> "240 g" ; 1.5 -> "1,5 kg".
+        """
+
+        try:
+            valeur = float(poids)
+        except (TypeError, ValueError):
+            return ""
+
+        if valeur <= 0:
+            return ""
+
+        if valeur < 1:
+            return f"{int(round(valeur * 1000))} g"
+
+        texte = f"{valeur:.1f}".replace(".", ",").rstrip("0").rstrip(",")
+
+        return f"{texte} kg"
+
+    @staticmethod
+    def _format_lisible(longueur, largeur, hauteur):
+        """
+        Renvoie "30 x 15,5 x 10 cm", en ignorant les mesures
+        manquantes.
+        """
+
+        mesures = []
+
+        for valeur in (hauteur, longueur, largeur):
+
+            try:
+                nombre = float(valeur)
+            except (TypeError, ValueError):
+                continue
+
+            if nombre <= 0:
+                continue
+
+            texte = f"{nombre:.1f}".replace(".", ",")
+            texte = texte.rstrip("0").rstrip(",")
+
+            mesures.append(texte)
+
+        if len(mesures) < 2:
+            return ""
+
+        return " x ".join(mesures) + " cm"
+
+    @staticmethod
     def _caracteristique_principale(matiere, couleur):
         """
         Combine matière et couleur en une phrase courte
-        naturelle, en gérant les cas où l'une des deux
-        manque.
+        naturelle.
         """
 
         if matiere and couleur:
@@ -107,18 +150,15 @@ class SeoGenerator:
         ean=None,
         sku=None,
         prix_ttc=None,
+        poids=None,
+        longueur=None,
+        largeur=None,
+        hauteur=None,
+        accroche=None,
     ):
         """
         Génère les 7 champs SEO à partir des informations
-        produit disponibles. Renvoie un dictionnaire avec
-        les clés : titre_seo, description_courte,
-        description_longue, meta_description, mots_cles,
-        url_slug, schema_org_json.
-
-        Chaque champ gère l'absence d'informations
-        optionnelles (licence, marque, matière...) sans
-        jamais produire de texte bancal du type "None" ou
-        une virgule seule.
+        produit disponibles.
         """
 
         nom_produit = (nom_produit or "").strip()
@@ -143,16 +183,20 @@ class SeoGenerator:
 
         titre_seo = " ".join(elements_titre)
 
-        if marque_nom:
-            titre_avec_marque = f"{titre_seo} - {marque_nom}"
+        # Le FABRICANT n'a rien a faire dans le titre : il
+        # n'apporte rien au referencement et brouille le
+        # message. C'est le nom de la boutique qui prend sa
+        # place, comme sur les 239 pages categories.
 
-            if len(titre_avec_marque) <= cls.LONGUEUR_MAX_TITRE:
-                titre_seo = titre_avec_marque
+        suffixe = f" | {cls.NOM_SITE}"
+
+        if len(titre_seo) + len(suffixe) <= cls.LONGUEUR_MAX_TITRE:
+            titre_seo += suffixe
 
         titre_seo = cls._tronquer(titre_seo, cls.LONGUEUR_MAX_TITRE)
 
         ##################################################
-        # Description courte
+        # Description courte — l'accroche commerciale
         ##################################################
 
         licence_deja_mentionnee = (
@@ -166,15 +210,35 @@ class SeoGenerator:
             else ""
         )
 
-        phrase_caracteristique = (
-            f" {caracteristique}." if caracteristique else ""
-        )
+        faits = []
 
-        description_courte = (
-            f"{nom_produit}{phrase_licence}."
-            f"{phrase_caracteristique} "
-            f"Produit officiel, livraison rapide."
-        )
+        if poids:
+            faits.append(cls._poids_lisible(poids))
+
+        format_lisible = cls._format_lisible(longueur, largeur, hauteur)
+
+        if format_lisible:
+            faits.append(f"format {format_lisible}")
+
+        # La matière et le coloris ne sont PAS repris ici :
+        # ils figurent déjà dans la fiche technique et dans
+        # la meta description.
+
+        morceaux = [
+            f"{nom_produit} sous licence officielle"
+            if licence_nom and licence_deja_mentionnee
+            else f"{nom_produit}{phrase_licence}"
+        ]
+
+        if faits:
+            morceaux.append(" : " + ", ".join(faits))
+
+        if accroche:
+            morceaux.append(
+                (", " if faits else " : ") + accroche.strip(" .")
+            )
+
+        description_courte = "".join(morceaux) + "."
 
         description_courte = cls._tronquer(
             description_courte.strip(),
@@ -190,7 +254,9 @@ class SeoGenerator:
         phrase_ouverture = f"Craquez pour {nom_produit}"
 
         if licence_nom and not licence_deja_mentionnee:
-            phrase_ouverture += f", directement inspiré de l'univers {licence_nom}"
+            phrase_ouverture += (
+                f", directement inspiré de l'univers {licence_nom}"
+            )
 
         phrase_ouverture += "."
 
@@ -215,6 +281,12 @@ class SeoGenerator:
                 f"Caractéristiques : {caracteristique}."
             )
 
+        if format_lisible:
+            paragraphes.append(f"Dimensions : {format_lisible}.")
+
+        if poids:
+            paragraphes.append(f"Poids : {cls._poids_lisible(poids)}.")
+
         if age_minimum:
             paragraphes.append(
                 f"Convient à partir de {age_minimum} ans."
@@ -225,30 +297,22 @@ class SeoGenerator:
                 f"Fabriqué en {pays_fabrication}."
             )
 
-        paragraphes.append(
-            f"{marque_nom + ' chez ' if marque_nom else ''}"
-            f"{cls.NOM_SITE}, retrouvez cet article et bien "
-            "d'autres produits sous licence officielle. "
-            "Commande expédiée rapidement et soigneusement "
-            "emballée."
-        )
-
         description_longue = " ".join(paragraphes)
 
         ##################################################
-        # Meta description — le prix n'y figure jamais : un
-        # changement de tarif oublié à cet endroit pourrait
-        # nuire au SEO sans aucun bénéfice réel (les extraits
-        # enrichis avec le prix passent par les données
-        # structurées Schema.org, pas par la meta description).
+        # Meta description
+        #
+        # Aucune mention de délai ni de livraison : elle part
+        # telle quelle sur tous les types de produit, Direct
+        # Fournisseur et précommande compris.
         ##################################################
 
         meta_description = (
-            f"Achetez {nom_produit}"
+            f"{nom_produit}"
             f"{' ' + licence_nom if licence_nom and not licence_deja_mentionnee else ''}"
-            f" chez {cls.NOM_SITE}."
-            f"{' ' + caracteristique + '.' if caracteristique else ''} "
-            f"Produit officiel, livraison rapide et sécurisée."
+            f" sous licence officielle."
+            f"{' ' + caracteristique[0].upper() + caracteristique[1:] + '.' if caracteristique else ''}"
+            f" À retrouver chez {cls.NOM_SITE}, produits dérivés officiels."
         )
 
         meta_description = cls._tronquer(
@@ -264,7 +328,9 @@ class SeoGenerator:
 
         candidats.extend(nom_produit.split())
 
-        for valeur in (licence_nom, marque_nom, categorie_nom, couleur, matiere):
+        for valeur in (
+            licence_nom, marque_nom, categorie_nom, couleur, matiere
+        ):
 
             if valeur:
                 candidats.append(valeur)
@@ -329,8 +395,8 @@ class SeoGenerator:
         if prix_ttc:
             schema["offers"] = {
                 "@type": "Offer",
+                "price": f"{float(prix_ttc):.2f}",
                 "priceCurrency": "EUR",
-                "price": round(prix_ttc, 2),
                 "availability": "https://schema.org/InStock",
             }
 

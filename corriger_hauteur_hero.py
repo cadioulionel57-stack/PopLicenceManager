@@ -1,143 +1,106 @@
 r"""
-corriger_hauteur_hero.py
-------------------------------------------------------------
-Corrige la banniere de couleur qui s'etire sur toute la
-hauteur de la fiche produit.
+Test : par quel champ WiziShop decide-t-il de l'etat d'un
+produit cree par l'API ?
 
-Le haut de la fiche est une grille a deux colonnes : la
-banniere d'etat et le bloc emballage cadeau. Par defaut, une
-grille CSS donne a toutes ses colonnes la hauteur de la plus
-grande. Le bloc cadeau faisant pres de 8000 caracteres, la
-banniere s'etirait pour l'egaler.
+La documentation dit qu'une fiche incomplete reste en
+"Brouillon" et qu'elle passe en "Affiche" des qu'elle est
+complete a 100 %. On teste donc le champ "complete", et deux
+autres noms possibles pour l'etat.
 
-La correction ajoute UNE seule propriete, align-items:start,
-qui laisse chaque colonne a sa hauteur naturelle.
-------------------------------------------------------------
+Chaque produit de test est supprime aussitot.
+
+Usage :
+    python corriger_hauteur_hero.py
 """
 
-import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from database.database import Database
+from modules.wizishop_api import WiziShopAPI, WiziShopAPIError
 
 
-GRILLE_HERO = re.compile(
-    r'(<section style="[^"]*?minmax\(280px,1fr\)[^"]*?'
-    r'margin-bottom:28px;\s*)(">)',
-    re.S,
-)
-
-VARIABLE = re.compile(r"\{\{[#/]?[a-zA-Z0-9_]+\}\}")
-
-
-def compter_variables(html):
-    return len(VARIABLE.findall(html))
+ESSAIS = [
+    ("complete = False", {"complete": False}),
+    ("state = hidden", {"state": "hidden"}),
+    ("etat = hidden", {"etat": "hidden"}),
+    ("complete False + status draft", {"complete": False, "status": "draft"}),
+]
 
 
-def corriger(html):
+def corps_de_base(numero):
 
-    nombre = 0
-
-    def remplacer(m):
-        nonlocal nombre
-        if "align-items" in m.group(1):
-            return m.group(0)
-        nombre += 1
-        return m.group(1) + "align-items:start;\n    " + m.group(2)
-
-    return GRILLE_HERO.sub(remplacer, html), nombre
+    return {
+        "category_id": 48,
+        "other_categories_id": [],
+        "sku": f"TEST-API-{numero}",
+        "name": f"TEST API A SUPPRIMER {numero}",
+        "description": "test",
+        "short_description": "test",
+        "brand": "",
+        "ean13": "",
+        "isbn": "",
+        "supplier": "",
+        "supplier_reference": "",
+        "tags": [],
+        "features": [],
+        "tax": 20,
+        "weight": 0.1,
+        "quantity": 1,
+        "price_tax_excluded": 10,
+        "wholesale_price_tax_excluded": 5,
+        "reduction": 0,
+        "reduction_type": "percentage",
+        "images": [],
+        "visible": False,
+        "url": f"test-api-a-supprimer-{numero}",
+        "attributes": [],
+        "cross_selling_products_id": [],
+        "meta": {"title": "", "description": "", "keywords": ""},
+        "customizations": [],
+        "complete": True,
+    }
 
 
 if __name__ == "__main__":
 
-    db = Database()
+    api = WiziShopAPI()
 
-    modeles = db.lire(
-        """
-        SELECT id, nom, html_template
-        FROM modeles_fiche_produit
-        WHERE html_template IS NOT NULL
-        ORDER BY nom
-        """
-    )
+    shop = api.id_boutique()
 
-    print("\n=== GRILLE DU HAUT DE FICHE ===\n")
+    print("\n=== CE QUE WIZISHOP EN FAIT ===\n")
 
-    prevus = []
-    alerte = []
+    for numero, (libelle, ajout) in enumerate(ESSAIS, start=10):
 
-    for modele in modeles:
+        corps = corps_de_base(numero)
+        corps.update(ajout)
 
-        html = modele["html_template"]
+        try:
+            cree = api._appel(
+                "POST", f"/v3/shops/{shop}/products", corps
+            )
 
-        nouveau_html, nombre = corriger(html)
-
-        if not nombre:
+        except WiziShopAPIError as erreur:
+            print(f"   {libelle:<32} refus : {str(erreur)[:60]}")
             continue
 
-        if compter_variables(html) != compter_variables(nouveau_html):
-            alerte.append(modele["nom"])
-            continue
+        identifiant = (cree or {}).get("id")
 
-        print(f"   {modele['nom'][:44]:<46} {nombre} grille(s)")
+        relu = api._appel(
+            "GET", f"/v3/shops/{shop}/products/{identifiant}"
+        )
 
-        prevus.append((modele["id"], nouveau_html))
-
-    if alerte:
         print(
-            "\n/!\\ ECARTES, le nombre de variables changeait :"
-            "\n   " + "\n   ".join(alerte) + "\n"
+            f"   {libelle:<32} status = {str(relu.get('status')):<12} "
+            f"complete = {relu.get('complete')}"
         )
 
-    if not prevus:
-        print("\nRien a corriger.\n")
-        sys.exit(0)
+        try:
+            api._appel(
+                "DELETE", f"/v3/shops/{shop}/products/{identifiant}"
+            )
+        except WiziShopAPIError:
+            print(f"      (produit {identifiant} a supprimer a la main)")
 
-    print(
-        f"\n{len(prevus)} modele(s) a corriger.\n"
-        f"\nPropriete ajoutee : align-items:start;\n"
-    )
-
-    reponse = input("Appliquer ? (tape oui puis Entree) : ")
-
-    if reponse.strip().lower() not in ("oui", "o"):
-        print("\nAnnule. Rien n'a ete modifie.\n")
-        sys.exit(0)
-
-    for modele_id, nouveau_html in prevus:
-
-        db.executer(
-            "UPDATE modeles_fiche_produit "
-            "SET html_template = ? WHERE id = ?",
-            (nouveau_html, modele_id)
-        )
-
-    print(f"\n{len(prevus)} modele(s) corrige(s).\n")
-
-    apres = db.lire(
-        """
-        SELECT html_template FROM modeles_fiche_produit
-        WHERE html_template IS NOT NULL
-        """
-    )
-
-    restant = sum(
-        1
-        for ligne in apres
-        for m in GRILLE_HERO.finditer(ligne["html_template"])
-        if "align-items" not in m.group(1)
-    )
-
-    variables = sum(
-        compter_variables(l["html_template"]) for l in apres
-    )
-
-    print(f"Variables et blocs conditionnels : {variables}\n")
-
-    if restant:
-        print(f"Il reste {restant} grille(s) non corrigee(s).\n")
-    else:
-        print("Toutes les grilles du haut de fiche sont corrigees.\n")
+    print()

@@ -1,3 +1,4 @@
+import re
 from PySide6.QtWidgets import (
     QScrollArea,
     QWidget,
@@ -20,12 +21,6 @@ class SeoTab(QWidget):
     Onglet SEO de la fiche produit : titre, descriptions,
     meta description, mots-clés, URL et données structurées
     Schema.org.
-
-    Rempli automatiquement à la création du produit (voir
-    product_dialog_v2.py), et régénérable à tout moment via
-    le bouton "Régénérer", par exemple après avoir changé le
-    nom ou la licence du produit. Tous les champs restent
-    modifiables à la main ensuite.
     """
 
     def __init__(self):
@@ -203,6 +198,73 @@ class SeoTab(QWidget):
         self._sku = lambda: None
         self._prix_ttc_site = lambda: None
 
+    # ------------------------------------------------------
+    # Donnees prises directement dans les autres onglets
+    #
+    # Le poids, les dimensions et le modele de fiche ne sont
+    # pas branches par des lambdas comme les champs
+    # ci-dessus : on va les chercher sur la fenetre parente
+    # au moment ou l'on regenere. Un getattr defensif partout
+    # pour que rien ne casse si un onglet est absent.
+    # ------------------------------------------------------
+
+    def _page(self, nom):
+
+        return getattr(self.window(), nom, None)
+
+    def _nombre(self, page, champ):
+
+        widget = getattr(page, champ, None) if page else None
+
+        if widget is None:
+            return None
+
+        try:
+            valeur = widget.value()
+        except AttributeError:
+            return None
+
+        return valeur or None
+
+    def _accroche_du_modele(self):
+        """
+        Va lire la phrase ecrite en tete du modele de fiche,
+        sous la forme :
+
+            <!-- ACCROCHE: taillé pour les journées d'école -->
+
+        Renvoie None si le modele n'en contient pas.
+        """
+
+        publication = self._page("pagePublication")
+
+        combo = getattr(publication, "modeleFiche", None) if publication else None
+
+        if combo is None:
+            return None
+
+        modele_id = combo.currentData()
+
+        if not modele_id:
+            return None
+
+        try:
+            from modules.modele_fiche_manager import ModeleFicheManager
+            modele = ModeleFicheManager().obtenir(modele_id)
+        except Exception:
+            return None
+
+        if not modele:
+            return None
+
+        html = modele["html_template"] or ""
+
+        trouve = re.search(
+            r"<!--\s*ACCROCHE\s*:\s*(.+?)\s*-->", html, re.S
+        )
+
+        return trouve.group(1).strip() if trouve else None
+
     def _appliquerStyleCompteur(self, label):
 
         police = QFont()
@@ -267,6 +329,19 @@ class SeoTab(QWidget):
             ean=self._ean(),
             sku=self._sku(),
             prix_ttc=self._prix_ttc_site(),
+            poids=self._nombre(
+                self._page("pageCaracteristiques"), "poids"
+            ),
+            longueur=self._nombre(
+                self._page("pageCaracteristiques"), "longueur"
+            ),
+            largeur=self._nombre(
+                self._page("pageCaracteristiques"), "largeur"
+            ),
+            hauteur=self._nombre(
+                self._page("pageCaracteristiques"), "hauteur"
+            ),
+            accroche=self._accroche_du_modele(),
         )
 
         self.charger_depuis_dict(resultat)

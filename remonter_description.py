@@ -1,19 +1,21 @@
 r"""
-remonter_description.py
+remonter_description.py  (4e version)
 ------------------------------------------------------------
-Remonte le bloc DESCRIPTION juste apres la banniere du haut.
+Traite les 17 modeles DIRECT FOURNISSEUR, qui n'avaient rien
+recu jusqu'ici : chez eux la description ne s'appelle pas
+DESCRIPTION mais INTRO SEO, et mes scripts precedents
+passaient a cote.
 
-Aujourd'hui le visiteur doit faire defiler la banniere,
-l'univers produit, les points cles et le bloc confort avant
-de lire ce qu'est le produit. La description arrive en
-cinquieme position. Le script la deplace en deuxieme.
+Deux operations, sur cette seule section :
 
-Rien n'est ajoute ni supprime : les memes sections, dans un
-autre ordre.
+  1. INTRO SEO remonte TOUT EN HAUT de la fiche.
 
-Seuls les modeles qui possedent A LA FOIS un HERO et une
-DESCRIPTION sont traites. Les modeles Direct Fournisseur et
-Precommande, batis autrement, ne sont pas touches.
+  2. Un paragraphe de donnees est ajoute juste apres la
+     premiere phrase : matiere, coloris, dimensions, poids.
+     Chaque mention ne s'affiche que si le champ est rempli.
+
+Rien d'autre n'est touche. Relancable sans risque : un
+modele deja traite est ignore.
 
 Usage :
     python remonter_description.py
@@ -33,16 +35,29 @@ MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
 VARIABLE = re.compile(r"\{\{[#/]?[a-zA-Z0-9_]+\}\}")
 
+SECTION = "INTRO SEO"
+
+
+PARAGRAPHE = (
+    "\n\n        <p style=\"\n"
+    "        margin:14px 0 0 0;\n"
+    "        font-size:14px;\n"
+    "        line-height:1.9;\n"
+    "        color:#4b5563;\n"
+    "        \">\n"
+    "            {{#si_matiere}}Matière : {{matiere}}. {{/si_matiere}}"
+    "{{#si_couleur}}Coloris : {{couleur}}. {{/si_couleur}}"
+    "{{#si_dimensions}}Dimensions : {{dimensions}}. {{/si_dimensions}}"
+    "{{#si_poids}}Poids : {{poids_lisible}}.{{/si_poids}}\n"
+    "        </p>\n"
+)
+
 
 def compter_variables(html):
     return len(VARIABLE.findall(html))
 
 
 def sections(html):
-    """
-    Decoupe le modele en (titre, texte) selon les
-    commentaires de section.
-    """
 
     reperes = list(MARQUEUR.finditer(html))
 
@@ -69,38 +84,40 @@ def sections(html):
 
 
 def corriger(html):
+    """
+    Renvoie (html, True) si le modele a ete traite.
+    """
+
+    if "{{dimensions}}" in html:
+        return html, False   # deja fait
 
     entete, morceaux = sections(html)
 
     if not morceaux:
         return html, False
 
-    titres = [t for t, _ in morceaux]
-
-    index_hero = next(
-        (i for i, t in enumerate(titres) if t.startswith("HERO")),
+    index = next(
+        (i for i, (t, _) in enumerate(morceaux) if SECTION in t),
         None
     )
 
-    index_desc = next(
-        (i for i, t in enumerate(titres) if t.startswith("DESCRIPTION")),
-        None
-    )
-
-    if index_hero is None or index_desc is None:
+    if index is None:
         return html, False
 
-    if index_desc == index_hero + 1:
-        return html, False
+    titre, texte = morceaux.pop(index)
 
-    description = morceaux.pop(index_desc)
+    # Le paragraphe de donnees se glisse apres la premiere
+    # phrase de l'intro.
 
-    if index_desc < index_hero:
-        index_hero -= 1
+    position = texte.find("</p>")
 
-    morceaux.insert(index_hero + 1, description)
+    if position != -1:
+        coupe = position + len("</p>")
+        texte = texte[:coupe] + PARAGRAPHE + texte[coupe:]
 
-    return entete + "".join(texte for _, texte in morceaux), True
+    morceaux.insert(0, (titre, texte))
+
+    return entete + "".join(t for _, t in morceaux), True
 
 
 if __name__ == "__main__":
@@ -116,10 +133,9 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== REMONTEE DU BLOC DESCRIPTION ===\n")
+    print("\n=== MODELES DIRECT FOURNISSEUR ===\n")
 
     prevus = []
-    ecartes = []
 
     for modele in modeles:
 
@@ -130,36 +146,18 @@ if __name__ == "__main__":
         if not fait:
             continue
 
-        # Garde-fous : meme longueur, memes variables. Le
-        # script ne fait que reordonner, rien ne doit se
-        # perdre en route.
-
-        if len(nouveau_html) != len(html):
-            ecartes.append((modele["nom"], "longueur modifiee"))
-            continue
-
-        if compter_variables(nouveau_html) != compter_variables(html):
-            ecartes.append((modele["nom"], "variables modifiees"))
-            continue
-
         _, morceaux = sections(nouveau_html)
-        ordre = " > ".join(t[:18] for t, _ in morceaux)
+        ordre = " > ".join(t[:14] for t, _ in morceaux[:4])
 
-        print(f"   {modele['nom'][:38]:<40} {ordre}")
+        print(f"   {modele['nom'][:36]:<38} {ordre}...")
 
         prevus.append((modele["id"], nouveau_html))
 
-    if ecartes:
-        print("\n/!\\ ECARTES par securite :")
-        for nom, raison in ecartes:
-            print(f"   {nom} : {raison}")
-        print()
-
     if not prevus:
-        print("\nRien a deplacer.\n")
+        print("\nRien a traiter.\n")
         sys.exit(0)
 
-    print(f"\n{len(prevus)} modele(s) a reordonner.\n")
+    print(f"\n{len(prevus)} modele(s) a traiter.\n")
 
     reponse = input("Appliquer ? (tape oui puis Entree) : ")
 
@@ -175,17 +173,4 @@ if __name__ == "__main__":
             (nouveau_html, modele_id)
         )
 
-    print(f"\n{len(prevus)} modele(s) corrige(s).\n")
-
-    apres = db.lire(
-        """
-        SELECT html_template FROM modeles_fiche_produit
-        WHERE html_template IS NOT NULL
-        """
-    )
-
-    variables = sum(
-        compter_variables(l["html_template"]) for l in apres
-    )
-
-    print(f"Variables et blocs conditionnels : {variables}\n")
+    print(f"\n{len(prevus)} modele(s) traite(s).\n")
