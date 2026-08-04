@@ -66,6 +66,34 @@ class GenerateurFicheHtml:
         return f"{texte} kg"
 
     @staticmethod
+    def _lien_licence(licence_nom):
+        """
+        Fabrique l'adresse de la page marque du site a partir
+        du nom de la licence : "Stranger Things" devient
+        "/m/stranger-things/".
+
+        Sur le site, la MARQUE porte la LICENCE : le visiteur
+        qui clique retrouve donc tous les produits du meme
+        univers.
+        """
+
+        if not licence_nom:
+            return ""
+
+        import unicodedata
+
+        normalise = unicodedata.normalize("NFKD", str(licence_nom))
+        sans_accents = normalise.encode("ascii", "ignore").decode()
+
+        slug = re.sub(r"[^a-z0-9]+", "-", sans_accents.lower())
+        slug = slug.strip("-")
+
+        if not slug:
+            return ""
+
+        return f"/m/{slug}/"
+
+    @staticmethod
     def _dimensions_lisibles(longueur, largeur, hauteur):
         """
         Renvoie "30 x 15,5 x 10 cm".
@@ -142,16 +170,9 @@ class GenerateurFicheHtml:
         sinon retire tout le bloc.
 
         ATTENTION : un meme bloc peut en contenir un autre du
-        MEME nom. Exemple reel du modele Jeux et Jouets, ou la
-        fiche technique entiere est encadree par si_age_conseille
-        et contient elle-meme une ligne encadree par
-        si_age_conseille.
-
-        Une expression reguliere non gourmande appariait alors
-        l'ouverture EXTERIEURE avec la fermeture INTERIEURE, et
-        laissait des balises orphelines s'afficher en clair sur
-        la fiche. On compte donc la profondeur, comme pour des
-        parentheses.
+        MEME nom. On compte donc la profondeur, comme pour des
+        parentheses, sinon des balises orphelines s'affichent
+        en clair sur la fiche.
         """
 
         ouverture = "{{#" + nom_tag + "}}"
@@ -190,8 +211,6 @@ class GenerateurFicheHtml:
                 position = suivante_f + len(fermeture)
 
             if fin == -1:
-                # Balise ouvrante sans fermeture : on la retire
-                # pour qu'elle ne s'affiche pas en clair.
                 html = html.replace(ouverture, "", 1)
                 continue
 
@@ -341,9 +360,12 @@ class GenerateurFicheHtml:
             GenerateurFicheHtml._valeur_champ(produit, "hauteur"),
         )
 
+        lien_licence = GenerateurFicheHtml._lien_licence(licence_nom)
+
         for nom_bloc, valeur in (
             ("si_poids", poids_lisible),
             ("si_dimensions", dimensions),
+            ("si_licence", lien_licence),
         ):
             html = GenerateurFicheHtml._traiter_bloc_conditionnel(
                 html, nom_bloc, bool(valeur)
@@ -430,6 +452,8 @@ class GenerateurFicheHtml:
 
         variables["poids_lisible"] = poids_lisible
         variables["dimensions"] = dimensions
+        variables["lien_licence"] = lien_licence
+        variables["licence"] = licence_nom or ""
 
         variables.update(valeurs_champs_conditionnels)
 

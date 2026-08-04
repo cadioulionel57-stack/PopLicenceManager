@@ -1,21 +1,26 @@
 r"""
-remonter_description.py  (5e version)
+remonter_description.py  (7e version)
 ------------------------------------------------------------
-Deux corrections sur les modeles de fiche :
+Deux corrections.
 
-  1. L'IMAGE DE BANNIERE UNIVERS. 21 modeles contiennent
-     encore un texte a remplacer laisse par leur auteur,
-     du type URL_IMAGE_BANNIERE_DF_PELUCHES_ICI, au lieu de
-     la variable {{image_fond_univers}}. L'adresse saisie
-     dans le logiciel n'etait donc jamais lue. Le script
-     branche la variable a la place.
+  1. LE BLOC BLEU "Livraison partenaire securisee" est
+     supprime des modeles Direct Fournisseur. Il fait
+     doublon avec le pave jaune du bas, qui explique en
+     plus pourquoi separer ses commandes.
 
-  2. LA BANNIERE BLEUE Direct Fournisseur est supprimee des
-     modeles, comme la verte l'a ete pour les produits en
-     stock. Elle est identique sur toutes les fiches et ne
-     dit rien du produit.
+  2. MAILLAGE INTERNE. Un bouton renvoie vers la PAGE
+     MARQUE de la licence : un jeu Stranger Things menera
+     vers /m/stranger-things/, un sac Bluey vers /m/bluey/.
+     L'adresse est fabriquee par le logiciel a partir de la
+     licence du produit, il n'y a rien a saisir.
 
-Relancable sans risque : ce qui est deja fait est ignore.
+     Le bouton se pose dans "Completez la collection" quand
+     ce bloc existe, sinon dans la banniere univers : tous
+     les types de produits sont ainsi couverts.
+
+     Il n'apparait pas si le produit n'a pas de licence.
+
+Relancable sans risque.
 
 Usage :
     python remonter_description.py
@@ -33,13 +38,24 @@ from database.database import Database
 
 MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
-PLACEHOLDER = re.compile(r"URL_IMAGE[A-Z0-9_]*")
 
-VARIABLE = re.compile(r"\{\{[#/]?[a-zA-Z0-9_]+\}\}")
-
-
-def compter_variables(html):
-    return len(VARIABLE.findall(html))
+BOUTON = (
+    "\n\n  {{#si_licence}}\n"
+    "  <a href=\"{{lien_licence}}\" style=\"\n"
+    "  display:inline-block;\n"
+    "  margin-top:18px;\n"
+    "  background:#ffffff;\n"
+    "  color:#111827 !important;\n"
+    "  padding:12px 22px;\n"
+    "  border-radius:999px;\n"
+    "  font-size:14px;\n"
+    "  font-weight:900;\n"
+    "  text-decoration:none;\n"
+    "  \">\n"
+    "    Voir tout l'univers {{licence}}\n"
+    "  </a>\n"
+    "  {{/si_licence}}\n"
+)
 
 
 def sections(html):
@@ -68,41 +84,87 @@ def sections(html):
     return entete, morceaux
 
 
-def corriger(html):
+def ajouter_bouton(texte):
     """
-    Renvoie (html, images_branchees, banniere_retiree).
+    Glisse le bouton juste avant la derniere balise fermante
+    du bloc.
     """
 
-    images = len(PLACEHOLDER.findall(html))
+    if "{{lien_licence}}" in texte:
+        return texte, False
 
-    if images:
-        html = PLACEHOLDER.sub("{{image_fond_univers}}", html)
+    position = texte.rfind("</div>")
 
-    banniere = False
+    if position == -1:
+        return texte, False
+
+    return texte[:position] + BOUTON + texte[position:], True
+
+
+def corriger(html, retirer_livraison):
+    """
+    Renvoie (html, bloc_retire, bouton_ajoute).
+    """
 
     entete, morceaux = sections(html)
 
-    if morceaux:
+    if not morceaux:
+        return html, False, False
 
-        restants = [
-            (titre, texte)
-            for titre, texte in morceaux
-            if not (
-                "BANNIÈRE DIRECT FOURNISSEUR" in titre
-                or "BANNIERE DIRECT FOURNISSEUR" in titre
-            )
-        ]
+    retire = False
+    bouton = False
 
-        if len(restants) != len(morceaux):
-            banniere = True
-            html = entete + "".join(t for _, t in restants)
+    resultat = []
 
-    return html, images, banniere
+    for titre, texte in morceaux:
+
+        if retirer_livraison and "LIVRAISON PARTENAIRE" in titre:
+            retire = True
+            continue
+
+        resultat.append((titre, texte))
+
+    # Le bouton se pose dans "Completez la collection" quand ce
+    # bloc existe, sinon dans la banniere univers. Tous les
+    # modeles sont ainsi couverts, quel que soit leur type.
+
+    cible = next(
+        (i for i, (t, _) in enumerate(resultat)
+         if "COMPL" in t and "UNIVERS" in t),
+        None
+    )
+
+    if cible is None:
+        cible = next(
+            (i for i, (t, _) in enumerate(resultat)
+             if "UNIVERS PRODUIT" in t),
+            None
+        )
+
+    if cible is not None:
+
+        titre, texte = resultat[cible]
+        texte, bouton = ajouter_bouton(texte)
+        resultat[cible] = (titre, texte)
+
+    if not (retire or bouton):
+        return html, False, False
+
+    return entete + "".join(t for _, t in resultat), retire, bouton
 
 
 if __name__ == "__main__":
 
     db = Database()
+
+    types = {}
+
+    for ligne in db.lire(
+        "SELECT modele_id, type_produit FROM modeles_fiche_types"
+    ):
+        types.setdefault(ligne["modele_id"], []).append(
+            ligne["type_produit"]
+        )
 
     modeles = db.lire(
         """
@@ -113,28 +175,30 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== IMAGE UNIVERS ET BANNIERE BLEUE ===\n")
+    print("\n=== BLOC BLEU ET MAILLAGE INTERNE ===\n")
 
     prevus = []
 
     for modele in modeles:
 
-        html = modele["html_template"]
+        est_df = "dropshipping" in types.get(modele["id"], [])
 
-        nouveau_html, images, banniere = corriger(html)
+        nouveau_html, retire, bouton = corriger(
+            modele["html_template"], retirer_livraison=est_df
+        )
 
-        if not images and not banniere:
+        if not (retire or bouton):
             continue
 
         detail = []
 
-        if images:
-            detail.append(f"{images} image(s) branchee(s)")
+        if retire:
+            detail.append("bloc bleu retire")
 
-        if banniere:
-            detail.append("banniere bleue retiree")
+        if bouton:
+            detail.append("bouton vers la page marque")
 
-        print(f"   {modele['nom'][:40]:<42} {', '.join(detail)}")
+        print(f"   {modele['nom'][:38]:<40} {', '.join(detail)}")
 
         prevus.append((modele["id"], nouveau_html))
 
@@ -159,14 +223,3 @@ if __name__ == "__main__":
         )
 
     print(f"\n{len(prevus)} modele(s) corrige(s).\n")
-
-    apres = db.lire(
-        "SELECT html_template FROM modeles_fiche_produit "
-        "WHERE html_template IS NOT NULL"
-    )
-
-    restants = sum(
-        len(PLACEHOLDER.findall(l["html_template"])) for l in apres
-    )
-
-    print(f"Textes a remplacer restants : {restants}\n")
