@@ -1,106 +1,145 @@
 r"""
-Test : par quel champ WiziShop decide-t-il de l'etat d'un
-produit cree par l'API ?
+corriger_hauteur_hero.py  (4e version)
+------------------------------------------------------------
+Pose la PHRASE D'ACCROCHE en tete de chaque modele de fiche.
 
-La documentation dit qu'une fiche incomplete reste en
-"Brouillon" et qu'elle passe en "Affiche" des qu'elle est
-complete a 100 %. On teste donc le champ "complete", et deux
-autres noms possibles pour l'etat.
+Cette phrase complete la description courte du produit, apres
+le poids et le format :
 
-Chaque produit de test est supprime aussitot.
+    Sac a dos enfant Bluey sous licence officielle : 240 g,
+    format 30 x 15,5 x 10 cm, TAILLE POUR LES JOURNEES
+    D'ECOLE, DES PETITS COMME DES PLUS GRANDS.
+
+Elle est propre a la FAMILLE de produit, jamais au produit
+lui-meme : on l'ecrit donc une fois par modele, et tous les
+produits qui l'utilisent en beneficient.
+
+Un modele qui en possede deja une n'est PAS touche : la
+phrase ecrite a la main l'emporte toujours.
 
 Usage :
     python corriger_hauteur_hero.py
+------------------------------------------------------------
 """
 
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from modules.wizishop_api import WiziShopAPI, WiziShopAPIError
+from database.database import Database
 
 
-ESSAIS = [
-    ("complete = False", {"complete": False}),
-    ("state = hidden", {"state": "hidden"}),
-    ("etat = hidden", {"etat": "hidden"}),
-    ("complete False + status draft", {"complete": False, "status": "draft"}),
+# L'ordre compte : le premier mot-cle trouve dans le nom du
+# modele gagne. Les familles precises passent donc AVANT le
+# Noel generique.
+
+ACCROCHES = [
+    ("playmobil", "de quoi inventer des heures d'histoires"),
+    ("lego", "brique après brique, l'univers prend forme"),
+    ("jeux et jouets", "de quoi occuper les après-midi de pluie"),
+    ("cartes a collectionner",
+     "à collectionner, échanger et compléter"),
+    ("cartables", "taillé pour les journées d'école, "
+                  "des petits comme des plus grands"),
+    ("chaussures", "pour garder les pieds au chaud toute l'année"),
+    ("textile", "à porter tous les jours sans s'en lasser"),
+    ("vetements", "à porter tous les jours sans s'en lasser"),
+    ("peluches", "douce, câline, et prête à ne plus quitter les bras"),
+    ("funko", "la figurine que les collectionneurs s'arrachent"),
+    ("figurines", "à poser sur une étagère et à admirer longtemps"),
+    ("mugs", "pour commencer la journée du bon pied"),
+    ("linge de maison",
+     "pour des nuits dans l'univers préféré des enfants"),
+    ("decoration", "de quoi transformer une chambre "
+                   "en véritable univers"),
+    ("papeterie", "de quoi rendre les devoirs un peu plus gais"),
+    ("univers bebe",
+     "pensé pour les tout-petits, doux et facile à entretenir"),
+    ("mobilier enfant", "pour aménager une chambre à son image"),
+    ("electronique", "l'univers préféré des enfants jusque dans "
+                     "les objets du quotidien"),
+    ("noel", "à glisser sous le sapin"),
 ]
 
 
-def corps_de_base(numero):
+def accroche_pour(nom_modele):
 
-    return {
-        "category_id": 48,
-        "other_categories_id": [],
-        "sku": f"TEST-API-{numero}",
-        "name": f"TEST API A SUPPRIMER {numero}",
-        "description": "test",
-        "short_description": "test",
-        "brand": "",
-        "ean13": "",
-        "isbn": "",
-        "supplier": "",
-        "supplier_reference": "",
-        "tags": [],
-        "features": [],
-        "tax": 20,
-        "weight": 0.1,
-        "quantity": 1,
-        "price_tax_excluded": 10,
-        "wholesale_price_tax_excluded": 5,
-        "reduction": 0,
-        "reduction_type": "percentage",
-        "images": [],
-        "visible": False,
-        "url": f"test-api-a-supprimer-{numero}",
-        "attributes": [],
-        "cross_selling_products_id": [],
-        "meta": {"title": "", "description": "", "keywords": ""},
-        "customizations": [],
-        "complete": True,
-    }
+    sans_accents = (
+        nom_modele.lower()
+        .replace("é", "e").replace("è", "e").replace("ê", "e")
+        .replace("à", "a").replace("ô", "o").replace("û", "u")
+    )
+
+    for mot_cle, phrase in ACCROCHES:
+        if mot_cle in sans_accents:
+            return phrase
+
+    return None
 
 
 if __name__ == "__main__":
 
-    api = WiziShopAPI()
+    db = Database()
 
-    shop = api.id_boutique()
+    modeles = db.lire(
+        """
+        SELECT id, nom, html_template
+        FROM modeles_fiche_produit
+        WHERE html_template IS NOT NULL
+        ORDER BY nom
+        """
+    )
 
-    print("\n=== CE QUE WIZISHOP EN FAIT ===\n")
+    print("\n=== PHRASES D'ACCROCHE ===\n")
 
-    for numero, (libelle, ajout) in enumerate(ESSAIS, start=10):
+    prevus = []
+    sans = []
 
-        corps = corps_de_base(numero)
-        corps.update(ajout)
+    for modele in modeles:
 
-        try:
-            cree = api._appel(
-                "POST", f"/v3/shops/{shop}/products", corps
-            )
+        html = modele["html_template"]
 
-        except WiziShopAPIError as erreur:
-            print(f"   {libelle:<32} refus : {str(erreur)[:60]}")
+        if "ACCROCHE" in html:
             continue
 
-        identifiant = (cree or {}).get("id")
+        phrase = accroche_pour(modele["nom"])
 
-        relu = api._appel(
-            "GET", f"/v3/shops/{shop}/products/{identifiant}"
-        )
+        if phrase is None:
+            sans.append(modele["nom"])
+            continue
 
+        nouveau_html = f"<!-- ACCROCHE: {phrase} -->\n\n" + html
+
+        print(f"   {modele['nom'][:38]:<40} {phrase}")
+
+        prevus.append((modele["id"], nouveau_html))
+
+    if sans:
         print(
-            f"   {libelle:<32} status = {str(relu.get('status')):<12} "
-            f"complete = {relu.get('complete')}"
+            "\n/!\\ AUCUNE PHRASE TROUVEE pour :\n   "
+            + "\n   ".join(sans) + "\n"
         )
 
-        try:
-            api._appel(
-                "DELETE", f"/v3/shops/{shop}/products/{identifiant}"
-            )
-        except WiziShopAPIError:
-            print(f"      (produit {identifiant} a supprimer a la main)")
+    if not prevus:
+        print("\nRien a poser.\n")
+        sys.exit(0)
 
-    print()
+    print(f"\n{len(prevus)} modele(s) a completer.\n")
+
+    reponse = input("Appliquer ? (tape oui puis Entree) : ")
+
+    if reponse.strip().lower() not in ("oui", "o"):
+        print("\nAnnule. Rien n'a ete modifie.\n")
+        sys.exit(0)
+
+    for modele_id, nouveau_html in prevus:
+
+        db.executer(
+            "UPDATE modeles_fiche_produit "
+            "SET html_template = ? WHERE id = ?",
+            (nouveau_html, modele_id)
+        )
+
+    print(f"\n{len(prevus)} modele(s) complete(s).\n")
