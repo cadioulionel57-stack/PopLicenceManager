@@ -14,7 +14,9 @@ Usage depuis la racine du projet :
     python -m modules.wizishop_produits etat
     python -m modules.wizishop_produits apercu <id_produit>
     python -m modules.wizishop_produits pousser <id_produit>
+    python -m modules.wizishop_produits pousser-tout
     python -m modules.wizishop_produits publier <id_produit>
+    python -m modules.wizishop_produits publier-tout
 ------------------------------------------------------------
 """
 
@@ -99,8 +101,6 @@ class PousseeProduits:
                 "range nulle part"
             )
 
-        # --- marque -------------------------------------
-        #
         # La MARQUE cote WiziShop porte la LICENCE, pas le
         # fabricant : une marque Bluey, une marque Marvel.
 
@@ -119,8 +119,6 @@ class PousseeProduits:
         fournisseur = self._valeur(
             "fournisseurs", produit["fournisseur_id"], "nom"
         ) or ""
-
-        # --- prix, calcule sur le canal Site --------------
 
         canal_id = self._canal_site_id()
 
@@ -242,10 +240,8 @@ class PousseeProduits:
             chemin = f"/v3/shops/{shop}/products/{deja}"
 
             # WiziShop RE-IMPORTE les images a chaque envoi :
-            # renvoyer les adresses d'origine cree un doublon
-            # dans le gestionnaire d'images a chaque mise a
-            # jour. On lui rend donc les images qu'il possede
-            # deja, telles qu'il les a rangees sur son CDN.
+            # on lui rend celles qu'il possede deja, sinon un
+            # doublon apparait dans le gestionnaire d'images.
 
             try:
                 existant = self.api._appel("GET", chemin)
@@ -304,7 +300,7 @@ if __name__ == "__main__":
 
             lignes = poussee.connexion.execute(
                 "SELECT id, nom, type_produit, id_wizishop "
-                "FROM produits ORDER BY id"
+                "FROM produits WHERE actif = 1 ORDER BY id"
             ).fetchall()
 
             print("\n=== PRODUITS DU LOGICIEL ===\n")
@@ -394,10 +390,85 @@ if __name__ == "__main__":
 
             print("\nProduit publie, il est maintenant en ligne.\n")
 
+        elif action in ("pousser-tout", "publier-tout"):
+
+            publication = action == "publier-tout"
+
+            lignes = poussee.connexion.execute(
+                "SELECT id, nom FROM produits "
+                "WHERE actif = 1 ORDER BY id"
+            ).fetchall()
+
+            if publication:
+                lignes = [
+                    l for l in lignes
+                    if poussee.produit(l["id"])["id_wizishop"]
+                ]
+
+            if not lignes:
+                print("\nAucun produit a traiter.\n")
+                sys.exit(0)
+
+            print(f"\n{len(lignes)} produit(s) :\n")
+
+            for ligne in lignes:
+                print(f"   {ligne['id']:>3}  {ligne['nom'][:50]}")
+
+            geste = (
+                "les publier sur la boutique"
+                if publication
+                else "les envoyer en brouillon"
+            )
+
+            reponse = input(f"\n{geste.capitalize()} ? (tape oui) : ")
+
+            if reponse.strip().lower() not in ("oui", "o"):
+                print("\nAnnule.\n")
+                sys.exit(0)
+
+            reussis = 0
+            echecs = []
+
+            for numero, ligne in enumerate(lignes, start=1):
+
+                print(
+                    f"   [{numero}/{len(lignes)}] "
+                    f"{ligne['nom'][:44]:<46}",
+                    end="",
+                    flush=True
+                )
+
+                try:
+
+                    if publication:
+                        poussee.publier(ligne["id"])
+                    else:
+                        poussee.pousser(ligne["id"])
+
+                    reussis += 1
+                    print("ok")
+
+                except (ValueError, WiziShopAPIError) as erreur:
+                    echecs.append((ligne["nom"], str(erreur)[:70]))
+                    print("ECHEC")
+
+            print(f"\n{reussis} produit(s) traite(s).\n")
+
+            if echecs:
+                print("Produits en echec :\n")
+                for nom, raison in echecs:
+                    print(f"   {nom[:40]:<42} {raison}")
+                print()
+
         else:
             print(
-                "\nActions : etat | apercu <id> | pousser <id> | "
-                "publier <id>\n"
+                "\nActions :\n"
+                "   etat\n"
+                "   apercu <id>\n"
+                "   pousser <id>        un produit en brouillon\n"
+                "   pousser-tout        tous les produits en brouillon\n"
+                "   publier <id>        un produit en ligne\n"
+                "   publier-tout        tous les produits en ligne\n"
             )
 
     except (ValueError, WiziShopAPIError) as erreur:

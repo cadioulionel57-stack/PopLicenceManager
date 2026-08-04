@@ -71,10 +71,6 @@ class GenerateurFicheHtml:
         Fabrique l'adresse de la page marque du site a partir
         du nom de la licence : "Stranger Things" devient
         "/m/stranger-things/".
-
-        Sur le site, la MARQUE porte la LICENCE : le visiteur
-        qui clique retrouve donc tous les produits du meme
-        univers.
         """
 
         if not licence_nom:
@@ -362,10 +358,24 @@ class GenerateurFicheHtml:
 
         lien_licence = GenerateurFicheHtml._lien_licence(licence_nom)
 
+        image_univers = GenerateurFicheHtml._valeur_champ(
+            produit, "image_ambiance"
+        )
+
+        # Texte alternatif de la banniere : ce que Google lit
+        # a la place de l'image, et ce qu'entend un lecteur
+        # d'ecran. Il reprend le nom du produit et sa licence.
+
+        alt_univers = nom_produit
+
+        if licence_nom and licence_nom.lower() not in nom_produit.lower():
+            alt_univers = f"{nom_produit}, univers {licence_nom}"
+
         for nom_bloc, valeur in (
             ("si_poids", poids_lisible),
             ("si_dimensions", dimensions),
             ("si_licence", lien_licence),
+            ("si_image_univers", image_univers),
         ):
             html = GenerateurFicheHtml._traiter_bloc_conditionnel(
                 html, nom_bloc, bool(valeur)
@@ -454,6 +464,7 @@ class GenerateurFicheHtml:
         variables["dimensions"] = dimensions
         variables["lien_licence"] = lien_licence
         variables["licence"] = licence_nom or ""
+        variables["alt_univers"] = alt_univers
 
         variables.update(valeurs_champs_conditionnels)
 
