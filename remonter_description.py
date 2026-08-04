@@ -1,23 +1,15 @@
 r"""
-remonter_description.py  (8e version)
+remonter_description.py  (13e version)
 ------------------------------------------------------------
-Transforme la BANNIERE UNIVERS en vraie image.
+Termine les deux derniers modeles : SITE PRECOMMANDE et
+STOCK Cartes a collectionner.
 
-Jusqu'ici la photo etait posee en fond decoratif (CSS).
-Pour Google elle n'existait pas : pas d'indexation, pas de
-texte alternatif, aucun poids dans la page.
+Ils gardaient leurs questions-reponses parce que
+l'information de livraison y etait ecrite. On leur donne
+donc le meme pave jaune "Optimisez votre livraison" que les
+autres modeles, puis on retire les questions.
 
-Le script la remplace par une vraie balise image, avec :
-
-  - un texte alternatif qui reprend le nom du produit et sa
-    licence, fabrique par le logiciel ;
-  - le voile de couleur conserve par-dessus, en calque ;
-  - le texte de la banniere au-dessus du tout.
-
-Si le produit n'a pas d'image d'ambiance, la banniere garde
-simplement son fond colore : pas d'image cassee.
-
-Relancable sans risque.
+Ces deux modeles sont alors alignes sur les 49 autres.
 
 Usage :
     python remonter_description.py
@@ -35,37 +27,116 @@ from database.database import Database
 
 MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
-# Le fond de la banniere : un degrade suivi de l'image.
-FOND = re.compile(
-    r"background:\s*(linear-gradient\(.*?\)),\s*"
-    r"url\('\{\{image_fond_univers\}\}'\)[^;]*;",
-    re.S,
-)
+MODELES = ["PRECOMMANDE", "CARTES A COLLECTIONNER"]
 
 
-IMAGE = (
-    "\n\n  {{#si_image_univers}}\n"
-    "  <img src=\"{{image_fond_univers}}\"\n"
-    "       alt=\"{{alt_univers}}\"\n"
-    "       loading=\"lazy\"\n"
-    "       decoding=\"async\"\n"
-    "       style=\"\n"
-    "       position:absolute;\n"
-    "       top:0; left:0;\n"
-    "       width:100%; height:100%;\n"
-    "       object-fit:cover;\n"
-    "       z-index:0;\n"
-    "       \">\n"
-    "  <div style=\"\n"
-    "  position:absolute;\n"
-    "  top:0; left:0;\n"
-    "  width:100%; height:100%;\n"
-    "  background:VOILE;\n"
-    "  z-index:1;\n"
-    "  \"></div>\n"
-    "  {{/si_image_univers}}\n"
-    "  <div style=\"position:relative; z-index:2;\">\n"
-)
+# Le pave jaune, repris a l'identique des autres modeles.
+PAVE = """<div style="
+text-align:center;
+font-family:Arial,sans-serif;
+background:#fffbeb;
+border:2px solid #fcd34d;
+padding:28px 20px;
+border-radius:12px;
+margin:30px 0;
+box-shadow:0 4px 6px -1px rgba(251,191,36,0.1);
+">
+
+  <div style="
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  margin-bottom:18px;
+  ">
+
+    <h4 style="
+    margin:0;
+    color:#92400e;
+    font-size:16px;
+    text-transform:uppercase;
+    font-weight:800;
+    letter-spacing:1px;
+    ">
+
+      Optimisez votre livraison
+
+    </h4>
+
+  </div>
+
+  <p style="
+  margin:0 auto 22px auto;
+  max-width:650px;
+  font-size:14px;
+  color:#78350f;
+  line-height:1.7;
+  ">
+
+    Pour un traitement plus rapide, nous vous conseillons de passer des commandes <strong>distinctes</strong> pour les articles "En Stock" et "Livraison sous 5 à 7 jours ouvrés".
+
+  </p>
+
+  <div style="
+  max-width:550px;
+  margin:0 auto;
+  text-align:left;
+  ">
+
+    <p style="
+    margin:0 0 16px 0;
+    font-size:14px;
+    color:#78350f;
+    line-height:1.7;
+    ">
+
+      Les produits <strong>en stock</strong> sont expédiés le jour même si votre commande est validée avant 11h du lundi au vendredi. À défaut, l'envoi est effectué sous 24h ou au premier jour ouvrable.
+
+    </p>
+
+    <p style="
+    margin:0;
+    font-size:14px;
+    color:#78350f;
+    line-height:1.7;
+    ">
+
+      Les produits <strong>"Livraison sous 5 à 7 jours ouvrés"</strong> sont expédiés sous 24h et livrés à domicile en remise contre signature. <strong>Livraison offerte, sans minimum d'achat.</strong>
+
+    </p>
+
+  </div>
+
+  <div style="
+  margin:24px auto;
+  width:40px;
+  height:2px;
+  background:#fcd34d;
+  "></div>
+
+  <p style="
+  margin:0;
+  font-size:13px;
+  color:#92400e;
+  font-style:italic;
+  line-height:1.5;
+  ">
+
+    <strong>À noter :</strong> en cas de commande mixte, vos produits seront expédiés séparément et pourront avoir des délais de livraison différents.
+
+  </p>
+
+</div>"""
+
+
+def concerne(nom_modele):
+
+    majuscules = (
+        nom_modele.upper()
+        .replace("É", "E").replace("È", "E").replace("À", "A")
+    )
+
+    return any(mot in majuscules for mot in MODELES)
 
 
 def sections(html):
@@ -94,49 +165,56 @@ def sections(html):
     return entete, morceaux
 
 
-def transformer(texte):
+def rebobiner(html):
+
+    ecart = html.count("<div") - html.count("</div>")
+
+    if ecart > 0:
+        return html + "\n" + ("</div>\n" * ecart)
+
+    for _ in range(-ecart):
+
+        position = html.rfind("</div>")
+
+        if position == -1:
+            break
+
+        html = html[:position] + html[position + len("</div>"):]
+
+    return html
+
+
+def corriger(html):
     """
-    Renvoie (texte, True) si la banniere a ete transformee.
+    Remplace la section des questions-reponses par le pave
+    jaune. Renvoie (html, True) si le modele a change.
     """
 
-    if "{{alt_univers}}" in texte:
-        return texte, False
+    if "Optimisez" in html:
+        return html, False
 
-    trouve = FOND.search(texte)
+    entete, morceaux = sections(html)
 
-    if not trouve:
-        return texte, False
+    if not morceaux:
+        return html, False
 
-    voile = re.sub(r"\s+", " ", trouve.group(1)).strip()
+    fait = False
+    resultat = []
 
-    # 1. Le fond du cadre ne garde que le degrade, sans
-    #    l'image : elle devient une vraie balise.
-    texte = (
-        texte[:trouve.start()]
-        + f"background:{voile};\nposition:relative;\noverflow:hidden;"
-        + texte[trouve.end():]
-    )
+    for titre, texte in morceaux:
 
-    # 2. On insere l'image, le voile en calque, et on ouvre
-    #    le cadre qui portera le texte au-dessus.
-    ouverture = texte.find(">", texte.find("<div style="))
+        if "FAQ" in titre:
+            fait = True
+            coupe = texte.find("-->") + len("-->")
+            resultat.append((titre, texte[:coupe] + "\n\n" + PAVE + "\n"))
+            continue
 
-    if ouverture == -1:
-        return texte, False
+        resultat.append((titre, texte))
 
-    bloc = IMAGE.replace("VOILE", voile)
+    if not fait:
+        return html, False
 
-    texte = texte[:ouverture + 1] + bloc + texte[ouverture + 1:]
-
-    # 3. On referme ce cadre juste avant la fin du bloc.
-    fin = texte.rfind("</div>")
-
-    if fin == -1:
-        return texte, False
-
-    texte = texte[:fin] + "</div>\n  " + texte[fin:]
-
-    return texte, True
+    return rebobiner(entete + "".join(t for _, t in resultat)), True
 
 
 if __name__ == "__main__":
@@ -152,42 +230,32 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== BANNIERE UNIVERS EN VRAIE IMAGE ===\n")
+    print("\n=== LES DEUX DERNIERS MODELES ===\n")
 
     prevus = []
 
     for modele in modeles:
 
-        entete, morceaux = sections(modele["html_template"])
-
-        if not morceaux:
+        if not concerne(modele["nom"]):
             continue
 
-        fait = False
-        resultat = []
-
-        for titre, texte in morceaux:
-
-            if "UNIVERS PRODUIT" in titre:
-                texte, change = transformer(texte)
-                fait = fait or change
-
-            resultat.append((titre, texte))
+        nouveau_html, fait = corriger(modele["html_template"])
 
         if not fait:
             continue
 
-        print(f"   {modele['nom'][:46]}")
-
-        prevus.append(
-            (modele["id"], entete + "".join(t for _, t in resultat))
+        print(
+            f"   {modele['nom'][:44]:<46} "
+            f"questions remplacees par le pave livraison"
         )
 
+        prevus.append((modele["id"], nouveau_html))
+
     if not prevus:
-        print("\nRien a transformer.\n")
+        print("\nRien a corriger.\n")
         sys.exit(0)
 
-    print(f"\n{len(prevus)} modele(s) a transformer.\n")
+    print(f"\n{len(prevus)} modele(s) a corriger.\n")
 
     reponse = input("Appliquer ? (tape oui puis Entree) : ")
 
@@ -203,4 +271,23 @@ if __name__ == "__main__":
             (nouveau_html, modele_id)
         )
 
-    print(f"\n{len(prevus)} modele(s) transforme(s).\n")
+    print(f"\n{len(prevus)} modele(s) corrige(s).\n")
+
+    apres = db.lire(
+        "SELECT nom, html_template FROM modeles_fiche_produit "
+        "WHERE html_template IS NOT NULL"
+    )
+
+    questions = [
+        l["nom"] for l in apres
+        if "Questions fr" in re.sub(r"<[^>]+>", " ", l["html_template"])
+    ]
+
+    casses = sum(
+        1 for l in apres
+        if l["html_template"].count("<div")
+        != l["html_template"].count("</div>")
+    )
+
+    print(f"Modeles avec des questions-reponses : {len(questions)}")
+    print(f"Modeles au cadre mal ferme : {casses}\n")

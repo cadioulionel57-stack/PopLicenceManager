@@ -17,13 +17,23 @@ class Database:
 
         db_path = Path(__file__).parent / "poplicence.db"
 
-        print("Base SQLite :", db_path)
-
-        self.conn = sqlite3.connect(db_path)
+        # timeout=30 : si une autre partie du logiciel est en
+        # train d'ecrire, on ATTEND notre tour jusqu'a trente
+        # secondes au lieu d'abandonner au bout de cinq.
+        self.conn = sqlite3.connect(db_path, timeout=30)
 
         self.conn.row_factory = sqlite3.Row
 
         self.cursor = self.conn.cursor()
+
+        # WAL : les lectures ne bloquent plus les ecritures.
+        # C'est ce qui faisait echouer un enregistrement de
+        # fiche produit quand un autre ecran consultait la
+        # base au meme instant — l'erreur "database is locked".
+        self.cursor.execute("PRAGMA journal_mode = WAL")
+
+        # Filet supplementaire, cote moteur SQLite lui-meme.
+        self.cursor.execute("PRAGMA busy_timeout = 30000")
 
         self.cursor.execute("PRAGMA foreign_keys = ON")
 

@@ -516,8 +516,8 @@ class ProductDialogV2(QDialog):
             # toute première sauvegarde du produit, si
             # l'onglet n'a pas déjà été rempli/régénéré
             # manuellement entre-temps.
-            if self.pageSeo.est_vide():
-                self.pageSeo.regenerer()
+            #if self.pageSeo.est_vide():
+            #     self.pageSeo.regenerer()
 
             identifiant_produit = self.productManager.ajouter(
 
