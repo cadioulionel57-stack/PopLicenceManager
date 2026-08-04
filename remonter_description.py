@@ -1,21 +1,21 @@
 r"""
-remonter_description.py  (4e version)
+remonter_description.py  (5e version)
 ------------------------------------------------------------
-Traite les 17 modeles DIRECT FOURNISSEUR, qui n'avaient rien
-recu jusqu'ici : chez eux la description ne s'appelle pas
-DESCRIPTION mais INTRO SEO, et mes scripts precedents
-passaient a cote.
+Deux corrections sur les modeles de fiche :
 
-Deux operations, sur cette seule section :
+  1. L'IMAGE DE BANNIERE UNIVERS. 21 modeles contiennent
+     encore un texte a remplacer laisse par leur auteur,
+     du type URL_IMAGE_BANNIERE_DF_PELUCHES_ICI, au lieu de
+     la variable {{image_fond_univers}}. L'adresse saisie
+     dans le logiciel n'etait donc jamais lue. Le script
+     branche la variable a la place.
 
-  1. INTRO SEO remonte TOUT EN HAUT de la fiche.
+  2. LA BANNIERE BLEUE Direct Fournisseur est supprimee des
+     modeles, comme la verte l'a ete pour les produits en
+     stock. Elle est identique sur toutes les fiches et ne
+     dit rien du produit.
 
-  2. Un paragraphe de donnees est ajoute juste apres la
-     premiere phrase : matiere, coloris, dimensions, poids.
-     Chaque mention ne s'affiche que si le champ est rempli.
-
-Rien d'autre n'est touche. Relancable sans risque : un
-modele deja traite est ignore.
+Relancable sans risque : ce qui est deja fait est ignore.
 
 Usage :
     python remonter_description.py
@@ -33,24 +33,9 @@ from database.database import Database
 
 MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
+PLACEHOLDER = re.compile(r"URL_IMAGE[A-Z0-9_]*")
+
 VARIABLE = re.compile(r"\{\{[#/]?[a-zA-Z0-9_]+\}\}")
-
-SECTION = "INTRO SEO"
-
-
-PARAGRAPHE = (
-    "\n\n        <p style=\"\n"
-    "        margin:14px 0 0 0;\n"
-    "        font-size:14px;\n"
-    "        line-height:1.9;\n"
-    "        color:#4b5563;\n"
-    "        \">\n"
-    "            {{#si_matiere}}Matière : {{matiere}}. {{/si_matiere}}"
-    "{{#si_couleur}}Coloris : {{couleur}}. {{/si_couleur}}"
-    "{{#si_dimensions}}Dimensions : {{dimensions}}. {{/si_dimensions}}"
-    "{{#si_poids}}Poids : {{poids_lisible}}.{{/si_poids}}\n"
-    "        </p>\n"
-)
 
 
 def compter_variables(html):
@@ -85,39 +70,34 @@ def sections(html):
 
 def corriger(html):
     """
-    Renvoie (html, True) si le modele a ete traite.
+    Renvoie (html, images_branchees, banniere_retiree).
     """
 
-    if "{{dimensions}}" in html:
-        return html, False   # deja fait
+    images = len(PLACEHOLDER.findall(html))
+
+    if images:
+        html = PLACEHOLDER.sub("{{image_fond_univers}}", html)
+
+    banniere = False
 
     entete, morceaux = sections(html)
 
-    if not morceaux:
-        return html, False
+    if morceaux:
 
-    index = next(
-        (i for i, (t, _) in enumerate(morceaux) if SECTION in t),
-        None
-    )
+        restants = [
+            (titre, texte)
+            for titre, texte in morceaux
+            if not (
+                "BANNIÈRE DIRECT FOURNISSEUR" in titre
+                or "BANNIERE DIRECT FOURNISSEUR" in titre
+            )
+        ]
 
-    if index is None:
-        return html, False
+        if len(restants) != len(morceaux):
+            banniere = True
+            html = entete + "".join(t for _, t in restants)
 
-    titre, texte = morceaux.pop(index)
-
-    # Le paragraphe de donnees se glisse apres la premiere
-    # phrase de l'intro.
-
-    position = texte.find("</p>")
-
-    if position != -1:
-        coupe = position + len("</p>")
-        texte = texte[:coupe] + PARAGRAPHE + texte[coupe:]
-
-    morceaux.insert(0, (titre, texte))
-
-    return entete + "".join(t for _, t in morceaux), True
+    return html, images, banniere
 
 
 if __name__ == "__main__":
@@ -133,7 +113,7 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== MODELES DIRECT FOURNISSEUR ===\n")
+    print("\n=== IMAGE UNIVERS ET BANNIERE BLEUE ===\n")
 
     prevus = []
 
@@ -141,23 +121,28 @@ if __name__ == "__main__":
 
         html = modele["html_template"]
 
-        nouveau_html, fait = corriger(html)
+        nouveau_html, images, banniere = corriger(html)
 
-        if not fait:
+        if not images and not banniere:
             continue
 
-        _, morceaux = sections(nouveau_html)
-        ordre = " > ".join(t[:14] for t, _ in morceaux[:4])
+        detail = []
 
-        print(f"   {modele['nom'][:36]:<38} {ordre}...")
+        if images:
+            detail.append(f"{images} image(s) branchee(s)")
+
+        if banniere:
+            detail.append("banniere bleue retiree")
+
+        print(f"   {modele['nom'][:40]:<42} {', '.join(detail)}")
 
         prevus.append((modele["id"], nouveau_html))
 
     if not prevus:
-        print("\nRien a traiter.\n")
+        print("\nRien a corriger.\n")
         sys.exit(0)
 
-    print(f"\n{len(prevus)} modele(s) a traiter.\n")
+    print(f"\n{len(prevus)} modele(s) concerne(s).\n")
 
     reponse = input("Appliquer ? (tape oui puis Entree) : ")
 
@@ -173,4 +158,15 @@ if __name__ == "__main__":
             (nouveau_html, modele_id)
         )
 
-    print(f"\n{len(prevus)} modele(s) traite(s).\n")
+    print(f"\n{len(prevus)} modele(s) corrige(s).\n")
+
+    apres = db.lire(
+        "SELECT html_template FROM modeles_fiche_produit "
+        "WHERE html_template IS NOT NULL"
+    )
+
+    restants = sum(
+        len(PLACEHOLDER.findall(l["html_template"])) for l in apres
+    )
+
+    print(f"Textes a remplacer restants : {restants}\n")

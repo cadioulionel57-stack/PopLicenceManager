@@ -9,23 +9,15 @@ from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
 class GenerateurFicheHtml:
     """
     Génère le HTML complet d'une fiche produit à partir du
-    modèle actif (catégorie site + type de produit) et des
-    informations du produit — remplace les variables
-    {{...}} du modèle par les vraies valeurs.
+    modèle actif et des informations du produit.
     """
 
     CHAMPS_CONDITIONNELS = [
-        # Ces quatre-là étaient de simples variables : sans
-        # bloc conditionnel, une fiche de mug affichait
-        # « Composition : » suivi de rien du tout.
         "composition_matiere",
         "instructions_entretien",
         "coupe_type",
         "type_manche",
 
-        # Champs de la fiche produit qui manquaient a
-        # l'appel : sans eux, impossible d'ecrire une
-        # description propre au produit.
         "matiere",
         "couleur",
         "age_minimum",
@@ -54,8 +46,7 @@ class GenerateurFicheHtml:
     @staticmethod
     def _poids_lisible(poids):
         """
-        0.24 -> "240 g" ; 1.5 -> "1,5 kg". Chaine vide si le
-        poids n'est pas renseigne.
+        0.24 -> "240 g" ; 1.5 -> "1,5 kg".
         """
 
         try:
@@ -77,8 +68,7 @@ class GenerateurFicheHtml:
     @staticmethod
     def _dimensions_lisibles(longueur, largeur, hauteur):
         """
-        Renvoie "30 x 15,5 x 10 cm". Chaine vide si moins de
-        deux mesures sont renseignees.
+        Renvoie "30 x 15,5 x 10 cm".
         """
 
         mesures = []
@@ -106,9 +96,7 @@ class GenerateurFicheHtml:
     @staticmethod
     def reglages_globaux():
         """
-        Réglages communs à toutes les catégories (pas
-        propres à une seule) — modifiables sans toucher aux
-        modèles eux-mêmes.
+        Réglages communs à toutes les catégories.
         """
 
         parametres = ParametreManager()
@@ -149,20 +137,75 @@ class GenerateurFicheHtml:
     @staticmethod
     def _traiter_bloc_conditionnel(html, nom_tag, condition_vraie):
         """
-        Traite un bloc générique {{#nom_tag}}...{{/nom_tag}} :
-        si condition_vraie, garde le contenu (sans les
-        balises) ; sinon, retire tout le bloc.
+        Traite les blocs {{#nom_tag}}...{{/nom_tag}} :
+        si condition_vraie, garde le contenu sans les balises ;
+        sinon retire tout le bloc.
+
+        ATTENTION : un meme bloc peut en contenir un autre du
+        MEME nom. Exemple reel du modele Jeux et Jouets, ou la
+        fiche technique entiere est encadree par si_age_conseille
+        et contient elle-meme une ligne encadree par
+        si_age_conseille.
+
+        Une expression reguliere non gourmande appariait alors
+        l'ouverture EXTERIEURE avec la fermeture INTERIEURE, et
+        laissait des balises orphelines s'afficher en clair sur
+        la fiche. On compte donc la profondeur, comme pour des
+        parentheses.
         """
 
-        motif = re.compile(
-            r"\{\{#" + re.escape(nom_tag) + r"\}\}(.*?)\{\{/" + re.escape(nom_tag) + r"\}\}",
-            re.DOTALL
-        )
+        ouverture = "{{#" + nom_tag + "}}"
+        fermeture = "{{/" + nom_tag + "}}"
 
-        if condition_vraie:
-            return motif.sub(r"\1", html)
+        while True:
 
-        return motif.sub("", html)
+            debut = html.find(ouverture)
+
+            if debut == -1:
+                return html
+
+            profondeur = 0
+            position = debut
+            fin = -1
+
+            while position < len(html):
+
+                suivante_o = html.find(ouverture, position)
+                suivante_f = html.find(fermeture, position)
+
+                if suivante_f == -1:
+                    break
+
+                if suivante_o != -1 and suivante_o < suivante_f:
+                    profondeur += 1
+                    position = suivante_o + len(ouverture)
+                    continue
+
+                profondeur -= 1
+
+                if profondeur == 0:
+                    fin = suivante_f
+                    break
+
+                position = suivante_f + len(fermeture)
+
+            if fin == -1:
+                # Balise ouvrante sans fermeture : on la retire
+                # pour qu'elle ne s'affiche pas en clair.
+                html = html.replace(ouverture, "", 1)
+                continue
+
+            interieur = html[debut + len(ouverture): fin]
+
+            remplacement = interieur if condition_vraie else ""
+
+            html = (
+                html[:debut]
+                + remplacement
+                + html[fin + len(fermeture):]
+            )
+
+        return html
 
     @staticmethod
     def _valeur_champ(produit, champ):
@@ -188,10 +231,6 @@ class GenerateurFicheHtml:
         gestionnaire = ModeleFicheManager()
 
         modele = None
-
-        # Une règle de période (Noël, soldes...) l'emporte sur
-        # le modèle inscrit dans la fiche, le temps de sa
-        # période.
         periode = None
 
         try:
@@ -221,8 +260,6 @@ class GenerateurFicheHtml:
                             break
 
         except Exception:
-            # Une règle mal formée ne doit jamais empêcher une
-            # fiche de se générer.
             modele = None
             periode = None
 
@@ -244,19 +281,10 @@ class GenerateurFicheHtml:
 
         html = modele["html_template"]
 
-        # Blocs réservés à un type de produit :
-        #   {{#si_stock}}...{{/si_stock}}
-        #   {{#si_dropshipping}}...{{/si_dropshipping}}
-        #   {{#si_precommande}}...{{/si_precommande}}
-        #   {{#si_bundle}}...{{/si_bundle}}
         type_du_produit = GenerateurFicheHtml._valeur_champ(
             produit, "type_produit"
         )
 
-        # Un bundle est monté à partir du stock et expédié par
-        # nos soins : il se comporte donc comme un produit en
-        # stock. {{#si_stock}} le couvre, et {{#si_bundle}}
-        # reste disponible pour ce qui lui est propre.
         expedie_par_nous = type_du_produit in ("stock", "bundle")
 
         conditions_par_type = {
@@ -271,10 +299,6 @@ class GenerateurFicheHtml:
                 html, nom_bloc, condition
             )
 
-        # L'emballage cadeau suppose que le colis passe par
-        # nos mains : stock et bundles, oui ; un produit
-        # expédié directement par le fournisseur, non, quelle
-        # que soit la case cochée sur sa fiche.
         emballage_cadeau_possible = (
             bool(produit["eligible_papier_cadeau"])
             and expedie_par_nous
@@ -284,8 +308,6 @@ class GenerateurFicheHtml:
             html, "si_emballage_cadeau", emballage_cadeau_possible
         )
 
-        # Champs optionnels : la section correspondante ne
-        # s'affiche que si le champ est réellement renseigné.
         valeurs_champs_conditionnels = {}
 
         for champ in GenerateurFicheHtml.CHAMPS_CONDITIONNELS:
@@ -297,8 +319,6 @@ class GenerateurFicheHtml:
                 html, f"si_{champ}", bool(str(valeur).strip())
             )
 
-        # Champs "oui/non" : la section ne s'affiche que si la
-        # case est cochée.
         for champ in GenerateurFicheHtml.CHAMPS_BOOLEENS_CONDITIONNELS:
 
             valeur_brute = GenerateurFicheHtml._valeur_champ(produit, champ)
@@ -310,10 +330,6 @@ class GenerateurFicheHtml:
         nom_produit = produit["nom"] or ""
 
         avec_licence = f" sous licence {licence_nom}" if licence_nom else ""
-
-        # Poids et dimensions, mis en forme pour etre lisibles
-        # dans une phrase : 0.24 devient "240 g", et les trois
-        # mesures deviennent "30 x 15,5 x 10 cm".
 
         poids_lisible = GenerateurFicheHtml._poids_lisible(
             GenerateurFicheHtml._valeur_champ(produit, "poids")
@@ -346,7 +362,6 @@ class GenerateurFicheHtml:
                 )
             )
 
-        # Dates de l'opération en cours, au format français.
         from modules.regle_template_manager import normaliser_date
 
         def _fr(valeur):
@@ -362,7 +377,6 @@ class GenerateurFicheHtml:
             html, "si_periode", periode is not None
         )
 
-        # Bloc livraison réutilisable.
         bloc_livraison = BlocLivraisonManager().obtenir()
 
         for cle in (
