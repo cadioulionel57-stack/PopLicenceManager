@@ -18,8 +18,8 @@ class Database:
         db_path = Path(__file__).parent / "poplicence.db"
 
         # timeout=30 : si une autre partie du logiciel est en
-        # train d'ecrire, on ATTEND notre tour jusqu'a trente
-        # secondes au lieu d'abandonner au bout de cinq.
+        # train d'ecrire, on ATTEND notre tour au lieu
+        # d'abandonner aussitot.
         self.conn = sqlite3.connect(db_path, timeout=30)
 
         self.conn.row_factory = sqlite3.Row
@@ -27,18 +27,15 @@ class Database:
         self.cursor = self.conn.cursor()
 
         # WAL : les lectures ne bloquent plus les ecritures.
-        # C'est ce qui faisait echouer un enregistrement de
-        # fiche produit quand un autre ecran consultait la
-        # base au meme instant — l'erreur "database is locked".
         self.cursor.execute("PRAGMA journal_mode = WAL")
 
-        # Filet supplementaire, cote moteur SQLite lui-meme.
         self.cursor.execute("PRAGMA busy_timeout = 30000")
 
         self.cursor.execute("PRAGMA foreign_keys = ON")
 
         self.creer_tables()
         self.migrer_colonnes()
+        self.reparer_codes_vides()
 
     def creer_tables(self):
 
@@ -56,10 +53,6 @@ class Database:
         dans le schéma mais pas encore dans la base
         existante, SANS jamais supprimer ni modifier les
         données déjà présentes.
-
-        C'est ce qui permet de faire évoluer le logiciel
-        sans avoir à supprimer poplicence.db à chaque
-        changement de structure.
         """
 
         for table, colonnes in SCHEMA.items():
@@ -91,6 +84,33 @@ class Database:
 
         self.conn.commit()
 
+    def reparer_codes_vides(self):
+        """
+        Remet a vide (NULL) les EAN et SKU enregistres comme
+        une chaine vide.
+
+        Les colonnes ean et sku sont UNIQUES. SQLite accepte
+        autant de valeurs absentes qu'on veut quand elles
+        valent NULL, mais REFUSE deux chaines vides
+        identiques. Un ancien produit sans code-barres
+        empechait donc d'en enregistrer un second : l'ecriture
+        etait refusee, et la fiche en cours de saisie perdue.
+        """
+
+        try:
+            self.cursor.execute(
+                "UPDATE produits SET ean = NULL "
+                "WHERE ean IS NOT NULL AND TRIM(ean) = ''"
+            )
+            self.cursor.execute(
+                "UPDATE produits SET sku = NULL "
+                "WHERE sku IS NOT NULL AND TRIM(sku) = ''"
+            )
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+
     def generer_create_table(self, table, colonnes):
 
         definition = []
@@ -109,10 +129,24 @@ class Database:
         return sql
 
     def executer(self, sql, parametres=()):
+        """
+        Execute une ecriture et la valide.
 
-        self.cursor.execute(sql, parametres)
+        EN CAS D'ERREUR, la transaction est ANNULEE avant que
+        l'erreur ne remonte. Sans cela, une ecriture refusee
+        laissait une transaction ouverte, et la base restait
+        VERROUILLEE pour tout le reste de la session : la
+        fenetre d'enregistrement se figeait indefiniment, sans
+        message, et la saisie etait perdue.
+        """
 
-        self.conn.commit()
+        try:
+            self.cursor.execute(sql, parametres)
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+            raise
 
         return self.cursor
 

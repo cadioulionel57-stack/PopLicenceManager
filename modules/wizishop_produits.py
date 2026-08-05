@@ -7,9 +7,6 @@ l'API v3.
 Un produit part TOUJOURS EN BROUILLON. Il n'apparait sur la
 boutique qu'apres la commande "publier".
 
-C'est le champ "complete" qui commande l'etat chez WiziShop,
-et lui seul : les champs "visible" et "status" sont ignores.
-
 Usage depuis la racine du projet :
     python -m modules.wizishop_produits etat
     python -m modules.wizishop_produits apercu <id_produit>
@@ -170,6 +167,12 @@ class PousseeProduits:
                 "longue brute est envoyee a la place du HTML"
             )
 
+        # Remise saisie sur le produit, en pourcentage.
+        try:
+            remise = float(produit["remise_precommande"] or 0)
+        except (KeyError, IndexError, TypeError, ValueError):
+            remise = 0
+
         images = [
             produit[colonne]
             for colonne in ("image_principale", "image_2", "image_3")
@@ -194,14 +197,24 @@ class PousseeProduits:
             "tags": [],
             "features": [],
             "tax": float(produit["tva"] or 20),
-            "weight": float(produit["poids"] or 0),
+
+            # WiziShop compte les poids en GRAMMES. Le logiciel,
+            # lui, les stocke en kilos : 0,24 pour 240 g. Envoye
+            # tel quel, 0,24 gramme etait arrondi a zero et le
+            # poids n'arrivait jamais.
+            "weight": int(round(float(produit["poids"] or 0) * 1000)),
+
             "quantity": int(produit["quantite_stock"] or 0),
             "price_tax_excluded": round(float(prix_ht), 2),
             "wholesale_price_tax_excluded": round(
                 float(produit["prix_fournisseur_ht"] or 0), 2
             ),
-            "reduction": 0,
+
+            # La remise saisie dans la fiche produit part bien
+            # vers WiziShop. Elle etait ignoree jusqu'ici.
+            "reduction": remise,
             "reduction_type": "percentage",
+
             "images": images,
             "visible": bool(visible),
             "url": produit["url_slug"] or "",
@@ -215,8 +228,6 @@ class PousseeProduits:
             "customizations": [],
 
             # C'EST CE CHAMP QUI COMMANDE L'ETAT, et lui seul.
-            # Une fiche incomplete reste en Brouillon, une
-            # fiche complete passe en Affiche.
             "complete": bool(visible),
         }
 

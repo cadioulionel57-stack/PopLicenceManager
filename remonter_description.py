@@ -1,15 +1,14 @@
 r"""
-remonter_description.py  (13e version)
+remonter_description.py  (16e version)
 ------------------------------------------------------------
-Termine les deux derniers modeles : SITE PRECOMMANDE et
-STOCK Cartes a collectionner.
+Compacte le bloc PRECOMMANDE, qui poussait tout le reste de
+la fiche vers le bas.
 
-Ils gardaient leurs questions-reponses parce que
-l'information de livraison y etait ecrite. On leur donne
-donc le meme pave jaune "Optimisez votre livraison" que les
-autres modeles, puis on retire les questions.
+Le nouveau bloc garde toutes les informations utiles — date
+de sortie, remise, quantites limitees — mais les met COTE A
+COTE au lieu de les empiler.
 
-Ces deux modeles sont alors alignes sur les 49 autres.
+Seul le modele PRECOMMANDE est touche.
 
 Usage :
     python remonter_description.py
@@ -27,116 +26,107 @@ from database.database import Database
 
 MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
-MODELES = ["PRECOMMANDE", "CARTES A COLLECTIONNER"]
+MODELE = "PRECOMMANDE"
+
+SECTION = "BADGE"
 
 
-# Le pave jaune, repris a l'identique des autres modeles.
-PAVE = """<div style="
-text-align:center;
-font-family:Arial,sans-serif;
-background:#fffbeb;
-border:2px solid #fcd34d;
-padding:28px 20px;
-border-radius:12px;
-margin:30px 0;
-box-shadow:0 4px 6px -1px rgba(251,191,36,0.1);
+BLOC = """<section style="
+display:flex;
+justify-content:center;
+margin-bottom:24px;
 ">
 
   <div style="
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  margin-bottom:18px;
+  max-width:620px;
+  width:100%;
+  border:2px solid #f59e0b;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 8px 20px rgba(0,0,0,0.08);
+  background:#ffffff;
   ">
 
-    <h4 style="
-    margin:0;
-    color:#92400e;
-    font-size:16px;
+    <div style="
+    background:linear-gradient(135deg,#581C87,#9333EA);
+    color:#ffffff !important;
+    text-align:center;
+    padding:10px;
+    font-size:13px;
     text-transform:uppercase;
-    font-weight:800;
     letter-spacing:1px;
+    font-weight:900;
+    ">
+      Précommande officielle
+    </div>
+
+    <div style="
+    padding:16px 18px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:14px;
+    align-items:center;
+    text-align:center;
     ">
 
-      Optimisez votre livraison
+      <div>
+        <div style="
+        font-size:11px;
+        color:#64748b !important;
+        text-transform:uppercase;
+        letter-spacing:0.6px;
+        font-weight:800;
+        ">
+          Sortie prévue
+        </div>
+        <div style="
+        font-size:24px;
+        font-weight:900;
+        color:#7E22CE !important;
+        margin-top:2px;
+        line-height:1.1;
+        ">
+          {{date_sortie_precommande}}
+        </div>
+      </div>
 
-    </h4>
+      {{#si_remise_precommande}}
+      <div>
+        <div style="
+        font-size:24px;
+        font-weight:900;
+        color:#dc2626 !important;
+        line-height:1.1;
+        ">
+          -{{remise_precommande}}%
+        </div>
+        <div style="
+        font-size:11px;
+        font-weight:700;
+        color:#111827 !important;
+        margin-top:2px;
+        line-height:1.4;
+        ">
+          Remise déjà incluse dans le prix
+        </div>
+      </div>
+      {{/si_remise_precommande}}
+
+    </div>
+
+    <div style="
+    padding:0 18px 14px 18px;
+    text-align:center;
+    font-size:11px;
+    line-height:1.6;
+    color:#9a3412 !important;
+    ">
+      Quantités limitées chez le distributeur. Date indicative communiquée par le fabricant.
+    </div>
 
   </div>
 
-  <p style="
-  margin:0 auto 22px auto;
-  max-width:650px;
-  font-size:14px;
-  color:#78350f;
-  line-height:1.7;
-  ">
-
-    Pour un traitement plus rapide, nous vous conseillons de passer des commandes <strong>distinctes</strong> pour les articles "En Stock" et "Livraison sous 5 à 7 jours ouvrés".
-
-  </p>
-
-  <div style="
-  max-width:550px;
-  margin:0 auto;
-  text-align:left;
-  ">
-
-    <p style="
-    margin:0 0 16px 0;
-    font-size:14px;
-    color:#78350f;
-    line-height:1.7;
-    ">
-
-      Les produits <strong>en stock</strong> sont expédiés le jour même si votre commande est validée avant 11h du lundi au vendredi. À défaut, l'envoi est effectué sous 24h ou au premier jour ouvrable.
-
-    </p>
-
-    <p style="
-    margin:0;
-    font-size:14px;
-    color:#78350f;
-    line-height:1.7;
-    ">
-
-      Les produits <strong>"Livraison sous 5 à 7 jours ouvrés"</strong> sont expédiés sous 24h et livrés à domicile en remise contre signature. <strong>Livraison offerte, sans minimum d'achat.</strong>
-
-    </p>
-
-  </div>
-
-  <div style="
-  margin:24px auto;
-  width:40px;
-  height:2px;
-  background:#fcd34d;
-  "></div>
-
-  <p style="
-  margin:0;
-  font-size:13px;
-  color:#92400e;
-  font-style:italic;
-  line-height:1.5;
-  ">
-
-    <strong>À noter :</strong> en cas de commande mixte, vos produits seront expédiés séparément et pourront avoir des délais de livraison différents.
-
-  </p>
-
-</div>"""
-
-
-def concerne(nom_modele):
-
-    majuscules = (
-        nom_modele.upper()
-        .replace("É", "E").replace("È", "E").replace("À", "A")
-    )
-
-    return any(mot in majuscules for mot in MODELES)
+</section>"""
 
 
 def sections(html):
@@ -185,36 +175,30 @@ def rebobiner(html):
 
 
 def corriger(html):
-    """
-    Remplace la section des questions-reponses par le pave
-    jaune. Renvoie (html, True) si le modele a change.
-    """
-
-    if "Optimisez" in html:
-        return html, False
 
     entete, morceaux = sections(html)
 
     if not morceaux:
-        return html, False
+        return html, 0
 
-    fait = False
+    gagne = 0
     resultat = []
 
     for titre, texte in morceaux:
 
-        if "FAQ" in titre:
-            fait = True
+        if SECTION in titre:
+
             coupe = texte.find("-->") + len("-->")
-            resultat.append((titre, texte[:coupe] + "\n\n" + PAVE + "\n"))
-            continue
+            nouveau = texte[:coupe] + "\n\n" + BLOC + "\n"
+            gagne = len(texte) - len(nouveau)
+            texte = nouveau
 
         resultat.append((titre, texte))
 
-    if not fait:
-        return html, False
+    if not gagne:
+        return html, 0
 
-    return rebobiner(entete + "".join(t for _, t in resultat)), True
+    return rebobiner(entete + "".join(t for _, t in resultat)), gagne
 
 
 if __name__ == "__main__":
@@ -230,24 +214,21 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== LES DEUX DERNIERS MODELES ===\n")
+    print("\n=== BLOC PRECOMMANDE COMPACTE ===\n")
 
     prevus = []
 
     for modele in modeles:
 
-        if not concerne(modele["nom"]):
+        if MODELE not in modele["nom"].upper():
             continue
 
-        nouveau_html, fait = corriger(modele["html_template"])
+        nouveau_html, gagne = corriger(modele["html_template"])
 
-        if not fait:
+        if not gagne:
             continue
 
-        print(
-            f"   {modele['nom'][:44]:<46} "
-            f"questions remplacees par le pave livraison"
-        )
+        print(f"   {modele['nom'][:44]:<46} -{gagne} caracteres")
 
         prevus.append((modele["id"], nouveau_html))
 
@@ -272,22 +253,3 @@ if __name__ == "__main__":
         )
 
     print(f"\n{len(prevus)} modele(s) corrige(s).\n")
-
-    apres = db.lire(
-        "SELECT nom, html_template FROM modeles_fiche_produit "
-        "WHERE html_template IS NOT NULL"
-    )
-
-    questions = [
-        l["nom"] for l in apres
-        if "Questions fr" in re.sub(r"<[^>]+>", " ", l["html_template"])
-    ]
-
-    casses = sum(
-        1 for l in apres
-        if l["html_template"].count("<div")
-        != l["html_template"].count("</div>")
-    )
-
-    print(f"Modeles avec des questions-reponses : {len(questions)}")
-    print(f"Modeles au cadre mal ferme : {casses}\n")
