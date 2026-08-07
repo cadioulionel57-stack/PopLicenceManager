@@ -56,9 +56,11 @@ class SeoTab(QWidget):
         layout.addLayout(ligneBouton)
 
         self.avertissement = QLabel(
-            "⚠ La régénération remplace tout le contenu "
-            "actuel de cet onglet — pense à sauvegarder tes "
-            "modifications manuelles ailleurs si besoin."
+            "⚠ La régénération remplace le titre, la "
+            "description courte, la méta description, les "
+            "mots-clés et l'URL. Elle ne touche JAMAIS à la "
+            "description longue si tu y as écrit quelque "
+            "chose."
         )
         self.avertissement.setStyleSheet("color:#8a5a00; font-weight:600;")
         self.avertissement.setWordWrap(True)
@@ -108,10 +110,12 @@ class SeoTab(QWidget):
         )
 
         noteDescriptionLongue = QLabel(
-            "💡 Brouillon généré automatiquement — à enrichir "
-            "toi-même sur tes produits les plus importants, "
-            "pour éviter un texte trop similaire d'une fiche "
-            "à l'autre."
+            "💡 C'est TON texte sur ce produit : la finition, "
+            "le tirage, ce qu'il y a dans la boîte. Il "
+            "s'affiche sur la fiche, juste après la phrase "
+            "d'introduction.\n"
+            "Laisse une ligne vide entre deux paragraphes, la "
+            "mise en page se fait toute seule."
         )
         noteDescriptionLongue.setWordWrap(True)
         noteDescriptionLongue.setStyleSheet("color:#64748b;")
@@ -200,12 +204,6 @@ class SeoTab(QWidget):
 
     # ------------------------------------------------------
     # Donnees prises directement dans les autres onglets
-    #
-    # Le poids, les dimensions et le modele de fiche ne sont
-    # pas branches par des lambdas comme les champs
-    # ci-dessus : on va les chercher sur la fenetre parente
-    # au moment ou l'on regenere. Un getattr defensif partout
-    # pour que rien ne casse si un onglet est absent.
     # ------------------------------------------------------
 
     def _page(self, nom):
@@ -311,7 +309,7 @@ class SeoTab(QWidget):
 
     def regenerer(self):
         """
-        Regénère les 7 champs à partir des valeurs
+        Regénère les champs SEO à partir des valeurs
         actuellement saisies dans les autres onglets de la
         fiche produit.
         """
@@ -352,9 +350,21 @@ class SeoTab(QWidget):
         self.descriptionCourte.setPlainText(
             valeurs.get("description_courte") or ""
         )
-        self.descriptionLongue.setPlainText(
-            valeurs.get("description_longue") or ""
-        )
+
+        # LA DESCRIPTION LONGUE N'EST PLUS ECRASEE.
+        #
+        # C'est desormais le texte que TU ecris sur le produit
+        # lui-meme — la matiere, la finition, le tirage, ce
+        # qu'aucun generateur ne peut deviner. Il part sur la
+        # fiche et il ne doit jamais etre efface par un clic
+        # sur Regenerer.
+        #
+        # Il n'est rempli automatiquement que s'il est vide.
+        if not self.descriptionLongue.toPlainText().strip():
+            self.descriptionLongue.setPlainText(
+                valeurs.get("description_longue") or ""
+            )
+
         self.metaDescription.setPlainText(
             valeurs.get("meta_description") or ""
         )

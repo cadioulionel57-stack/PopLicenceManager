@@ -1,14 +1,19 @@
 r"""
-remonter_description.py  (16e version)
+remonter_description.py  (18e version)
 ------------------------------------------------------------
-Compacte le bloc PRECOMMANDE, qui poussait tout le reste de
-la fiche vers le bas.
+Deux corrections.
 
-Le nouveau bloc garde toutes les informations utiles — date
-de sortie, remise, quantites limitees — mais les met COTE A
-COTE au lieu de les empiler.
+  1. LE TITRE DE LA BANNIERE UNIVERS reste noir chez
+     WiziShop. La couleur etait posee sur la balise du titre
+     avec une priorite maximale, et leur editeur la retire au
+     passage.
 
-Seul le modele PRECOMMANDE est touche.
+     On la met donc SUR LE TEXTE LUI-MEME, dans une balise
+     qui lui appartient. Une regle de theme qui vise les
+     titres ne peut plus l'atteindre.
+
+  2. LA BANNIERE PRECOMMANDE remonte TOUT EN HAUT, juste
+     au-dessus de la description.
 
 Usage :
     python remonter_description.py
@@ -26,107 +31,7 @@ from database.database import Database
 
 MARQUEUR = re.compile(r"<!--\s*=+\s*(.{0,80}?)\s*=+\s*-->", re.S)
 
-MODELE = "PRECOMMANDE"
-
-SECTION = "BADGE"
-
-
-BLOC = """<section style="
-display:flex;
-justify-content:center;
-margin-bottom:24px;
-">
-
-  <div style="
-  max-width:620px;
-  width:100%;
-  border:2px solid #f59e0b;
-  border-radius:16px;
-  overflow:hidden;
-  box-shadow:0 8px 20px rgba(0,0,0,0.08);
-  background:#ffffff;
-  ">
-
-    <div style="
-    background:linear-gradient(135deg,#581C87,#9333EA);
-    color:#ffffff !important;
-    text-align:center;
-    padding:10px;
-    font-size:13px;
-    text-transform:uppercase;
-    letter-spacing:1px;
-    font-weight:900;
-    ">
-      Précommande officielle
-    </div>
-
-    <div style="
-    padding:16px 18px;
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:14px;
-    align-items:center;
-    text-align:center;
-    ">
-
-      <div>
-        <div style="
-        font-size:11px;
-        color:#64748b !important;
-        text-transform:uppercase;
-        letter-spacing:0.6px;
-        font-weight:800;
-        ">
-          Sortie prévue
-        </div>
-        <div style="
-        font-size:24px;
-        font-weight:900;
-        color:#7E22CE !important;
-        margin-top:2px;
-        line-height:1.1;
-        ">
-          {{date_sortie_precommande}}
-        </div>
-      </div>
-
-      {{#si_remise_precommande}}
-      <div>
-        <div style="
-        font-size:24px;
-        font-weight:900;
-        color:#dc2626 !important;
-        line-height:1.1;
-        ">
-          -{{remise_precommande}}%
-        </div>
-        <div style="
-        font-size:11px;
-        font-weight:700;
-        color:#111827 !important;
-        margin-top:2px;
-        line-height:1.4;
-        ">
-          Remise déjà incluse dans le prix
-        </div>
-      </div>
-      {{/si_remise_precommande}}
-
-    </div>
-
-    <div style="
-    padding:0 18px 14px 18px;
-    text-align:center;
-    font-size:11px;
-    line-height:1.6;
-    color:#9a3412 !important;
-    ">
-      Quantités limitées chez le distributeur. Date indicative communiquée par le fabricant.
-    </div>
-
-  </div>
-
-</section>"""
+TITRE = re.compile(r"(<h[1-6][^>]*>)(.*?)(</h[1-6]>)", re.S)
 
 
 def sections(html):
@@ -155,50 +60,78 @@ def sections(html):
     return entete, morceaux
 
 
-def rebobiner(html):
+def blanchir_titres(texte):
+    """
+    Entoure le texte de chaque titre d'une balise qui porte
+    la couleur blanche. Renvoie (texte, nombre traite).
+    """
 
-    ecart = html.count("<div") - html.count("</div>")
+    nombre = 0
 
-    if ecart > 0:
-        return html + "\n" + ("</div>\n" * ecart)
+    def remplacer(m):
 
-    for _ in range(-ecart):
+        nonlocal nombre
 
-        position = html.rfind("</div>")
+        ouverture, contenu, fermeture = m.group(1), m.group(2), m.group(3)
 
-        if position == -1:
-            break
+        if "color:#ffffff" in contenu:
+            return m.group(0)
 
-        html = html[:position] + html[position + len("</div>"):]
+        nombre += 1
 
-    return html
+        return (
+            ouverture
+            + '<span style="color:#ffffff">'
+            + contenu.strip()
+            + "</span>"
+            + fermeture
+        )
+
+    return TITRE.sub(remplacer, texte), nombre
 
 
-def corriger(html):
+def corriger(nom_modele, html):
+    """
+    Renvoie (html, titres_traites, banniere_remontee).
+    """
 
     entete, morceaux = sections(html)
 
     if not morceaux:
-        return html, 0
+        return html, 0, False
 
-    gagne = 0
+    total = 0
     resultat = []
 
     for titre, texte in morceaux:
 
-        if SECTION in titre:
-
-            coupe = texte.find("-->") + len("-->")
-            nouveau = texte[:coupe] + "\n\n" + BLOC + "\n"
-            gagne = len(texte) - len(nouveau)
-            texte = nouveau
+        if "UNIVERS PRODUIT" in titre:
+            texte, nombre = blanchir_titres(texte)
+            total += nombre
 
         resultat.append((titre, texte))
 
-    if not gagne:
-        return html, 0
+    remontee = False
 
-    return rebobiner(entete + "".join(t for _, t in resultat)), gagne
+    if "PRECOMMANDE" in nom_modele.upper():
+
+        index = next(
+            (i for i, (t, _) in enumerate(resultat) if "BADGE" in t),
+            None
+        )
+
+        if index is not None and index != 0:
+            resultat.insert(0, resultat.pop(index))
+            remontee = True
+
+    if not (total or remontee):
+        return html, 0, False
+
+    return (
+        entete + "".join(t for _, t in resultat),
+        total,
+        remontee,
+    )
 
 
 if __name__ == "__main__":
@@ -214,21 +147,28 @@ if __name__ == "__main__":
         """
     )
 
-    print("\n=== BLOC PRECOMMANDE COMPACTE ===\n")
+    print("\n=== TITRES BLANCS ET BANNIERE PRECOMMANDE ===\n")
 
     prevus = []
 
     for modele in modeles:
 
-        if MODELE not in modele["nom"].upper():
+        nouveau_html, total, remontee = corriger(
+            modele["nom"], modele["html_template"]
+        )
+
+        if not (total or remontee):
             continue
 
-        nouveau_html, gagne = corriger(modele["html_template"])
+        detail = []
 
-        if not gagne:
-            continue
+        if total:
+            detail.append(f"{total} titre(s) en blanc")
 
-        print(f"   {modele['nom'][:44]:<46} -{gagne} caracteres")
+        if remontee:
+            detail.append("banniere precommande remontee en tete")
+
+        print(f"   {modele['nom'][:38]:<40} {', '.join(detail)}")
 
         prevus.append((modele["id"], nouveau_html))
 
@@ -253,3 +193,16 @@ if __name__ == "__main__":
         )
 
     print(f"\n{len(prevus)} modele(s) corrige(s).\n")
+
+    apres = db.lire(
+        "SELECT html_template FROM modeles_fiche_produit "
+        "WHERE html_template IS NOT NULL"
+    )
+
+    casses = sum(
+        1 for l in apres
+        if l["html_template"].count("<div")
+        != l["html_template"].count("</div>")
+    )
+
+    print(f"Modeles au cadre mal ferme : {casses}\n")

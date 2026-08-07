@@ -66,6 +66,49 @@ class GenerateurFicheHtml:
         return f"{texte} kg"
 
     @staticmethod
+    def _paragraphes(texte):
+        """
+        Met en forme le texte ecrit sur le produit : chaque
+        paragraphe recoit sa propre balise et son espacement.
+
+        Une ligne vide separe deux paragraphes. Le texte sort
+        aere, jamais en pave compact.
+        """
+
+        if not texte:
+            return ""
+
+        morceaux = [
+            bloc.strip()
+            for bloc in re.split(r"\n\s*\n", str(texte))
+            if bloc.strip()
+        ]
+
+        if not morceaux:
+            return ""
+
+        sortie = []
+
+        for bloc in morceaux:
+
+            # Un simple retour a la ligne reste un retour a la
+            # ligne a l'interieur du paragraphe.
+            bloc = bloc.replace("\n", "<br>")
+
+            sortie.append(
+                "<p style=\"\n"
+                "        margin:0 0 16px 0;\n"
+                "        font-size:15px;\n"
+                "        line-height:1.9;\n"
+                "        color:#475569 !important;\n"
+                "        \">\n"
+                f"            {bloc}\n"
+                "        </p>"
+            )
+
+        return "\n        ".join(sortie)
+
+    @staticmethod
     def _lien_licence(licence_nom):
         """
         Fabrique l'adresse de la page marque du site a partir
@@ -362,20 +405,24 @@ class GenerateurFicheHtml:
             produit, "image_ambiance"
         )
 
-        # Texte alternatif de la banniere : ce que Google lit
-        # a la place de l'image, et ce qu'entend un lecteur
-        # d'ecran. Il reprend le nom du produit et sa licence.
-
+        # Texte alternatif de la banniere.
         alt_univers = nom_produit
 
         if licence_nom and licence_nom.lower() not in nom_produit.lower():
             alt_univers = f"{nom_produit}, univers {licence_nom}"
+
+        # Le texte propre au produit, ecrit a la main dans
+        # le champ "Description longue" du logiciel.
+        description_specifique = GenerateurFicheHtml._paragraphes(
+            GenerateurFicheHtml._valeur_champ(produit, "description_longue")
+        )
 
         for nom_bloc, valeur in (
             ("si_poids", poids_lisible),
             ("si_dimensions", dimensions),
             ("si_licence", lien_licence),
             ("si_image_univers", image_univers),
+            ("si_description_specifique", description_specifique),
         ):
             html = GenerateurFicheHtml._traiter_bloc_conditionnel(
                 html, nom_bloc, bool(valeur)
@@ -465,6 +512,7 @@ class GenerateurFicheHtml:
         variables["lien_licence"] = lien_licence
         variables["licence"] = licence_nom or ""
         variables["alt_univers"] = alt_univers
+        variables["description_specifique"] = description_specifique
 
         variables.update(valeurs_champs_conditionnels)
 

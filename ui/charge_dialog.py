@@ -103,7 +103,7 @@ class ChargeDialog(QDialog):
         self.montantMensuel.setMaximum(999999)
         self.montantMensuel.setSuffix(" €")
         self.montantMensuel.setValue(montant_mensuel or 0)
-        form.addRow("Montant (par échéance)", self.montantMensuel)
+        form.addRow("Montant HT (par échéance)", self.montantMensuel)
 
         self.tvaApplicable = QCheckBox(
             "Cette charge porte de la TVA récupérable (décoche "
