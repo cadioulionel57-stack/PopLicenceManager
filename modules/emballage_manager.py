@@ -174,17 +174,35 @@ class EmballageManager:
         être bloquée côté interface, avec une alerte
         invitant à ajouter un nouvel emballage à la grille.
 
-        Rien n'est présupposé sur l'orientation du produit
-        dans l'emballage (pas de rotation testée) : la
-        comparaison se fait dimension par dimension, dans
-        l'ordre où elles sont saisies (longueur avec
-        longueur, largeur avec largeur, hauteur avec
-        hauteur).
+        L'ORIENTATION DU PRODUIT EST LIBRE : les trois
+        dimensions du produit et celles de l'emballage sont
+        triées de la plus grande à la plus petite avant
+        d'être comparées. On compare donc la plus grande du
+        produit à la plus grande de l'emballage, et ainsi de
+        suite — comme lorsqu'on tourne un objet dans la main
+        pour le glisser dans un carton.
+
+        Sans ce tri, un bonnet saisi 22 x 2 x 21 (l'ordre
+        dans lequel le fournisseur donne ses mesures, qui
+        change d'un fournisseur a l'autre et parfois d'un
+        produit a l'autre) ne rentrait dans aucune pochette,
+        alors qu'il y rentre parfaitement une fois tourne.
         """
 
         tous_les_emballages = self.tous()
 
         compatibles = []
+
+        # Produit : de la plus grande dimension a la plus
+        # petite. Les valeurs manquantes comptent pour 0.
+        dimensions_produit = sorted(
+            [
+                longueur_cm or 0,
+                largeur_cm or 0,
+                hauteur_cm or 0,
+            ],
+            reverse=True
+        )
 
         for emballage in tous_les_emballages:
 
@@ -206,12 +224,31 @@ class EmballageManager:
             else:
                 marge_reelle = marge_cm
 
-            if emballage["longueur_ext_cm"] < longueur_cm + marge_reelle:
+            # Emballage : trie de la meme facon, pour que la
+            # comparaison porte sur des grandeurs de meme
+            # rang (la plus grande avec la plus grande).
+            dimensions_emballage = sorted(
+                [
+                    emballage["longueur_ext_cm"],
+                    emballage["largeur_ext_cm"],
+                    emballage["hauteur_ext_cm"],
+                ],
+                reverse=True
+            )
+
+            convient = True
+
+            for cote_emballage, cote_produit in zip(
+                dimensions_emballage, dimensions_produit
+            ):
+
+                if cote_emballage < cote_produit + marge_reelle:
+                    convient = False
+                    break
+
+            if not convient:
                 continue
-            if emballage["largeur_ext_cm"] < largeur_cm + marge_reelle:
-                continue
-            if emballage["hauteur_ext_cm"] < hauteur_cm + marge_reelle:
-                continue
+
             if emballage["poids_max_g"] < poids_g:
                 continue
 

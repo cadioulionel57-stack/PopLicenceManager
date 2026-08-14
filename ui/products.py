@@ -118,7 +118,12 @@ class ProductsPage(ListPage):
         self.btnAjouter.clicked.connect(self.nouveauProduit)
         self.btnModifier.clicked.connect(self.ouvrirProduit)
         self.btnSupprimer.clicked.connect(self.supprimerProduit)
-        self.btnImporter.setVisible(False)
+        # Bouton "Importer" hérité de ListPage : masqué
+        # jusqu'ici faute d'usage, il sert désormais à créer
+        # des produits en masse depuis un fichier CSV
+        # (fichiers de commande fournisseur calibrés).
+        self.btnImporter.setText("📥 Importer un CSV")
+        self.btnImporter.clicked.connect(self.importerProduits)
         self.btnExporter.clicked.connect(self.exporterProduits)
 
         # Second bouton d'export, ajouté juste à côté de celui
@@ -393,6 +398,7 @@ class ProductsPage(ListPage):
 
         self.charger()
 
+
     def _lignesSelectionnees(self):
         """
         Renvoie la liste des numéros de ligne réellement
@@ -481,6 +487,22 @@ class ProductsPage(ListPage):
         from ui.base_export_dialog import BaseExportDialog
 
         dialog = BaseExportDialog(identifiants, parent=self)
+
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            self.charger()
+
+    def importerProduits(self):
+        """
+        Ouvre la fenêtre d'import CSV.
+
+        Ne dépend pas de la sélection : l'import crée de
+        nouveaux produits, il ne touche jamais à ceux déjà
+        présents dans la liste.
+        """
+
+        from ui.product_import_dialog import ProductImportDialog
+
+        dialog = ProductImportDialog(parent=self)
 
         if dialog.exec() == dialog.DialogCode.Accepted:
             self.charger()
