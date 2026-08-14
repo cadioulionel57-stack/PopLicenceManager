@@ -464,7 +464,7 @@ class MoteurPrix:
 
             if ratio_transport > seuil_transport_max:
 
-                decision = "🟠 PORT TROP CHER"
+                decision = "⛔ PORT TROP CHER"
 
                 decision_detail = (
                     f"{ratio_transport}% du prix part en "
@@ -483,7 +483,7 @@ class MoteurPrix:
 
         if prix_min is not None and prix_vente_ttc < prix_min:
 
-            decision = "🔴 PRIX TROP BAS"
+            decision = "⛔ PRIX TROP BAS"
 
             decision_detail = (
                 f"{prix_vente_ttc:.2f}€ alors qu'il en faut "

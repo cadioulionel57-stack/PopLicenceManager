@@ -495,13 +495,9 @@ class TarificationTab(QWidget):
                 if membre.get("utilise_grille_fba"):
 
                     itemDecision = QTableWidgetItem(
-                        "💡 PRÉFÉRER FBM"
+                        f"⚠️ FBA plus cher que FBM (+{ecart:.2f}€)"
                     )
-                    itemDecision.setToolTip(
-                        f"Le FBA revient {ecart:.2f}€ plus cher "
-                        f"que le FBM sur ce produit."
-                    )
-                    self._appliquerStyleAlerte(itemDecision, "info")
+                    self._appliquerStyleAlerte(itemDecision, "attention")
                     self.table.setItem(ligne, 6, itemDecision)
 
     def _appliquerStyleAlerte(self, item, niveau):
@@ -529,30 +525,8 @@ class TarificationTab(QWidget):
             item.setBackground(QColor("#e74c3c"))
         elif niveau == "attention":
             item.setBackground(QColor("#f39c12"))
-        elif niveau == "info":
-            item.setBackground(QColor("#2980b9"))
         else:
             item.setBackground(QColor("#27ae60"))
-
-    def _niveauDecision(self, decision):
-        """
-        Déduit la couleur du symbole placé en tête
-        de l'intitulé.
-
-        🔴 refus  ·  🟠 alerte  ·  💡 information
-        ✅ tout va bien
-        """
-
-        if decision.startswith("🔴") or decision.startswith("❌"):
-            return "erreur"
-
-        if decision.startswith("🟠") or decision.startswith("⚠️"):
-            return "attention"
-
-        if decision.startswith("💡"):
-            return "info"
-
-        return "ok"
 
     def _recalculerLigne(self, ligne):
         """
@@ -649,18 +623,14 @@ class TarificationTab(QWidget):
         )
 
         itemDecision = QTableWidgetItem(resultat["decision"])
+        itemDecision.setToolTip(resultat["decision"])
 
-        # Infobulle : la phrase complète, que la
-        # colonne est trop étroite pour afficher.
-        itemDecision.setToolTip(
-            resultat.get("decision_detail")
-            or resultat["decision"]
-        )
-
-        self._appliquerStyleAlerte(
-            itemDecision,
-            self._niveauDecision(resultat["decision"])
-        )
+        if resultat["decision"].startswith("❌"):
+            self._appliquerStyleAlerte(itemDecision, "erreur")
+        elif resultat["decision"].startswith("⚠️"):
+            self._appliquerStyleAlerte(itemDecision, "attention")
+        else:
+            self._appliquerStyleAlerte(itemDecision, "ok")
 
         self.table.setItem(ligne, 6, itemDecision)
 
@@ -707,13 +677,9 @@ class TarificationTab(QWidget):
         # La décision automatique (ratio transport) reste
         # prioritaire : si elle est négative, ça ne change
         # jamais, quel que soit le prix marché constaté.
-        if self._niveauDecision(resultat["decision"]) == "erreur":
+        if resultat["decision"].startswith("❌"):
 
             itemDecision = QTableWidgetItem(resultat["decision"])
-            itemDecision.setToolTip(
-                resultat.get("decision_detail")
-                or resultat["decision"]
-            )
             self._appliquerStyleAlerte(itemDecision, "erreur")
             self.table.setItem(ligne, 6, itemDecision)
             return

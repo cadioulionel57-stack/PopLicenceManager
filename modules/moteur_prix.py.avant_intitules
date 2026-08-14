@@ -422,13 +422,7 @@ class MoteurPrix:
         # peser plus que le seuil défini dans le prix de
         # vente final — pas besoin d'étude de marché pour
         # écarter automatiquement les cas déséquilibrés.
-        # Intitulés volontairement COURTS : la colonne
-        # "Décision" de l'onglet Tarification est
-        # étroite et coupait les phrases longues. Le
-        # détail part dans "decision_detail", affiché
-        # en infobulle au survol.
-        decision = "✅ À VENDRE ICI"
-        decision_detail = "Rentable sur ce canal."
+        decision = "✅ Recommandé"
         ratio_transport = None
 
         seuil_transport_max = self.parametres.obtenir_nombre(
@@ -464,12 +458,10 @@ class MoteurPrix:
 
             if ratio_transport > seuil_transport_max:
 
-                decision = "🟠 PORT TROP CHER"
-
-                decision_detail = (
-                    f"{ratio_transport}% du prix part en "
-                    f"transport, la limite est à "
-                    f"{seuil_transport_max}%."
+                decision = (
+                    f"❌ Transport trop élevé "
+                    f"({ratio_transport}% > "
+                    f"{seuil_transport_max}%)"
                 )
 
         # Alerte prix de vente minimum recommandé pour ce
@@ -483,12 +475,9 @@ class MoteurPrix:
 
         if prix_min is not None and prix_vente_ttc < prix_min:
 
-            decision = "🔴 PRIX TROP BAS"
-
-            decision_detail = (
-                f"{prix_vente_ttc:.2f}€ alors qu'il en faut "
-                f"{prix_min:.2f}€ minimum sur ce canal pour "
-                f"couvrir le port et la commission."
+            decision = (
+                f"❌ Prix sous le seuil recommandé pour ce "
+                f"canal ({prix_vente_ttc:.2f}€ < {prix_min:.2f}€)"
             )
 
         return {
@@ -499,7 +488,6 @@ class MoteurPrix:
             "transport": transport,
             "ratio_transport_pourcentage": ratio_transport,
             "decision": decision,
-            "decision_detail": decision_detail,
             "commission_pourcentage": round(commission_pourcentage, 2),
             "taux_tsn_effectif": round(taux_tsn_effectif * 100, 3),
             "taux_paiement_pourcentage": round(taux_paiement_ttc * 100, 2),
