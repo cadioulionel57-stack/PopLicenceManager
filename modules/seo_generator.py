@@ -249,43 +249,41 @@ class SeoGenerator:
         # Description longue
         ##################################################
 
+        # LES DIMENSIONS ET LE POIDS NE SONT PLUS ECRITS ICI :
+        # le modele de fiche produit les affiche deja dans sa
+        # propre ligne technique. Les repeter fabriquait un
+        # doublon visible sur la fiche WiziShop.
+
         paragraphes = []
 
-        phrase_ouverture = f"Craquez pour {nom_produit}"
+        # AUCUN VERBE NI ARTICLE DEVANT LE NOM DU PRODUIT.
+        # Le logiciel ne peut pas connaitre le genre ni le
+        # nombre d'un nom : "chaussures" est feminin pluriel,
+        # "chaussons" masculin pluriel, et une meme categorie
+        # melange les deux. Le nom est donc pose en apposition,
+        # ce qui reste correct dans tous les cas -- et le place
+        # en premiere position, ce qui sert le referencement.
+
+        phrase_ouverture = nom_produit
 
         if licence_nom and not licence_deja_mentionnee:
             phrase_ouverture += (
-                f", directement inspiré de l'univers {licence_nom}"
+                f", un produit officiel sous licence {licence_nom}"
             )
+        else:
+            # La licence figure deja dans le nom : la repeter
+            # trois fois dans le meme paragraphe serait du
+            # bourrage de mots-cles.
+            phrase_ouverture += ", un produit officiel sous licence"
 
         phrase_ouverture += "."
 
         paragraphes.append(phrase_ouverture)
 
-        if categorie_nom:
-
-            phrase_categorie = "Idéal pour les passionnés de "
-
-            phrase_categorie += categorie_nom.lower()
-
-            phrase_categorie += (
-                f", {licence_nom}"
-                if licence_nom and not licence_deja_mentionnee
-                else ""
-            ) + "."
-
-            paragraphes.append(phrase_categorie)
-
         if caracteristique:
             paragraphes.append(
                 f"Caractéristiques : {caracteristique}."
             )
-
-        if format_lisible:
-            paragraphes.append(f"Dimensions : {format_lisible}.")
-
-        if poids:
-            paragraphes.append(f"Poids : {cls._poids_lisible(poids)}.")
 
         if age_minimum:
             paragraphes.append(
@@ -295,6 +293,18 @@ class SeoGenerator:
         if pays_fabrication:
             paragraphes.append(
                 f"Fabriqué en {pays_fabrication}."
+            )
+
+        if categorie_nom:
+            paragraphes.append(
+                f"Une belle idée cadeau pour les amateurs de "
+                f"{categorie_nom.lower()}."
+            )
+
+        elif licence_nom and not licence_deja_mentionnee:
+            paragraphes.append(
+                f"Une belle idée cadeau pour les fans de "
+                f"{licence_nom}."
             )
 
         description_longue = " ".join(paragraphes)
@@ -324,12 +334,14 @@ class SeoGenerator:
         # Mots-clés
         ##################################################
 
-        candidats = []
+        # ON NE DECOUPE PLUS LE NOM MOT A MOT : cela produisait
+        # des mots-cles sans valeur du type "pat", "paw", "pvc".
+        # On garde des expressions entieres.
 
-        candidats.extend(nom_produit.split())
+        candidats = [nom_produit]
 
         for valeur in (
-            licence_nom, marque_nom, categorie_nom, couleur, matiere
+            licence_nom, categorie_nom, famille_nom, couleur, matiere
         ):
 
             if valeur:
@@ -374,10 +386,12 @@ class SeoGenerator:
             "name": nom_produit,
         }
 
-        if marque_nom:
+        # LA MARQUE AFFICHEE EST LA LICENCE, pas le fabricant :
+        # c'est la convention de toute la boutique.
+        if licence_nom or marque_nom:
             schema["brand"] = {
                 "@type": "Brand",
-                "name": marque_nom,
+                "name": licence_nom or marque_nom,
             }
 
         if categorie_nom:

@@ -53,6 +53,15 @@ class SeoTab(QWidget):
         )
         ligneBouton.addWidget(self.btnRegenerer)
 
+        # SECOND BOUTON, EXPLICITE : il force la reecriture de
+        # la description longue, que le bouton ordinaire
+        # protege. Sans lui, une correction du generateur ne
+        # pouvait plus s'appliquer a une fiche deja remplie.
+        self.btnReecrireDescription = QPushButton(
+            "Réécrire aussi la description longue"
+        )
+        ligneBouton.addWidget(self.btnReecrireDescription)
+
         layout.addLayout(ligneBouton)
 
         self.avertissement = QLabel(
@@ -60,7 +69,8 @@ class SeoTab(QWidget):
             "description courte, la méta description, les "
             "mots-clés et l'URL. Elle ne touche JAMAIS à la "
             "description longue si tu y as écrit quelque "
-            "chose."
+            "chose : pour la remplacer aussi, utilise le "
+            "second bouton."
         )
         self.avertissement.setStyleSheet("color:#8a5a00; font-weight:600;")
         self.avertissement.setWordWrap(True)
@@ -187,6 +197,10 @@ class SeoTab(QWidget):
 
         self.btnRegenerer.clicked.connect(self.regenerer)
 
+        self.btnReecrireDescription.clicked.connect(
+            self.regenerer_tout
+        )
+
         # Ces attributs sont branchés depuis
         # product_dialog_v2.py, comme pour l'onglet
         # Tarification — ils donnent accès en direct aux
@@ -223,6 +237,45 @@ class SeoTab(QWidget):
             return None
 
         return valeur or None
+
+    def _categorie_nom(self):
+        """
+        Va chercher le nom de la categorie site choisie dans
+        l'onglet Publication.
+
+        Elle n'etait PAS transmise au generateur : la phrase
+        de cloture et les mots-cles perdaient donc la
+        categorie du produit.
+        """
+
+        publication = self._page("pagePublication")
+
+        if publication is None:
+            return None
+
+        try:
+            categorie_id = publication.categorie_site_id()
+        except AttributeError:
+            return None
+
+        if not categorie_id:
+            return None
+
+        try:
+            from modules.categorie_site_manager import (
+                CategorieSiteManager
+            )
+            categorie = CategorieSiteManager().obtenir(categorie_id)
+        except Exception:
+            return None
+
+        if not categorie:
+            return None
+
+        try:
+            return categorie["nom"]
+        except (KeyError, IndexError, TypeError):
+            return None
 
     def _accroche_du_modele(self):
         """
@@ -307,7 +360,15 @@ class SeoTab(QWidget):
             else "color:#64748b;"
         )
 
-    def regenerer(self):
+    def regenerer_tout(self):
+        """
+        Comme regenerer(), mais REECRIT AUSSI la description
+        longue, meme si elle contient deja du texte.
+        """
+
+        self.regenerer(forcer_description=True)
+
+    def regenerer(self, forcer_description=False):
         """
         Regénère les champs SEO à partir des valeurs
         actuellement saisies dans les autres onglets de la
@@ -318,7 +379,7 @@ class SeoTab(QWidget):
             nom_produit=self._nom(),
             licence_nom=self._licence_nom(),
             marque_nom=self._marque_nom(),
-            categorie_nom=None,
+            categorie_nom=self._categorie_nom(),
             famille_nom=None,
             matiere=self._matiere(),
             couleur=self._couleur(),
@@ -342,9 +403,9 @@ class SeoTab(QWidget):
             accroche=self._accroche_du_modele(),
         )
 
-        self.charger_depuis_dict(resultat)
+        self.charger_depuis_dict(resultat, forcer_description)
 
-    def charger_depuis_dict(self, valeurs):
+    def charger_depuis_dict(self, valeurs, forcer_description=False):
 
         self.titreSeo.setText(valeurs.get("titre_seo") or "")
         self.descriptionCourte.setPlainText(
@@ -359,8 +420,13 @@ class SeoTab(QWidget):
         # fiche et il ne doit jamais etre efface par un clic
         # sur Regenerer.
         #
-        # Il n'est rempli automatiquement que s'il est vide.
-        if not self.descriptionLongue.toPlainText().strip():
+        # Il n'est rempli automatiquement que s'il est vide,
+        # SAUF si le second bouton demande explicitement de
+        # le reecrire.
+        if (
+            forcer_description
+            or not self.descriptionLongue.toPlainText().strip()
+        ):
             self.descriptionLongue.setPlainText(
                 valeurs.get("description_longue") or ""
             )

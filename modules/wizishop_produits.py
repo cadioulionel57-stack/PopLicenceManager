@@ -1,17 +1,17 @@
 r"""
 modules/wizishop_produits.py
 ------------------------------------------------------------
-Pousse les produits de PopLicenceManager vers WiziShop par
-l'API v3.
+Pousse les produits vers WiziShop par l'API v3.
 
-Un produit part EN BROUILLON a sa creation. Une mise a jour
-ne depublie plus rien.
+L'API v3 ne sait PAS piloter l'affichage (visible et status
+sont ignores, teste le 08/08/2026). Le seul levier est la
+COMPLETUDE. Quatre champs sont donc retenus a l'envoi :
+titre SEO, description courte, meta description, mots-cles.
+La fiche arrive incomplete, donc EN BROUILLON.
 
-Usage depuis la racine du projet :
     python -m modules.wizishop_produits etat
-    python -m modules.wizishop_produits apercu <id_produit>
-    python -m modules.wizishop_produits pousser <id_produit>
-    python -m modules.wizishop_produits publier <id_produit>
+    python -m modules.wizishop_produits apercu <id>
+    python -m modules.wizishop_produits pousser <id>
 ------------------------------------------------------------
 """
 
@@ -28,16 +28,14 @@ from modules.canal_manager import CanalManager
 from modules.moteur_prix import MoteurPrix
 from modules.generateur_fiche_html import GenerateurFicheHtml
 from modules.parametre_manager import ParametreManager
+from modules.wizishop_variations import groupes_variations
 
 BASE_PATH = Path(__file__).parent.parent / "database" / "poplicence.db"
 
 PAUSE_ENTRE_APPELS = 0.6
 
-# Marque utilisee pour les coffrets multi-licences.
 NOM_BOUTIQUE = "Pop Licence"
 
-# Doit correspondre EXACTEMENT au nom de la variation creee
-# dans WiziShop, sinon WiziShop en fabriquera une seconde.
 NOM_VARIATION_CADEAU = "Emballage Cadeau"
 
 
@@ -92,31 +90,12 @@ class PousseeProduits:
 
     @staticmethod
     def _sans_emoji(texte):
-        """
-        WiziShop n'accepte pas les caracteres hors Latin-1 :
-        un emoji s'y affiche en clair sous forme de code.
-        """
 
         return "".join(
             c for c in str(texte or "") if ord(c) < 256
         ).strip()
 
     def option_cadeau(self, produit):
-        """
-        Pose l'option d'emballage cadeau sur la fiche.
-
-        Elle est envoyee AUTOMATIQUEMENT par le logiciel :
-        plus rien a rattacher a la main, produit par produit.
-
-        Elle ne concerne que les produits que NOUS expedions :
-        un direct fournisseur part de chez le fournisseur, on
-        ne peut rien y emballer.
-
-        LES LIBELLES PARTENT TELS QUELS, sans rien y ajouter :
-        ils doivent correspondre au caractere pres a ceux de
-        la variation deja creee dans WiziShop. Le prix, lui,
-        voyage dans le champ prix de l'option.
-        """
 
         expedie_par_nous = produit["type_produit"] in ("stock", "bundle")
 
@@ -129,7 +108,7 @@ class PousseeProduits:
             "prix_emballage_cadeau", 2.90
         )
 
-        prix_ht = round(float(prix_ttc) / 1.2, 2)
+        supplement_ht = round(float(prix_ttc) / 1.2, 2)
 
         refus = self._sans_emoji(
             parametres.obtenir("libelle_cadeau_non") or "Non"
@@ -155,8 +134,6 @@ class PousseeProduits:
                     "reduction_type": "amount",
                     "image": "",
                     "active": True,
-                    # Le refus est le choix par defaut : on
-                    # n'impose jamais une option payante.
                     "default": True,
                 },
                 {
@@ -165,7 +142,7 @@ class PousseeProduits:
                     "ean13": "",
                     "weight": 0,
                     "quantity": 0,
-                    "price_tax_excluded": prix_ht,
+                    "price_tax_excluded": supplement_ht,
                     "reduction": 0,
                     "reduction_type": "amount",
                     "image": "",
@@ -189,16 +166,12 @@ class PousseeProduits:
                 "range nulle part"
             )
 
-        # La MARQUE cote WiziShop porte la LICENCE, pas le
-        # fabricant : une marque Bluey, une marque Marvel.
-
         licence = self._valeur("licences", produit["licence_id"], "nom")
 
         fabricant = self._valeur("marques", produit["marque_id"], "nom") or ""
 
         marque = licence or fabricant
 
-        # UN COFFRET SANS LICENCE UNIQUE EST LE NOTRE.
         if not licence and produit["type_produit"] == "bundle":
             marque = NOM_BOUTIQUE
 
@@ -262,7 +235,6 @@ class PousseeProduits:
                 "longue brute est envoyee a la place du HTML"
             )
 
-        # Remise saisie sur le produit, en pourcentage.
         try:
             remise = float(produit["remise_precommande"] or 0)
         except (KeyError, IndexError, TypeError, ValueError):
@@ -277,59 +249,101 @@ class PousseeProduits:
         if not images:
             avertissements.append("aucune image")
 
+        variations, alertes_variations = groupes_variations(
+            self.connexion, produit, prix_ht
+        )
+
+        ean_produit = produit["ean"] or ""
+
+        if variations:
+
+            sans_ean = [
+                option
+                for groupe in variations
+                for option in groupe["options"]
+                if not option["ean13"]
+            ]
+
+            if len(sans_ean) == 1 and ean_produit:
+
+                sans_ean[0]["ean13"] = ean_produit
+
+                avertissements.append(
+                    f"l'EAN {ean_produit} a ete donne a la "
+                    f"variation {sans_ean[0]['value']}"
+                )
+
+                alertes_variations = [
+                    texte for texte in alertes_variations
+                    if not texte.startswith("variations sans EAN")
+                ]
+
+                ean_produit = ""
+
+        avertissements.extend(alertes_variations)
+
+        # LES QUATRE CHAMPS RETENUS : c'est ce qui garde la
+        # fiche en BROUILLON chez WiziShop.
+
+        if visible:
+            titre_seo = produit["titre_seo"] or ""
+            description_courte = produit["description_courte"] or ""
+            meta_description = produit["meta_description"] or ""
+            mots_cles = produit["mots_cles"] or ""
+        else:
+            titre_seo = ""
+            description_courte = ""
+            meta_description = ""
+            mots_cles = ""
+
+            avertissements.append(
+                "titre SEO, description courte, meta "
+                "description et mots-cles RETENUS : la fiche "
+                "arrive en brouillon"
+            )
+
         corps = {
             "category_id": int(id_wizishop_categorie or 0),
             "other_categories_id": [],
             "sku": produit["sku"] or "",
             "name": produit["nom"] or "",
             "description": description,
-            "short_description": produit["description_courte"] or "",
+            "short_description": description_courte,
             "brand": marque,
-            "ean13": produit["ean"] or "",
+            "ean13": ean_produit,
             "isbn": "",
             "supplier": fournisseur,
             "supplier_reference": produit["reference_fournisseur"] or "",
             "tags": [],
             "features": [],
             "tax": float(produit["tva"] or 20),
-
-            # WiziShop compte les poids en GRAMMES.
             "weight": int(round(float(produit["poids"] or 0) * 1000)),
-
             "quantity": int(produit["quantite_stock"] or 0),
             "price_tax_excluded": round(float(prix_ht), 2),
             "wholesale_price_tax_excluded": round(
                 float(produit["prix_fournisseur_ht"] or 0), 2
             ),
-
             "reduction": remise,
             "reduction_type": "percentage",
-
             "images": images,
-
-            # L'option emballage cadeau, posee automatiquement.
-            "attributes": self.option_cadeau(produit),
-
+            "attributes": (
+                variations + self.option_cadeau(produit)
+            ),
             "visible": bool(visible),
+            "complete": bool(visible),
             "url": produit["url_slug"] or "",
             "cross_selling_products_id": [],
             "meta": {
-                "title": produit["titre_seo"] or "",
-                "description": produit["meta_description"] or "",
-                "keywords": produit["mots_cles"] or "",
+                "title": titre_seo,
+                "description": meta_description,
+                "keywords": mots_cles,
             },
             "customizations": [],
-
-            # C'EST CE CHAMP QUI COMMANDE L'ETAT, et lui seul.
-            "complete": bool(visible),
         }
 
         return corps, avertissements
 
     def pousser(self, identifiant, visible=False):
-        """
-        Envoie le produit. A la creation, il part EN BROUILLON.
-        """
 
         produit = self.produit(identifiant)
 
@@ -342,10 +356,6 @@ class PousseeProduits:
         if deja:
 
             chemin = f"/v3/shops/{shop}/products/{deja}"
-
-            # ON NE DETRUIT PLUS CE QUI A ETE REGLE DANS
-            # WIZISHOP : badge, mise en avant, nouveaute,
-            # filtres de recherche, categories secondaires.
 
             A_PRESERVER = [
                 "images",
@@ -364,11 +374,6 @@ class PousseeProduits:
                 for cle in A_PRESERVER:
                     if cle in existant:
                         corps[cle] = existant[cle]
-
-                # UNE MISE A JOUR NE DEPUBLIE PLUS RIEN.
-                if not visible and existant.get("status") == "visible":
-                    corps["complete"] = True
-                    corps["visible"] = True
 
             except WiziShopAPIError:
                 corps["images"] = []
@@ -393,22 +398,17 @@ class PousseeProduits:
 
         time.sleep(PAUSE_ENTRE_APPELS)
 
-        return action, id_wizishop, avertissements
+        etat_reel = ""
 
-    def publier(self, identifiant):
-        """
-        Passe le produit en Affiche sur la boutique.
-        """
-
-        produit = self.produit(identifiant)
-
-        if not produit["id_wizishop"]:
-            raise ValueError(
-                "Ce produit n'a pas encore ete envoye vers "
-                "WiziShop. Lance d'abord : pousser."
+        try:
+            relu = self.api._appel(
+                "GET", f"/v3/shops/{shop}/products/{id_wizishop}"
             )
+            etat_reel = relu.get("status", "")
+        except WiziShopAPIError:
+            pass
 
-        return self.pousser(identifiant, visible=True)
+        return action, id_wizishop, avertissements, etat_reel
 
 
 if __name__ == "__main__":
@@ -479,9 +479,10 @@ if __name__ == "__main__":
                 print("\nAnnule.\n")
                 sys.exit(0)
 
-            fait, id_wizishop, avertissements = poussee.pousser(identifiant)
+            fait, id_ws, avertissements, etat = poussee.pousser(identifiant)
 
-            print(f"\nProduit {fait}. Id WiziShop : {id_wizishop}")
+            print(f"\nProduit {fait}. Id WiziShop : {id_ws}")
+            print(f"ETAT RENVOYE PAR WIZISHOP : {etat}")
 
             if avertissements:
                 print("\nA savoir :")
@@ -489,31 +490,12 @@ if __name__ == "__main__":
                     print(f"   - {texte}")
                 print()
 
-        elif action == "publier" and len(sys.argv) > 2:
-
-            identifiant = int(sys.argv[2])
-
-            produit = poussee.produit(identifiant)
-
-            print(f"\nProduit : {produit['nom']}")
-
-            reponse = input("Le publier sur la boutique ? (tape oui) : ")
-
-            if reponse.strip().lower() not in ("oui", "o"):
-                print("\nAnnule. Le produit reste en brouillon.\n")
-                sys.exit(0)
-
-            poussee.publier(identifiant)
-
-            print("\nProduit publie, il est maintenant en ligne.\n")
-
         else:
             print(
                 "\nActions :\n"
                 "   etat\n"
                 "   apercu <id>\n"
                 "   pousser <id>\n"
-                "   publier <id>\n"
             )
 
     except (ValueError, WiziShopAPIError) as erreur:

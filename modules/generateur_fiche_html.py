@@ -1,9 +1,12 @@
 import re
+import sqlite3
+from pathlib import Path
 
 from modules.modele_fiche_manager import ModeleFicheManager
 from modules.parametre_manager import ParametreManager
 from modules.bloc_livraison_manager import BlocLivraisonManager
 from modules.bloc_emballage_cadeau_manager import BlocEmballageCadeauManager
+from modules import grilles_tailles
 
 
 class GenerateurFicheHtml:
@@ -64,6 +67,51 @@ class GenerateurFicheHtml:
         texte = texte.rstrip("0").rstrip(",")
 
         return f"{texte} kg"
+
+    @staticmethod
+    def _tableau_tailles(produit):
+        """
+        Tableau des tailles reduit aux seules tailles vendues
+        sur cette fiche. Vide si le produit n'a aucune
+        variation de taille reconnue.
+        """
+
+        try:
+            identifiant = produit["id"]
+        except (KeyError, IndexError, TypeError):
+            return ""
+
+        if not identifiant:
+            return ""
+
+        chemin = (
+            Path(__file__).parent.parent
+            / "database" / "poplicence.db"
+        )
+
+        try:
+            connexion = sqlite3.connect(str(chemin))
+
+            lignes = connexion.execute(
+                "SELECT libelle FROM produits_variations "
+                "WHERE produit_id = ? AND actif = 1 "
+                "ORDER BY ordre, id",
+                (identifiant,)
+            ).fetchall()
+
+            connexion.close()
+
+        except sqlite3.Error:
+            return ""
+
+        libelles = [ligne[0] for ligne in lignes if ligne[0]]
+
+        if not libelles:
+            return ""
+
+        coupe = GenerateurFicheHtml._valeur_champ(produit, "coupe_type")
+
+        return grilles_tailles.tableau_html(libelles, coupe)
 
     @staticmethod
     def _paragraphes(texte):
@@ -417,12 +465,16 @@ class GenerateurFicheHtml:
             GenerateurFicheHtml._valeur_champ(produit, "description_longue")
         )
 
+        # Le tableau des tailles, reduit aux tailles vendues.
+        tableau_tailles = GenerateurFicheHtml._tableau_tailles(produit)
+
         for nom_bloc, valeur in (
             ("si_poids", poids_lisible),
             ("si_dimensions", dimensions),
             ("si_licence", lien_licence),
             ("si_image_univers", image_univers),
             ("si_description_specifique", description_specifique),
+            ("si_tableau_tailles", tableau_tailles),
         ):
             html = GenerateurFicheHtml._traiter_bloc_conditionnel(
                 html, nom_bloc, bool(valeur)
@@ -513,6 +565,7 @@ class GenerateurFicheHtml:
         variables["licence"] = licence_nom or ""
         variables["alt_univers"] = alt_univers
         variables["description_specifique"] = description_specifique
+        variables["tableau_tailles"] = tableau_tailles
 
         variables.update(valeurs_champs_conditionnels)
 
