@@ -400,13 +400,6 @@ class ProductDialogV2(QDialog):
 
         self.tabs.addTab(QWidget(), "📜 Historique")
 
-        # Tarification AVANT Publication : on regarde les
-        # marges par canal, puis on coche les canaux.
-        self.tabs.tabBar().moveTab(
-            self.tabs.indexOf(self.pageTarification),
-            self.tabs.indexOf(self.pagePublication)
-        )
-
         ####################################################
         # Boutons
         ####################################################

@@ -2,173 +2,142 @@ import shutil
 from pathlib import Path
 
 # ----------------------------------------------------------
-# Corrige DEUX fichiers d'un coup :
+# Onglet Tarification : n'afficher que les canaux
+# réellement pertinents pour le produit.
 #
-#   modules/moteur_prix.py       -> symboles distincts
-#   ui/tabs/tab_tarification.py  -> couleurs + infobulles
+#   1. Un produit EN STOCK ne voit plus BigBuy ni Direct
+#      Fournisseur. Un produit DIRECT FOURNISSEUR ne voit
+#      qu'eux.
 #
-# Les deux vont ensemble : l'écran choisit la couleur en
-# lisant le symbole du texte. Changer l'un sans l'autre
-# ferait passer TOUS les refus en vert.
+#   2. Une marketplace sur laquelle le produit est refusé
+#      (prix sous le minimum du canal) est masquée : elle
+#      n'a rien à faire dans la liste.
 # ----------------------------------------------------------
 
-TRAVAUX = [
+FICHIER = "ui/tabs/tab_tarification.py"
 
-    ("modules/moteur_prix.py", [
+REMPLACEMENTS = [
 
-        # Rouge = refus, orange = alerte. Deux problèmes
-        # différents, deux symboles différents.
-        (
-            '        decision = "⛔ PRIX TROP BAS"\n',
-            '        decision = "🔴 PRIX TROP BAS"\n'
-        ),
-        (
-            '                decision = "⛔ PORT TROP CHER"\n',
-            '                decision = "🟠 PORT TROP CHER"\n'
-        ),
+    (
+        '        canaux = CanalManager().tous()\n'
+        '\n'
+        '        return [\n'
+        '            c for c in canaux\n'
+        '            if c["type"] != "marketplace" or self.type_produit == "stock"\n'
+        '        ]\n',
 
-    ]),
+        '        canaux = CanalManager().tous()\n'
+        '\n'
+        '        # Canaux de dropshipping : le fournisseur\n'
+        '        # expédie lui-même. Ils n\'ont aucun sens pour un\n'
+        '        # produit tenu en stock, et inversement le stock\n'
+        '        # n\'a rien à faire sur ces canaux-là.\n'
+        '        DROPSHIPPING = ("bigbuy", "direct fournisseur", "dropshipping")\n'
+        '\n'
+        '        retenus = []\n'
+        '\n'
+        '        for canal in canaux:\n'
+        '\n'
+        '            est_drop = any(\n'
+        '                mot in canal["nom"].strip().lower()\n'
+        '                for mot in DROPSHIPPING\n'
+        '            )\n'
+        '\n'
+        '            if self.type_produit == "dropshipping":\n'
+        '\n'
+        '                # Direct fournisseur : ses canaux propres,\n'
+        '                # plus le Site. Jamais de marketplace.\n'
+        '                if est_drop or canal["type"] == "site":\n'
+        '                    retenus.append(canal)\n'
+        '\n'
+        '                continue\n'
+        '\n'
+        '            if est_drop:\n'
+        '                continue\n'
+        '\n'
+        '            if canal["type"] == "marketplace" and self.type_produit != "stock":\n'
+        '                continue\n'
+        '\n'
+        '            retenus.append(canal)\n'
+        '\n'
+        '        return retenus\n'
+    ),
 
-    ("ui/tabs/tab_tarification.py", [
+    (
+        '        self._comparerCanauxSimilaires(canaux)\n'
+        '\n'
+        '        # Tous les canaux visibles d\'un coup, sans défilement\n'
+        '        # interne : c\'est ici qu\'on fixe la hauteur du tableau\n'
+        '        # sur son contenu réel.\n'
+        '        self._ajusterHauteur()\n',
 
-        # 1. Infobulle = le détail, plus la répétition du
-        #    titre. Et couleur choisie sur les nouveaux
-        #    symboles.
-        (
-            '        itemDecision = QTableWidgetItem(resultat["decision"])\n'
-            '        itemDecision.setToolTip(resultat["decision"])\n'
-            '\n'
-            '        if resultat["decision"].startswith("❌"):\n'
-            '            self._appliquerStyleAlerte(itemDecision, "erreur")\n'
-            '        elif resultat["decision"].startswith("⚠️"):\n'
-            '            self._appliquerStyleAlerte(itemDecision, "attention")\n'
-            '        else:\n'
-            '            self._appliquerStyleAlerte(itemDecision, "ok")\n',
-
-            '        itemDecision = QTableWidgetItem(resultat["decision"])\n'
-            '\n'
-            '        # Infobulle : la phrase complète, que la\n'
-            '        # colonne est trop étroite pour afficher.\n'
-            '        itemDecision.setToolTip(\n'
-            '            resultat.get("decision_detail")\n'
-            '            or resultat["decision"]\n'
-            '        )\n'
-            '\n'
-            '        self._appliquerStyleAlerte(\n'
-            '            itemDecision,\n'
-            '            self._niveauDecision(resultat["decision"])\n'
-            '        )\n'
-        ),
-
-        # 2. Même test dans la mise à jour après saisie
-        #    d'un prix marché.
-        (
-            '        if resultat["decision"].startswith("❌"):\n'
-            '\n'
-            '            itemDecision = QTableWidgetItem(resultat["decision"])\n'
-            '            self._appliquerStyleAlerte(itemDecision, "erreur")\n'
-            '            self.table.setItem(ligne, 6, itemDecision)\n'
-            '            return\n',
-
-            '        if self._niveauDecision(resultat["decision"]) == "erreur":\n'
-            '\n'
-            '            itemDecision = QTableWidgetItem(resultat["decision"])\n'
-            '            itemDecision.setToolTip(\n'
-            '                resultat.get("decision_detail")\n'
-            '                or resultat["decision"]\n'
-            '            )\n'
-            '            self._appliquerStyleAlerte(itemDecision, "erreur")\n'
-            '            self.table.setItem(ligne, 6, itemDecision)\n'
-            '            return\n'
-        ),
-
-        # 3. FBA/FBM : une information, pas une alerte.
-        (
-            '                    itemDecision = QTableWidgetItem(\n'
-            '                        f"⚠️ FBA plus cher que FBM (+{ecart:.2f}€)"\n'
-            '                    )\n'
-            '                    self._appliquerStyleAlerte(itemDecision, "attention")\n',
-
-            '                    itemDecision = QTableWidgetItem(\n'
-            '                        "💡 PRÉFÉRER FBM"\n'
-            '                    )\n'
-            '                    itemDecision.setToolTip(\n'
-            '                        f"Le FBA revient {ecart:.2f}€ plus cher "\n'
-            '                        f"que le FBM sur ce produit."\n'
-            '                    )\n'
-            '                    self._appliquerStyleAlerte(itemDecision, "info")\n'
-        ),
-
-        # 4. Le bleu pour l'information, et la fonction qui
-        #    déduit le niveau du symbole.
-        (
-            '        if niveau == "erreur":\n'
-            '            item.setBackground(QColor("#e74c3c"))\n'
-            '        elif niveau == "attention":\n'
-            '            item.setBackground(QColor("#f39c12"))\n'
-            '        else:\n'
-            '            item.setBackground(QColor("#27ae60"))\n',
-
-            '        if niveau == "erreur":\n'
-            '            item.setBackground(QColor("#e74c3c"))\n'
-            '        elif niveau == "attention":\n'
-            '            item.setBackground(QColor("#f39c12"))\n'
-            '        elif niveau == "info":\n'
-            '            item.setBackground(QColor("#2980b9"))\n'
-            '        else:\n'
-            '            item.setBackground(QColor("#27ae60"))\n'
-            '\n'
-            '    def _niveauDecision(self, decision):\n'
-            '        """\n'
-            '        Déduit la couleur du symbole placé en tête\n'
-            '        de l\'intitulé.\n'
-            '\n'
-            '        🔴 refus  ·  🟠 alerte  ·  💡 information\n'
-            '        ✅ tout va bien\n'
-            '        """\n'
-            '\n'
-            '        if decision.startswith("🔴") or decision.startswith("❌"):\n'
-            '            return "erreur"\n'
-            '\n'
-            '        if decision.startswith("🟠") or decision.startswith("⚠️"):\n'
-            '            return "attention"\n'
-            '\n'
-            '        if decision.startswith("💡"):\n'
-            '            return "info"\n'
-            '\n'
-            '        return "ok"\n'
-        ),
-
-    ]),
+        '        self._comparerCanauxSimilaires(canaux)\n'
+        '\n'
+        '        self._masquerCanauxRefuses()\n'
+        '\n'
+        '        # Tous les canaux visibles d\'un coup, sans défilement\n'
+        '        # interne : c\'est ici qu\'on fixe la hauteur du tableau\n'
+        '        # sur son contenu réel.\n'
+        '        self._ajusterHauteur()\n'
+        '\n'
+        '    def _masquerCanauxRefuses(self):\n'
+        '        """\n'
+        '        Masque les lignes des marketplaces sur lesquelles\n'
+        '        le produit ne passe pas : prix calculé sous le\n'
+        '        minimum du canal, ou transport trop lourd.\n'
+        '\n'
+        '        Le Site n\'est jamais masqué : c\'est la boutique,\n'
+        '        elle reste toujours affichée.\n'
+        '        """\n'
+        '\n'
+        '        for ligne, canal_id in self.ligneVersCanal.items():\n'
+        '\n'
+        '            resultat = self.derniersResultats.get(canal_id)\n'
+        '\n'
+        '            if resultat is None:\n'
+        '                continue\n'
+        '\n'
+        '            canal = self.canaux.obtenir(canal_id)\n'
+        '\n'
+        '            if canal is None or canal["type"] != "marketplace":\n'
+        '                continue\n'
+        '\n'
+        '            refuse = bool(resultat.get("erreur"))\n'
+        '\n'
+        '            if not refuse:\n'
+        '                decision = resultat.get("decision", "")\n'
+        '                refuse = decision.startswith("🔴")\n'
+        '\n'
+        '            self.table.setRowHidden(ligne, refuse)\n'
+    ),
 
 ]
 
 # ----------------------------------------------------------
-# Contrôle complet AVANT toute écriture
+# Contrôle AVANT écriture
 # ----------------------------------------------------------
 
+fichier = Path(FICHIER)
+
+if not fichier.exists():
+    print("fichier introuvable :", FICHIER)
+    raise SystemExit
+
+texte = fichier.read_text(encoding="utf-8")
+
+if "_masquerCanauxRefuses" in texte:
+    print("Déjà corrigé, rien à faire.")
+    raise SystemExit
+
 anomalies = []
-contenus = {}
 
-for chemin, remplacements in TRAVAUX:
+for ancien, _nouveau in REMPLACEMENTS:
 
-    fichier = Path(chemin)
-
-    if not fichier.exists():
-        anomalies.append(f"fichier introuvable : {chemin}")
-        continue
-
-    texte = fichier.read_text(encoding="utf-8")
-    contenus[chemin] = texte
-
-    for ancien, _nouveau in remplacements:
-
-        if texte.count(ancien) != 1:
-            anomalies.append(
-                f"{chemin} : bloc trouvé "
-                f"{texte.count(ancien)} fois — "
-                + ancien.strip().split("\n")[0][:50]
-            )
+    if texte.count(ancien) != 1:
+        anomalies.append(
+            f"bloc trouvé {texte.count(ancien)} fois : "
+            + ancien.strip().split("\n")[0][:55]
+        )
 
 if anomalies:
 
@@ -180,28 +149,15 @@ if anomalies:
 
     raise SystemExit
 
-# ----------------------------------------------------------
-# Sauvegarde puis écriture
-# ----------------------------------------------------------
+shutil.copy(FICHIER, FICHIER + ".avant_filtre")
 
-for chemin, remplacements in TRAVAUX:
+for ancien, nouveau in REMPLACEMENTS:
+    texte = texte.replace(ancien, nouveau)
 
-    shutil.copy(chemin, chemin + ".avant_couleurs")
+fichier.write_text(texte, encoding="utf-8")
 
-    texte = contenus[chemin]
-
-    for ancien, nouveau in remplacements:
-        texte = texte.replace(ancien, nouveau)
-
-    Path(chemin).write_text(texte, encoding="utf-8")
-
-    print("corrigé :", chemin)
-
+print("corrigé :", FICHIER)
 print()
-print("Colonne Décision :")
-print("   ✅ À VENDRE ICI      fond vert")
-print("   🔴 PRIX TROP BAS     fond rouge   (refus)")
-print("   🟠 PORT TROP CHER    fond orange  (alerte)")
-print("   💡 PRÉFÉRER FBM      fond bleu    (information)")
-print()
-print("Le détail complet s'affiche au survol de la souris.")
+print("Produit EN STOCK      -> Site + marketplaces, sans BigBuy")
+print("Produit DIRECT FOURN. -> Site + BigBuy + Direct Fournisseur")
+print("Marketplace en rouge  -> ligne masquée")
