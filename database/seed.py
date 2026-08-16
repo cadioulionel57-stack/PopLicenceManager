@@ -17,17 +17,24 @@ class Seeder:
         self._seed_grille_emballage()
         self._corriger_poids_max_emballage()
         self._corriger_type_emballage()
-        self._corriger_regles_amazon_fbm()
         self._seed_fnac()
         self._corriger_categories_fnac()
         self._seed_cdiscount()
-        self._corriger_mecanisme_cdiscount()
         self._seed_categories_cdiscount()
         self._seed_rakuten()
         self._seed_ebay()
         self._seed_emballage_cadeau()
         self._corriger_couleurs_canaux()
-        self._corriger_contribution_ebay()
+
+        # RETIRÉS le 15/08/2026 : ces trois correctifs
+        # rejouaient un UPDATE sur canaux_vente à chaque
+        # démarrage dès que la contribution transport
+        # valait 0, et écrasaient donc les réglages saisis
+        # à la main. Les méthodes restent dans le fichier,
+        # elles ne sont simplement plus appelées.
+        #   self._corriger_regles_amazon_fbm()
+        #   self._corriger_mecanisme_cdiscount()
+        #   self._corriger_contribution_ebay()
 
     def _corriger_categories_fba(self):
         """

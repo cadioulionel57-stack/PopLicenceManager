@@ -11,7 +11,10 @@ La fiche arrive incomplete, donc EN BROUILLON.
 
     python -m modules.wizishop_produits etat
     python -m modules.wizishop_produits apercu <id>
-    python -m modules.wizishop_produits pousser <id>
+    python -m modules.wizishop_produits pousser <id> [<id> ...]
+
+L'action pousser accepte plusieurs identifiants et des
+plages : pousser 23 24 25  ou  pousser 30-64
 ------------------------------------------------------------
 """
 
@@ -467,35 +470,102 @@ if __name__ == "__main__":
 
         elif action == "pousser" and len(sys.argv) > 2:
 
-            identifiant = int(sys.argv[2])
+            identifiants = []
 
-            produit = poussee.produit(identifiant)
+            for morceau in sys.argv[2:]:
 
-            print(f"\nProduit : {produit['nom']}")
+                if "-" in morceau:
 
-            reponse = input("Envoyer vers WiziShop ? (tape oui) : ")
+                    depart, arrivee = morceau.split("-", 1)
+                    identifiants.extend(
+                        range(int(depart), int(arrivee) + 1)
+                    )
+
+                else:
+                    identifiants.append(int(morceau))
+
+            a_envoyer = []
+
+            for identifiant in identifiants:
+
+                try:
+                    produit = poussee.produit(identifiant)
+
+                except Exception:
+                    print(f"   {identifiant:>3}  introuvable, ignore")
+                    continue
+
+                a_envoyer.append((identifiant, produit["nom"]))
+
+            if not a_envoyer:
+                print("\nAucun produit a envoyer.\n")
+                sys.exit(0)
+
+            print(f"\n{len(a_envoyer)} produit(s) a envoyer :\n")
+
+            for identifiant, nom in a_envoyer:
+                print(f"   {identifiant:>3}  {nom[:60]}")
+
+            reponse = input(
+                "\nEnvoyer vers WiziShop ? (tape oui) : "
+            )
 
             if reponse.strip().lower() not in ("oui", "o"):
                 print("\nAnnule.\n")
                 sys.exit(0)
 
-            fait, id_ws, avertissements, etat = poussee.pousser(identifiant)
+            print()
 
-            print(f"\nProduit {fait}. Id WiziShop : {id_ws}")
-            print(f"ETAT RENVOYE PAR WIZISHOP : {etat}")
+            brouillons = 0
+            autres = []
+            echecs = []
 
-            if avertissements:
-                print("\nA savoir :")
+            for identifiant, nom in a_envoyer:
+
+                try:
+                    fait, id_ws, avertissements, etat = poussee.pousser(
+                        identifiant
+                    )
+
+                except Exception as erreur:
+                    print(f"   {identifiant:>3}  ECHEC : {erreur}")
+                    echecs.append(identifiant)
+                    continue
+
+                print(
+                    f"   {identifiant:>3}  {str(fait):<9} "
+                    f"WiziShop {str(id_ws):<6} etat {etat}"
+                )
+
+                if etat == "draft":
+                    brouillons += 1
+                else:
+                    autres.append((identifiant, etat))
+
                 for texte in avertissements:
-                    print(f"   - {texte}")
-                print()
+                    print(f"        - {texte}")
+
+            print(f"\n{brouillons} produit(s) arrives EN BROUILLON.")
+
+            if autres:
+                print("\nATTENTION, ceux-ci ne sont PAS en brouillon :")
+                for identifiant, etat in autres:
+                    print(f"   {identifiant} : {etat}")
+
+            if echecs:
+                print(f"\n{len(echecs)} echec(s) : {echecs}")
+
+            print()
 
         else:
             print(
                 "\nActions :\n"
                 "   etat\n"
                 "   apercu <id>\n"
-                "   pousser <id>\n"
+                "   pousser <id> [<id> ...]\n"
+                "      ex : pousser 43\n"
+                "      ex : pousser 23 24 25 26\n"
+                "      ex : pousser 30-64\n"
             )
 
     except (ValueError, WiziShopAPIError) as erreur:
