@@ -14,6 +14,10 @@ La grille FEMME ne sort que si le champ Coupe contient
 "Femme".
 
 Pointures : formule francaise pointure = (3 x L + 4) / 2.
+
+ATTENTION : WiziShop SUPPRIME les styles portes par thead,
+tbody et tr. Tout le style doit donc etre pose sur CHAQUE
+cellule, th comme td.
 ------------------------------------------------------------
 """
 
@@ -185,6 +189,9 @@ def tableau_html(libelles, coupe=None):
 
     Aucun caractere hors Latin-1 : WiziShop les afficherait
     en clair. Les symboles passent en entites decimales.
+
+    Le fond fonce des en-tetes est pose sur chaque th, jamais
+    sur thead, que WiziShop depouille.
     """
 
     cle, lignes = grille_pour(libelles, coupe)
@@ -197,7 +204,8 @@ def tableau_html(libelles, coupe=None):
     entetes = "".join(
         "<th style=\"padding:12px 14px;text-align:left;"
         "font-size:12px;font-weight:800;text-transform:uppercase;"
-        "letter-spacing:.04em;color:#ffffff;\">"
+        "letter-spacing:.04em;background:#0F172A;color:#ffffff;"
+        "border-bottom:1px solid #0F172A;\">"
         f"{colonne}</th>"
         for colonne in grille["colonnes"]
     )
@@ -218,11 +226,12 @@ def tableau_html(libelles, coupe=None):
             cellules += (
                 f"<td style=\"padding:11px 14px;font-size:15px;"
                 f"font-weight:{graisse};color:{couleur};"
+                f"background:{fond};"
                 f"border-bottom:1px solid #E2E8F0;\">"
                 f"{valeur}</td>"
             )
 
-        corps += f"<tr style=\"background:{fond};\">{cellules}</tr>"
+        corps += f"<tr>{cellules}</tr>"
 
     return (
         "<details style=\"background:#ffffff;"
@@ -246,8 +255,7 @@ def tableau_html(libelles, coupe=None):
         "<div style=\"overflow-x:auto;border-radius:10px;"
         "border:1px solid #E2E8F0;\">"
         "<table style=\"width:100%;border-collapse:collapse;\">"
-        f"<thead style=\"background:#0F172A;\"><tr>{entetes}</tr>"
-        "</thead>"
+        f"<thead><tr>{entetes}</tr></thead>"
         f"<tbody>{corps}</tbody>"
         "</table>"
         "</div>"
@@ -255,10 +263,7 @@ def tableau_html(libelles, coupe=None):
         "<p style=\"margin:14px 0 0 0;font-size:13px;"
         "line-height:1.7;color:#64748b;\">"
         "En cas de doute entre deux tailles, choisissez la "
-        "plus grande. "
-        "<a href=\"/guide-des-tailles.html\" "
-        "style=\"color:#2563EB;font-weight:700;\">"
-        "Voir le guide des tailles complet</a>"
+        "plus grande."
         "</p>"
 
         "</div>"

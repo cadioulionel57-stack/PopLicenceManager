@@ -5,16 +5,38 @@ Pousse les produits vers WiziShop par l'API v3.
 
 L'API v3 ne sait PAS piloter l'affichage (visible et status
 sont ignores, teste le 08/08/2026). Le seul levier est la
-COMPLETUDE. Quatre champs sont donc retenus a l'envoi :
-titre SEO, description courte, meta description, mots-cles.
-La fiche arrive incomplete, donc EN BROUILLON.
+COMPLETUDE. UN SEUL champ est donc retenu a l'envoi : la
+DESCRIPTION COURTE. La fiche arrive incomplete, donc EN
+BROUILLON, mais tout le SEO (titre, meta description,
+mots-cles) est deja en place : rien a ressaisir dans
+WiziShop.
+
+Pour publier ensuite, la description courte est renvoyee :
+    python -m modules.wizishop_produits publier <id>
+
+IMAGES : pousser depose lui-meme les images sur GitHub sous
+un nom francais issu du produit. WiziShop reprend le nom du
+fichier comme balise ALT. Les images ne partent QU'A LA
+CREATION ; une mise a jour n'y touche pas, pour ne creer
+aucun doublon dans le gestionnaire d'images. Pour forcer le
+renvoi apres avoir change une photo : ajouter --images.
 
     python -m modules.wizishop_produits etat
     python -m modules.wizishop_produits apercu <id>
     python -m modules.wizishop_produits pousser <id> [<id> ...]
+    python -m modules.wizishop_produits publier <id> [<id> ...]
 
-L'action pousser accepte plusieurs identifiants et des
-plages : pousser 23 24 25  ou  pousser 30-64
+pousser et publier acceptent plusieurs identifiants et des
+plages : pousser 23 24 25  ou  publier 30-64
+
+PAR FOURNISSEUR, pour ne plus chercher les identifiants :
+
+    python -m modules.wizishop_produits pousser --fournisseur Stor
+
+Ce filtre ne retient QUE LES PRODUITS JAMAIS POUSSES. Une
+fiche deja en ligne est ecartee de la liste : le travail
+repris a la main dans WiziShop apres l'envoi ne peut pas
+etre ecrase par cette voie.
 ------------------------------------------------------------
 """
 
@@ -32,6 +54,7 @@ from modules.moteur_prix import MoteurPrix
 from modules.generateur_fiche_html import GenerateurFicheHtml
 from modules.parametre_manager import ParametreManager
 from modules.wizishop_variations import groupes_variations
+from modules.images_github import deposer, slug, extension
 
 BASE_PATH = Path(__file__).parent.parent / "database" / "poplicence.db"
 
@@ -40,6 +63,10 @@ PAUSE_ENTRE_APPELS = 0.6
 NOM_BOUTIQUE = "Pop Licence"
 
 NOM_VARIATION_CADEAU = "Emballage Cadeau"
+
+PREFIXE_GITHUB = "https://raw.githubusercontent.com/"
+
+COLONNES_IMAGES = ("image_principale", "image_2", "image_3")
 
 
 class PousseeProduits:
@@ -67,6 +94,120 @@ class PousseeProduits:
             raise ValueError(f"Produit {identifiant} introuvable.")
 
         return ligne
+
+    def a_pousser_par_fournisseur(self, nom_fournisseur):
+        """
+        Les produits ACTIFS d'un fournisseur qui n'ont JAMAIS
+        ete pousses. La condition sur id_wizishop est le
+        verrou : une fiche deja en ligne ne peut pas ressortir
+        d'ici, donc le travail repris a la main dans WiziShop
+        apres l'envoi ne risque rien.
+
+        Le nom du fournisseur est compare sans tenir compte de
+        la casse ni des espaces autour, pour que 'stor',
+        'Stor' et ' Stor ' donnent le meme resultat.
+        """
+
+        cherche = (nom_fournisseur or "").strip().lower()
+
+        if not cherche:
+            raise ValueError("Aucun nom de fournisseur donne.")
+
+        fournisseurs = self.connexion.execute(
+            "SELECT id, nom FROM fournisseurs"
+        ).fetchall()
+
+        trouves = [
+            ligne for ligne in fournisseurs
+            if (ligne["nom"] or "").strip().lower() == cherche
+        ]
+
+        if not trouves:
+
+            connus = ", ".join(
+                sorted((l["nom"] or "") for l in fournisseurs)
+            )
+
+            raise ValueError(
+                f"Fournisseur '{nom_fournisseur}' introuvable.\n"
+                f"Fournisseurs enregistres : {connus}"
+            )
+
+        identifiants = [ligne["id"] for ligne in trouves]
+
+        marques = ",".join("?" for _ in identifiants)
+
+        lignes = self.connexion.execute(
+            f"SELECT id, nom FROM produits "
+            f"WHERE fournisseur_id IN ({marques}) "
+            f"AND actif = 1 "
+            f"AND (id_wizishop IS NULL OR id_wizishop = '' "
+            f"     OR id_wizishop = 0) "
+            f"ORDER BY id",
+            identifiants
+        ).fetchall()
+
+        # Compte ce qui est ECARTE, pour le dire a l'ecran :
+        # sans ce chiffre, une liste courte ressemble a un bug.
+
+        deja = self.connexion.execute(
+            f"SELECT COUNT(*) AS n FROM produits "
+            f"WHERE fournisseur_id IN ({marques}) "
+            f"AND actif = 1 "
+            f"AND id_wizishop IS NOT NULL "
+            f"AND id_wizishop != '' AND id_wizishop != 0",
+            identifiants
+        ).fetchone()["n"]
+
+        nom_reel = trouves[0]["nom"]
+
+        return [(l["id"], l["nom"]) for l in lignes], deja, nom_reel
+
+    def preparer_images(self, identifiant):
+        """
+        Depose sur GitHub les images encore hebergees chez le
+        fournisseur, sous un nom francais issu du nom du produit,
+        et remplace les adresses dans la base.
+        """
+
+        produit = self.produit(identifiant)
+
+        base = slug(produit["nom"])
+
+        messages = []
+
+        for rang, colonne in enumerate(COLONNES_IMAGES, start=1):
+
+            adresse = (produit[colonne] or "").strip()
+
+            if not adresse:
+                continue
+
+            if adresse.startswith(PREFIXE_GITHUB):
+                continue
+
+            nom_fichier = f"{base}-{rang}{extension(adresse)}"
+
+            try:
+                nouvelle = deposer(adresse, nom_fichier)
+
+            except Exception as erreur:
+                messages.append(
+                    f"image {rang} NON renommee ({erreur}) : "
+                    f"l'adresse du fournisseur part telle quelle"
+                )
+                continue
+
+            self.connexion.execute(
+                f"UPDATE produits SET {colonne} = ? WHERE id = ?",
+                (nouvelle, identifiant)
+            )
+
+            messages.append(f"image {rang} renommee : {nom_fichier}")
+
+        self.connexion.commit()
+
+        return messages
 
     def _valeur(self, table, identifiant, colonne):
 
@@ -99,6 +240,13 @@ class PousseeProduits:
         ).strip()
 
     def option_cadeau(self, produit):
+        """
+        UNE SEULE variation "Emballage Cadeau", avec une
+        option par OCCASION saisie dans Parametres >
+        Reglages. Le client n'en choisit qu'une : le
+        supplement est donc facture une seule fois, quel
+        que soit le nombre d'occasions proposees.
+        """
 
         expedie_par_nous = produit["type_produit"] in ("stock", "bundle")
 
@@ -117,42 +265,69 @@ class PousseeProduits:
             parametres.obtenir("libelle_cadeau_non") or "Non"
         )
 
-        oui = self._sans_emoji(
-            parametres.obtenir("libelle_cadeau_oui")
-            or "Je souhaite un Emballage Cadeau"
-        )
+        # Une occasion par ligne. Les lignes vides et les
+        # doublons sont ecartes : envoyes tels quels, ils
+        # creeraient chez WiziShop des choix vides mais
+        # selectionnables.
+
+        brut = parametres.obtenir("libelles_cadeau_choix") or ""
+
+        occasions = []
+
+        for ligne in brut.splitlines():
+
+            texte = self._sans_emoji(ligne)
+
+            if texte and texte not in occasions:
+                occasions.append(texte)
+
+        # Repli sur l'ancien libelle unique : tant que la
+        # liste n'a jamais ete enregistree, la fiche part
+        # exactement comme avant.
+
+        if not occasions:
+
+            unique = self._sans_emoji(
+                parametres.obtenir("libelle_cadeau_oui")
+                or "Je souhaite un Emballage Cadeau"
+            )
+
+            occasions = [unique]
+
+        options = [{
+            "value": refus,
+            "sku": "",
+            "ean13": "",
+            "weight": 0,
+            "quantity": 0,
+            "price_tax_excluded": 0,
+            "reduction": 0,
+            "reduction_type": "amount",
+            "image": "",
+            "active": True,
+            "default": True,
+        }]
+
+        for occasion in occasions:
+
+            options.append({
+                "value": occasion,
+                "sku": "",
+                "ean13": "",
+                "weight": 0,
+                "quantity": 0,
+                "price_tax_excluded": supplement_ht,
+                "reduction": 0,
+                "reduction_type": "amount",
+                "image": "",
+                "active": True,
+                "default": False,
+            })
 
         return [{
             "name": NOM_VARIATION_CADEAU,
             "label": NOM_VARIATION_CADEAU,
-            "options": [
-                {
-                    "value": refus,
-                    "sku": "",
-                    "ean13": "",
-                    "weight": 0,
-                    "quantity": 0,
-                    "price_tax_excluded": 0,
-                    "reduction": 0,
-                    "reduction_type": "amount",
-                    "image": "",
-                    "active": True,
-                    "default": True,
-                },
-                {
-                    "value": oui,
-                    "sku": "",
-                    "ean13": "",
-                    "weight": 0,
-                    "quantity": 0,
-                    "price_tax_excluded": supplement_ht,
-                    "reduction": 0,
-                    "reduction_type": "amount",
-                    "image": "",
-                    "active": True,
-                    "default": False,
-                },
-            ],
+            "options": options,
         }]
 
     def payload(self, produit, visible=False):
@@ -245,12 +420,24 @@ class PousseeProduits:
 
         images = [
             produit[colonne]
-            for colonne in ("image_principale", "image_2", "image_3")
+            for colonne in COLONNES_IMAGES
             if produit[colonne]
         ]
 
         if not images:
             avertissements.append("aucune image")
+
+        restantes = [
+            adresse for adresse in images
+            if not adresse.startswith(PREFIXE_GITHUB)
+        ]
+
+        if restantes:
+            avertissements.append(
+                f"{len(restantes)} image(s) encore chez le "
+                f"fournisseur : le nom de fichier ne sera pas "
+                f"francais"
+            )
 
         variations, alertes_variations = groupes_variations(
             self.connexion, produit, prix_ht
@@ -285,24 +472,28 @@ class PousseeProduits:
 
         avertissements.extend(alertes_variations)
 
-        # LES QUATRE CHAMPS RETENUS : c'est ce qui garde la
-        # fiche en BROUILLON chez WiziShop.
+        # TOUT LE SEO PART AVEC LA FICHE. Seule la DESCRIPTION
+        # COURTE est retenue : c'est elle qui garde la fiche en
+        # BROUILLON, et elle seule est renvoyee par publier.
+
+        titre_seo = produit["titre_seo"] or ""
+        meta_description = produit["meta_description"] or ""
+        mots_cles = produit["mots_cles"] or ""
 
         if visible:
-            titre_seo = produit["titre_seo"] or ""
             description_courte = produit["description_courte"] or ""
-            meta_description = produit["meta_description"] or ""
-            mots_cles = produit["mots_cles"] or ""
+
+            if not description_courte:
+                avertissements.append(
+                    "ATTENTION : description courte VIDE dans le "
+                    "logiciel, la fiche restera en brouillon"
+                )
         else:
-            titre_seo = ""
             description_courte = ""
-            meta_description = ""
-            mots_cles = ""
 
             avertissements.append(
-                "titre SEO, description courte, meta "
-                "description et mots-cles RETENUS : la fiche "
-                "arrive en brouillon"
+                "description courte RETENUE : la fiche arrive "
+                "en brouillon, tout le SEO est deja en place"
             )
 
         corps = {
@@ -346,22 +537,34 @@ class PousseeProduits:
 
         return corps, avertissements
 
-    def pousser(self, identifiant, visible=False):
+    def pousser(self, identifiant, visible=False, forcer_images=False):
 
         produit = self.produit(identifiant)
 
+        deja = produit["id_wizishop"]
+
+        messages_images = []
+
+        # Les images ne sont preparees et envoyees qu'a la
+        # CREATION, ou sur demande expresse avec --images.
+
+        envoyer_images = (not deja) or forcer_images
+
+        if envoyer_images:
+            messages_images = self.preparer_images(identifiant)
+            produit = self.produit(identifiant)
+
         corps, avertissements = self.payload(produit, visible=visible)
 
-        shop = self.api.id_boutique()
+        avertissements = messages_images + avertissements
 
-        deja = produit["id_wizishop"]
+        shop = self.api.id_boutique()
 
         if deja:
 
             chemin = f"/v3/shops/{shop}/products/{deja}"
 
             A_PRESERVER = [
-                "images",
                 "features",
                 "tags",
                 "product_advanced_option",
@@ -371,6 +574,9 @@ class PousseeProduits:
                 "cross_selling_products_id",
             ]
 
+            if not forcer_images:
+                A_PRESERVER.append("images")
+
             try:
                 existant = self.api._appel("GET", chemin)
 
@@ -379,7 +585,10 @@ class PousseeProduits:
                         corps[cle] = existant[cle]
 
             except WiziShopAPIError:
-                corps["images"] = []
+                avertissements.append(
+                    "fiche WiziShop illisible : les champs du "
+                    "logiciel sont envoyes tels quels"
+                )
 
             self.api._appel("PUT", chemin, corps)
             action = "mis a jour"
@@ -414,9 +623,45 @@ class PousseeProduits:
         return action, id_wizishop, avertissements, etat_reel
 
 
+def lire_identifiants(morceaux):
+
+    identifiants = []
+
+    for morceau in morceaux:
+
+        if "-" in morceau:
+            depart, arrivee = morceau.split("-", 1)
+            identifiants.extend(range(int(depart), int(arrivee) + 1))
+        else:
+            identifiants.append(int(morceau))
+
+    return identifiants
+
+
 if __name__ == "__main__":
 
-    action = sys.argv[1] if len(sys.argv) > 1 else "etat"
+    arguments = sys.argv[1:]
+
+    forcer_images = "--images" in arguments
+
+    arguments = [a for a in arguments if a != "--images"]
+
+    # --fournisseur <nom> : le nom peut contenir des espaces,
+    # tout ce qui suit est donc repris jusqu'au bout.
+
+    fournisseur_demande = None
+
+    if "--fournisseur" in arguments:
+
+        position = arguments.index("--fournisseur")
+
+        fournisseur_demande = " ".join(
+            arguments[position + 1:]
+        ).strip()
+
+        arguments = arguments[:position]
+
+    action = arguments[0] if arguments else "etat"
 
     poussee = PousseeProduits()
 
@@ -443,9 +688,9 @@ if __name__ == "__main__":
 
             print()
 
-        elif action == "apercu" and len(sys.argv) > 2:
+        elif action == "apercu" and len(arguments) > 1:
 
-            produit = poussee.produit(int(sys.argv[2]))
+            produit = poussee.produit(int(arguments[1]))
 
             corps, avertissements = poussee.payload(produit)
 
@@ -468,46 +713,67 @@ if __name__ == "__main__":
 
             print("\nRien n'a ete envoye.\n")
 
-        elif action == "pousser" and len(sys.argv) > 2:
+        elif action in ("pousser", "publier") and (
+            len(arguments) > 1 or fournisseur_demande
+        ):
 
-            identifiants = []
-
-            for morceau in sys.argv[2:]:
-
-                if "-" in morceau:
-
-                    depart, arrivee = morceau.split("-", 1)
-                    identifiants.extend(
-                        range(int(depart), int(arrivee) + 1)
-                    )
-
-                else:
-                    identifiants.append(int(morceau))
+            publication = (action == "publier")
 
             a_envoyer = []
 
-            for identifiant in identifiants:
+            if fournisseur_demande:
 
-                try:
-                    produit = poussee.produit(identifiant)
+                a_envoyer, ecartes, nom_reel = (
+                    poussee.a_pousser_par_fournisseur(
+                        fournisseur_demande
+                    )
+                )
 
-                except Exception:
-                    print(f"   {identifiant:>3}  introuvable, ignore")
-                    continue
+                print(f"\nFOURNISSEUR : {nom_reel}")
 
-                a_envoyer.append((identifiant, produit["nom"]))
+                if ecartes:
+                    print(
+                        f"{ecartes} fiche(s) DEJA EN LIGNE, "
+                        f"ecartee(s) : elles ne seront pas "
+                        f"renvoyees."
+                    )
+
+            else:
+
+                identifiants = lire_identifiants(arguments[1:])
+
+                for identifiant in identifiants:
+
+                    try:
+                        produit = poussee.produit(identifiant)
+
+                    except Exception:
+                        print(
+                            f"   {identifiant:>3}  introuvable, ignore"
+                        )
+                        continue
+
+                    a_envoyer.append((identifiant, produit["nom"]))
 
             if not a_envoyer:
-                print("\nAucun produit a envoyer.\n")
+                print("\nAucun produit a traiter.\n")
                 sys.exit(0)
 
-            print(f"\n{len(a_envoyer)} produit(s) a envoyer :\n")
+            mot = "PUBLIER" if publication else "envoyer"
+
+            print(f"\n{len(a_envoyer)} produit(s) a {mot} :\n")
 
             for identifiant, nom in a_envoyer:
                 print(f"   {identifiant:>3}  {nom[:60]}")
 
+            if forcer_images:
+                print(
+                    "\nLes images seront RENVOYEES "
+                    "(--images demande)."
+                )
+
             reponse = input(
-                "\nEnvoyer vers WiziShop ? (tape oui) : "
+                f"\n{mot} vers WiziShop ? (tape oui) : "
             )
 
             if reponse.strip().lower() not in ("oui", "o"):
@@ -516,7 +782,9 @@ if __name__ == "__main__":
 
             print()
 
-            brouillons = 0
+            attendu = "visible" if publication else "draft"
+
+            conformes = 0
             autres = []
             echecs = []
 
@@ -524,7 +792,9 @@ if __name__ == "__main__":
 
                 try:
                     fait, id_ws, avertissements, etat = poussee.pousser(
-                        identifiant
+                        identifiant,
+                        visible=publication,
+                        forcer_images=forcer_images,
                     )
 
                 except Exception as erreur:
@@ -537,18 +807,21 @@ if __name__ == "__main__":
                     f"WiziShop {str(id_ws):<6} etat {etat}"
                 )
 
-                if etat == "draft":
-                    brouillons += 1
+                if etat == attendu:
+                    conformes += 1
                 else:
                     autres.append((identifiant, etat))
 
                 for texte in avertissements:
                     print(f"        - {texte}")
 
-            print(f"\n{brouillons} produit(s) arrives EN BROUILLON.")
+            if publication:
+                print(f"\n{conformes} produit(s) PUBLIES.")
+            else:
+                print(f"\n{conformes} produit(s) arrives EN BROUILLON.")
 
             if autres:
-                print("\nATTENTION, ceux-ci ne sont PAS en brouillon :")
+                print(f"\nATTENTION, etat inattendu :")
                 for identifiant, etat in autres:
                     print(f"   {identifiant} : {etat}")
 
@@ -562,10 +835,18 @@ if __name__ == "__main__":
                 "\nActions :\n"
                 "   etat\n"
                 "   apercu <id>\n"
-                "   pousser <id> [<id> ...]\n"
+                "   pousser <id> [<id> ...] [--images]\n"
+                "   publier <id> [<id> ...]\n"
+                "   pousser --fournisseur <nom>\n"
                 "      ex : pousser 43\n"
-                "      ex : pousser 23 24 25 26\n"
                 "      ex : pousser 30-64\n"
+                "      ex : publier 30-64\n"
+                "      ex : pousser --fournisseur Stor\n"
+                "\n"
+                "   --fournisseur ne retient QUE les produits\n"
+                "   jamais pousses. Les fiches deja en ligne\n"
+                "   sont ecartees et ne peuvent pas etre\n"
+                "   ecrasees par cette voie.\n"
             )
 
     except (ValueError, WiziShopAPIError) as erreur:

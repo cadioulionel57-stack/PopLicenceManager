@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QDoubleSpinBox,
     QPushButton,
     QFormLayout,
@@ -22,6 +22,10 @@ class ReglagesFichePage(QWidget):
     charte HTML) — un changement ici s'applique à toutes
     les fiches généreées ensuite, sans toucher aux modèles.
     """
+
+    LIBELLE_REFUS_DEFAUT = "Non"
+
+    LIBELLE_CHOIX_DEFAUT = "Je souhaite un Emballage Cadeau"
 
     def __init__(self):
 
@@ -166,16 +170,28 @@ class ReglagesFichePage(QWidget):
         )
         formCadeau = QFormLayout(groupeCadeau)
 
-        self.libelleCadeauOui = QLineEdit()
-        self.libelleCadeauOui.textChanged.connect(self._majApercu)
-        formCadeau.addRow(
-            "Libellé du choix", self.libelleCadeauOui
-        )
-
         self.libelleCadeauNon = QLineEdit()
         self.libelleCadeauNon.textChanged.connect(self._majApercu)
         formCadeau.addRow(
             "Libellé du refus", self.libelleCadeauNon
+        )
+
+        # UNE OCCASION PAR LIGNE. Chaque ligne devient un
+        # choix payant dans la liste déroulante de la fiche
+        # WiziShop, au même prix. C'est ce qui permet au
+        # client de dire POURQUOI il offre, sans champ de
+        # texte libre — que l'API ne sait pas transmettre.
+        self.choixCadeau = QPlainTextEdit()
+        self.choixCadeau.setPlaceholderText(
+            "Joyeux anniversaire\n"
+            "Joyeux Noël\n"
+            "Bonne fête Maman\n"
+            "Bonne fête Papa"
+        )
+        self.choixCadeau.textChanged.connect(self._majApercu)
+        formCadeau.addRow(
+            "Libellés des choix\n(une occasion par ligne)",
+            self.choixCadeau
         )
 
         self.prixEmballageCadeau.valueChanged.connect(
@@ -191,12 +207,20 @@ class ReglagesFichePage(QWidget):
         formCadeau.addRow("Ce que verra le client", self.apercuCadeau)
 
         noteCadeau = QLabel(
-            "Le prix vient du réglage « Prix emballage cadeau » "
-            "ci-dessus — il n'y a qu'un seul endroit où le "
-            "changer.\n"
+            "Chaque ligne devient un choix dans la liste "
+            "déroulante de la fiche produit, au même prix — "
+            "celui du réglage « Prix emballage cadeau » "
+            "ci-dessus. C'est ainsi que le client indique "
+            "l'occasion, et que tu sais quelle étiquette "
+            "poser en préparant la commande.\n"
             "Le refus est toujours coché par défaut : on "
             "n'impose jamais une option payante, c'est aussi "
-            "ce qu'exige la loi."
+            "ce qu'exige la loi.\n"
+            "Attention : ces libellés sont la clé de "
+            "rapprochement avec WiziShop. Renommer une ligne "
+            "existante y crée un NOUVEAU choix au lieu de "
+            "modifier l'ancien — ajoute des lignes, ne "
+            "réécris pas celles qui tournent déjà."
         )
         noteCadeau.setWordWrap(True)
         noteCadeau.setStyleSheet("color:#64748b; font-size:12px;")
@@ -211,6 +235,25 @@ class ReglagesFichePage(QWidget):
         layout.addStretch()
 
         self.charger()
+
+    def _lignes_choix(self):
+        """
+        Les occasions saisies, nettoyées : lignes vides
+        retirées, doublons écartés en gardant l'ordre. Sans
+        ce nettoyage, une ligne vide partirait vers WiziShop
+        comme un choix invisible mais sélectionnable.
+        """
+
+        lignes = []
+
+        for brute in self.choixCadeau.toPlainText().splitlines():
+
+            texte = brute.strip()
+
+            if texte and texte not in lignes:
+                lignes.append(texte)
+
+        return lignes
 
     def charger(self):
 
@@ -238,15 +281,25 @@ class ReglagesFichePage(QWidget):
         self.tarifChronoRelais.setValue(reglages["tarif_chrono_relais"])
         self.seuilChronoRelais.setValue(reglages["seuil_chrono_relais"])
 
-        self.libelleCadeauOui.setText(
+        self.libelleCadeauNon.setText(
             self.manager.obtenir(
-                "libelle_cadeau_oui",
-                "🎁 Je souhaite un emballage cadeau"
+                "libelle_cadeau_non", self.LIBELLE_REFUS_DEFAUT
             )
         )
-        self.libelleCadeauNon.setText(
-            self.manager.obtenir("libelle_cadeau_non", "Non, merci.")
-        )
+
+        # REPRISE DE L'EXISTANT : tant que la nouvelle liste
+        # n'a jamais été enregistrée, on repart du libellé
+        # unique déjà en place. La fiche WiziShop reste donc
+        # identique tant qu'aucune ligne n'est ajoutée.
+
+        liste = self.manager.obtenir("libelles_cadeau_choix", "")
+
+        if not (liste or "").strip():
+            liste = self.manager.obtenir(
+                "libelle_cadeau_oui", self.LIBELLE_CHOIX_DEFAUT
+            )
+
+        self.choixCadeau.setPlainText((liste or "").strip())
 
         self._majApercu()
 
@@ -291,23 +344,42 @@ class ReglagesFichePage(QWidget):
             "seuil_chrono_relais", self.seuilChronoRelais.value()
         )
 
+        choix = self._lignes_choix() or [self.LIBELLE_CHOIX_DEFAUT]
+
+        self.manager.definir(
+            "libelles_cadeau_choix",
+            "\n".join(choix),
+            "Libellés des choix d'emballage cadeau proposés au "
+            "client sur la fiche WiziShop, un par ligne. Chacun "
+            "est facturé au prix de l'emballage cadeau."
+        )
+
+        # Compatibilité : d'anciens appels lisent encore la
+        # clé au singulier. Elle garde la PREMIÈRE occasion,
+        # pour qu'aucun code non repris ne se retrouve sans
+        # libellé.
         self.manager.definir(
             "libelle_cadeau_oui",
-            self.libelleCadeauOui.text().strip()
-            or "🎁 Je souhaite un emballage cadeau",
-            "Libellé du choix d'emballage cadeau proposé au "
-            "client sur la fiche WiziShop."
+            choix[0],
+            "Premier libellé de la liste ci-dessus. Conservé "
+            "pour les anciens appels."
         )
+
         self.manager.definir(
             "libelle_cadeau_non",
-            self.libelleCadeauNon.text().strip() or "Non, merci.",
+            self.libelleCadeauNon.text().strip()
+            or self.LIBELLE_REFUS_DEFAUT,
             "Libellé du refus d'emballage cadeau. Toujours "
             "sélectionné par défaut."
         )
 
+        self.charger()
+
         QMessageBox.information(
             self, "Enregistré",
-            "Ces réglages s'appliquent aux prochaines fiches générées."
+            f"{len(choix)} choix d'emballage cadeau enregistré(s).\n"
+            "Ils partiront vers WiziShop au prochain envoi des "
+            "produits éligibles."
         )
 
     def _majApercu(self):
@@ -317,16 +389,17 @@ class ReglagesFichePage(QWidget):
         l'étape suivante fait abandonner la commande.
         """
 
-        oui = (
-            self.libelleCadeauOui.text().strip()
-            or "🎁 Je souhaite un emballage cadeau"
+        non = (
+            self.libelleCadeauNon.text().strip()
+            or self.LIBELLE_REFUS_DEFAUT
         )
-        non = self.libelleCadeauNon.text().strip() or "Non, merci."
 
         prix = self.prixEmballageCadeau.value()
         montant = f"{prix:.2f}".replace(".", ",")
 
-        self.apercuCadeau.setText(
-            f"○   {oui} (+{montant} € TTC)\n"
-            f"◉   {non}"
-        )
+        lignes = [f"◉   {non}"]
+
+        for occasion in self._lignes_choix() or [self.LIBELLE_CHOIX_DEFAUT]:
+            lignes.append(f"○   {occasion} (+{montant} € TTC)")
+
+        self.apercuCadeau.setText("\n".join(lignes))

@@ -788,20 +788,58 @@ class TarificationTab(QWidget):
         if resultat["transport"]:
 
             transport_ht = resultat["transport"]["prix_ht"]
+
+            # Ce qui pèse réellement sur le coût, ce n'est
+            # PAS le transport entier : c'est ce qui reste à
+            # ta charge une fois déduit le port payé par le
+            # client. On affiche donc les deux séparément.
+            #
+            # Avant, la différence était logée en douce dans
+            # la ligne "Frais fixes du canal", calculée par
+            # soustraction : elle affichait un -3,60 € absurde
+            # (0,35 de frais eBay moins 3,95 de port client),
+            # et le transport réapparaissait juste en dessous
+            # comme s'il était compté deux fois. Le calcul
+            # était bon, la lecture impossible.
+            ecart_absorbe_ht = resultat["transport"].get(
+                "ecart_absorbe_ht"
+            )
+
+            if ecart_absorbe_ht is None:
+                ecart_absorbe_ht = transport_ht
+
+            port_client_ht = transport_ht - ecart_absorbe_ht
+
             reste_frais_fixe = (
                 resultat["cout_fixe_total"]
                 - resultat["cout_produit"]
-                - transport_ht
+                - ecart_absorbe_ht
             )
 
             lignes_detail.append(
                 f"+ Frais fixes du canal : {reste_frais_fixe:.2f} € HT"
             )
             lignes_detail.append(
-                f"+ Transport ({resultat['transport']['transporteur']} — "
+                f"+ Transport réel "
+                f"({resultat['transport']['transporteur']} — "
                 f"{resultat['transport']['offre']}) : "
                 f"{transport_ht:.2f} € HT"
             )
+
+            # Rien à détailler quand le client ne paie pas de
+            # port (canal en "port inclus") : le transport
+            # entier est déjà à ta charge, deux lignes de plus
+            # n'apprendraient rien.
+            if abs(port_client_ht) >= 0.005:
+
+                lignes_detail.append(
+                    f"- Port payé par le client : "
+                    f"{port_client_ht:.2f} € HT"
+                )
+                lignes_detail.append(
+                    f"= Transport restant à ta charge : "
+                    f"{ecart_absorbe_ht:.2f} € HT"
+                )
 
         else:
 
