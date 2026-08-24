@@ -1,4 +1,12 @@
+﻿dist/
+build/
 .venv/
 __pycache__/
 *.pyc
+*.spec
+database/*.db
+database/*.bak
+*.db-journal
+.venv_ancien/
+.venv*/
 config_api.json

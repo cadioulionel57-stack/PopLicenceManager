@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 from pathlib import Path
 
 from database.schema import SCHEMA
@@ -11,11 +12,37 @@ import database.schema_variations  # noqa: F401
 import database.schema_templates   # noqa: F401
 
 
+def chemin_base():
+    """
+    Renvoie le chemin du fichier poplicence.db.
+
+    Deux situations, et une seule règle : la base est
+    toujours À CÔTÉ du programme qui tourne.
+
+    - Lancé normalement (python main.py), le programme est
+      le dossier du projet : la base est dans
+      database/poplicence.db, comme depuis toujours.
+
+    - Lancé en version compilée (.exe), les fichiers .py
+      n'existent plus sur le disque, ils sont enfermés dans
+      l'exécutable. Le chemin calculé à partir de ce fichier
+      ne mène donc nulle part, et la base est introuvable.
+      On repart alors du dossier de l'exe lui-même, où le
+      dossier database est copié à côté.
+    """
+
+    if getattr(sys, "frozen", False):
+        # sys.executable = le chemin de l'exe en cours.
+        return Path(sys.executable).parent / "database" / "poplicence.db"
+
+    return Path(__file__).parent / "poplicence.db"
+
+
 class Database:
 
     def __init__(self):
 
-        db_path = Path(__file__).parent / "poplicence.db"
+        db_path = chemin_base()
 
         # timeout=30 : si une autre partie du logiciel est en
         # train d'ecrire, on ATTEND notre tour au lieu

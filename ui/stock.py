@@ -24,7 +24,9 @@ from PySide6.QtPrintSupport import QPrintPreviewDialog, QPrinter
 
 from ui.list_page import ListPage
 from ui.inventaire_import_dialog import InventaireImportDialog
+from ui.emplacement_import_dialog import EmplacementImportDialog
 from modules.stock_manager import StockManager
+from database.database import Database
 
 
 def date_fr(valeur):
@@ -475,13 +477,18 @@ class MouvementsDialog(QDialog):
 
 class StockPage(ListPage):
     """
-    État du stock : quantités réelles et valeur.
+    État du stock : quantités réelles, emplacement et valeur.
 
     Les quantités ne se tapent pas dans un tableau : elles
     résultent des mouvements (création de fiche, réceptions
     fournisseur, commandes clients, mouvements manuels,
     inventaires). Chaque changement laisse donc une trace
     datée et motivée.
+
+    L'emplacement de rangement suit la même logique : il
+    n'est pas saisi à la main mais importé depuis le
+    collecteur, qui a scanné le produit puis son adresse
+    de rayonnage.
 
     Un produit à variations n'apparaît pas en une ligne :
     chacune de ses tailles a la sienne, avec son propre
@@ -497,6 +504,7 @@ class StockPage(ListPage):
         super().__init__("🗃️ Stock")
 
         self.manager = StockManager()
+        self.db = Database()
 
         ####################################################
         # Barre d'outils
@@ -511,10 +519,15 @@ class StockPage(ListPage):
         self.btnExporter.setText("🖨️ Imprimer")
         self.btnExporter.clicked.connect(self.imprimer)
 
-        self.btnSupprimer.setVisible(False)
-
         self.btnImporter.setText("📥 Importer un inventaire")
         self.btnImporter.clicked.connect(self.importerInventaire)
+
+        # Le bouton Supprimer n'a pas de sens ici — un stock
+        # ne se supprime pas, il se corrige. On récupère sa
+        # place dans la barre pour l'import des emplacements.
+        self.btnSupprimer.setVisible(True)
+        self.btnSupprimer.setText("📍 Importer les emplacements")
+        self.btnSupprimer.clicked.connect(self.importerEmplacements)
 
         ####################################################
         # Date du jour
@@ -534,7 +547,7 @@ class StockPage(ListPage):
         # Tableau
         ####################################################
 
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(9)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -542,6 +555,7 @@ class StockPage(ListPage):
             "EAN / Gencod",
             "Produit",
             "Type",
+            "Emplacement",
             "Quantité",
             "Prix moyen HT",
             "Valeur HT",
@@ -574,6 +588,29 @@ class StockPage(ListPage):
         self.charger()
 
     ########################################################
+    # Emplacements
+    ########################################################
+
+    def _emplacements(self):
+        """
+        Emplacement de chaque produit, indexé par identifiant.
+
+        On le lit ici plutôt que dans StockManager : le moteur
+        de stock calcule des quantités et des valeurs, ranger
+        n'est pas son métier.
+        """
+
+        emplacements = {}
+
+        for ligne in self.db.lire(
+            "SELECT id, emplacement FROM produits "
+            "WHERE emplacement IS NOT NULL AND emplacement != ''"
+        ):
+            emplacements[ligne["id"]] = ligne["emplacement"]
+
+        return emplacements
+
+    ########################################################
     # Chargement
     ########################################################
 
@@ -582,6 +619,8 @@ class StockPage(ListPage):
         self.labelDuJour.setText(
             f"État du stock au {date_fr(date.today().isoformat())}"
         )
+
+        emplacements = self._emplacements()
 
         self.table.setRowCount(0)
 
@@ -592,12 +631,20 @@ class StockPage(ListPage):
 
             est_bundle = produit["type"] == "Bundle"
 
+            # Un bundle n'occupe pas de place en rayon : il se
+            # monte au moment de la commande.
+            emplacement = (
+                "" if est_bundle
+                else emplacements.get(produit["produit_id"], "")
+            )
+
             valeurs = [
                 produit["produit_id"],
                 produit["sku"],
                 produit["ean"],
                 produit["nom"],
                 produit["type"],
+                emplacement,
                 produit["quantite"],
                 self._euros(produit["prix_moyen"]),
                 self._euros(produit["valeur"]),
@@ -615,7 +662,12 @@ class StockPage(ListPage):
                         produit.get("variation_id"),
                     )
 
-                if colonne in (5, 6, 7):
+                if colonne == 5:
+                    cellule.setTextAlignment(
+                        Qt.AlignmentFlag.AlignCenter
+                    )
+
+                if colonne in (6, 7, 8):
                     cellule.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight
                         | Qt.AlignmentFlag.AlignVCenter
@@ -624,7 +676,17 @@ class StockPage(ListPage):
                 if est_bundle:
                     cellule.setForeground(QColor("#5b6b7f"))
 
-                elif colonne == 5 and produit["quantite"] <= 0:
+                elif colonne == 6 and produit["quantite"] <= 0:
+                    cellule.setForeground(QColor("#c0392b"))
+
+                # Un produit en stock sans emplacement se voit :
+                # c'est de la marchandise qu'on ne retrouvera
+                # pas au moment de préparer un colis.
+                elif (
+                    colonne == 5
+                    and not emplacement
+                    and produit["quantite"] > 0
+                ):
                     cellule.setForeground(QColor("#c0392b"))
 
                 self.table.setItem(ligne, colonne, cellule)
@@ -673,7 +735,7 @@ class StockPage(ListPage):
             ),
             "nom": self.table.item(ligne, 3).text(),
             "type": self.table.item(ligne, 4).text(),
-            "quantite": int(self.table.item(ligne, 5).text()),
+            "quantite": int(self.table.item(ligne, 6).text()),
         }
 
     def _refuserBundle(self, produit, action):
@@ -844,6 +906,22 @@ class StockPage(ListPage):
             self.charger()
 
     ########################################################
+    # Import des emplacements de rangement
+    ########################################################
+
+    def importerEmplacements(self):
+        """
+        Ouvre la fenêtre d'import du fichier de rangement :
+        le collecteur a scanné, en alternance, le produit
+        puis l'adresse où il vient d'être posé.
+        """
+
+        dialog = EmplacementImportDialog(self)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.charger()
+
+    ########################################################
     # Historique
     ########################################################
 
@@ -912,9 +990,16 @@ class StockPage(ListPage):
 
         jour = date_fr(date.today().isoformat())
 
+        emplacements = self._emplacements()
+
         lignes = []
 
         for produit in self.manager.etat_stock():
+
+            emplacement = (
+                "" if produit["type"] == "Bundle"
+                else emplacements.get(produit["produit_id"], "")
+            )
 
             lignes.append(
                 "<tr>"
@@ -922,6 +1007,7 @@ class StockPage(ListPage):
                 f"<td>{produit['ean']}</td>"
                 f"<td>{produit['nom']}</td>"
                 f"<td>{produit['type']}</td>"
+                f"<td align='center'>{emplacement}</td>"
                 f"<td align='right'>{produit['quantite']}</td>"
                 f"<td align='right'>{self._euros(produit['prix_moyen'])}</td>"
                 f"<td align='right'>{self._euros(produit['valeur'])}</td>"
@@ -955,6 +1041,7 @@ class StockPage(ListPage):
                         <th align="left">EAN / Gencod</th>
                         <th align="left">Produit</th>
                         <th align="left">Type</th>
+                        <th align="center">Emplacement</th>
                         <th align="right">Quantité</th>
                         <th align="right">Prix moyen HT</th>
                         <th align="right">Valeur HT</th>
@@ -990,12 +1077,13 @@ class StockPage(ListPage):
 
         for ligne in range(self.table.rowCount()):
 
-            # SKU, EAN, nom et type : on peut donc chercher
-            # aussi bien « S000012 » qu'un code-barres complet
-            # scanné à la douchette.
+            # SKU, EAN, nom, type et emplacement : on peut donc
+            # chercher aussi bien « S000012 » qu'un code-barres
+            # scanné à la douchette, ou tout ce qui est rangé
+            # sur l'étagère A03 en tapant « a03 ».
             contenu = " ".join(
                 self.table.item(ligne, colonne).text().lower()
-                for colonne in (1, 2, 3, 4)
+                for colonne in (1, 2, 3, 4, 5)
                 if self.table.item(ligne, colonne)
             )
 

@@ -290,7 +290,9 @@ class ProductsPage(ListPage):
             ]
 
             for identifiant in nouveaux:
-                stock.initialiser_produit(identifiant)
+                # La creation d'une fiche N'ENTRE PLUS RIEN EN STOCK :
+                # la quantite ne monte qu'au scan de reception (PTC).
+                pass
 
         except Exception as erreur:
 
