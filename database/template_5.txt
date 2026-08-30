@@ -1,0 +1,702 @@
+<!-- ACCROCHE: de quoi rendre les devoirs un peu plus gais -->
+
+<!-- =========================
+    DESCRIPTION
+    ========================= -->
+ <section style="
+ background:#ffffff;
+ border:1px solid #e2e8f0;
+ border-radius:24px;
+ padding:35px 28px;
+ box-shadow:0 8px 24px rgba(15,23,42,0.05);
+ ">
+
+ <div style="
+ display:inline-block;
+ background:#fbbf24;
+ color:#111827;
+ padding:8px 16px;
+ border-radius:999px;
+ font-size:12px;
+ font-weight:900;
+ letter-spacing:1px;
+ text-transform:uppercase;
+ margin-bottom:20px;
+ ">
+
+ Description produit
+
+ </div>
+
+
+ <p style="
+ margin-bottom:14px;
+ color:#475569;
+ font-size:15px;
+ line-height:1.9;
+ ">
+
+ {{nom_produit}} est un accessoire officiel{{avec_licence}}
+ qui accompagne parfaitement les enfants
+ pour l'école,
+ les loisirs,
+ les sorties
+ ou les voyages.
+
+ </p>
+
+        {{#si_description_specifique}}
+        {{description_specifique}}
+        {{/si_description_specifique}}
+
+{{#si_tableau_tailles}}
+{{tableau_tailles}}
+{{/si_tableau_tailles}}
+
+
+
+        <p style="
+        margin-bottom:14px;
+        color:#475569;
+        font-size:15px;
+        line-height:1.9;
+        ">
+            {{#si_matiere}}Matière : {{matiere}}. {{/si_matiere}}{{#si_couleur}}Coloris : {{couleur}}. {{/si_couleur}}{{#si_dimensions}}Dimensions : {{dimensions}}. {{/si_dimensions}}{{#si_poids}}Poids : {{poids_lisible}}.{{/si_poids}}
+        </p>
+
+
+ <p style="
+ margin-bottom:14px;
+ color:#475569;
+ font-size:15px;
+ line-height:1.9;
+ ">
+
+ Pensé pour un usage quotidien,
+ il offre un espace de rangement pratique
+ tout en mettant en avant
+ l'univers apprécié des enfants.
+
+ </p>
+
+ <!-- CARACTÉRISTIQUES -->
+ <div style="
+ margin-top:30px;
+ background:#f8fafc;
+ border:1px solid #e2e8f0;
+ border-radius:20px;
+ padding:24px;
+ ">
+
+ <h3 style="
+ margin-top:0;
+ font-size:18px;
+ color:#0f172a;
+ font-weight:900;
+ ">
+
+ Caractéristiques principales
+
+ </h3>
+
+ <ul style="
+ padding-left:18px;
+ margin:18px 0 0 0;
+ color:#475569;
+ line-height:2;
+ font-size:14px;
+ ">
+
+ <li>Produit officiel sous licence</li>
+
+ <li>Grand compartiment principal zippé</li>
+
+ <li>Bretelles ajustables confortables</li>
+
+ <li>Idéal école, sport et loisirs</li>
+
+ <li>Design apprécié des enfants</li>
+
+ <li>Produit pratique pour le quotidien</li>
+
+ <li>Dimensions adaptées à un usage scolaire</li>
+
+ <li>Matière résistante pour un usage quotidien</li>
+
+ </ul>
+
+ </div>
+
+ </section>
+
+ <!-- =========================
+🎒 FICHE PRODUIT STOCK
+ACCESSOIRES / RENTRÉE
+VERSION MILANO PREMIUM V3
+========================= -->
+
+<div style="
+max-width:1200px;
+margin:35px auto;
+font-family:Arial,sans-serif;
+line-height:1.8;
+color:#111827;
+">
+
+ <!-- =========================
+    UNIVERS PRODUIT
+    ========================= -->
+ <section style="
+ background:linear-gradient( 135deg, rgba(15,23,42,0.45), rgba(30,58,138,0.45) );
+position:relative;
+overflow:hidden;
+ border-radius:28px;
+ padding:42px 36px;
+ color:white;
+ margin-bottom:35px;
+ box-shadow:0 12px 32px rgba(30,58,138,0.20);
+ position:relative;
+ overflow:hidden;
+ min-height:320px;
+ display:flex;
+ align-items:center;
+ ">
+
+  {{#si_image_univers}}
+  <img src="{{image_fond_univers}}"
+       alt="{{alt_univers}}"
+       loading="lazy"
+       decoding="async"
+       style="
+       position:absolute;
+       top:0; left:0;
+       width:100%; height:100%;
+       object-fit:cover;
+       z-index:0;
+       ">
+  <div style="
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:linear-gradient( 135deg, rgba(15,23,42,0.45), rgba(30,58,138,0.45) );
+  z-index:1;
+  "></div>
+  {{/si_image_univers}}
+  <div style="position:relative; z-index:2;">
+
+
+ <div style="
+ position:absolute;
+ top:-80px;
+ right:-80px;
+ width:220px;
+ height:220px;
+ border-radius:50%;
+ background:rgba(255,255,255,0.06);
+ "></div>
+
+ <div style="
+ position:relative;
+ z-index:2;
+ max-width:760px;
+ ">
+
+ <div style="
+ display:inline-block;
+ background:#fbbf24;
+ color:#111827;
+ padding:8px 16px;
+ border-radius:999px;
+ font-size:12px;
+ font-weight:900;
+ letter-spacing:1px;
+ text-transform:uppercase;
+ margin-bottom:20px;
+ ">
+
+ Univers rentrée
+
+ </div>
+
+ <h2 style="
+ margin-top:0;
+ font-size:38px;
+ line-height:1.2;
+ font-weight:900;
+ "><span style="color:#ffffff">Produit officiel pour l'école & les loisirs</span></h2>
+
+ <p style="
+        color:#ffffff !important;
+ margin-top:18px;
+ color:rgba(255,255,255,0.45);
+ font-size:15px;
+ line-height:2;
+ ">
+
+ Ce produit officiel accompagne parfaitement
+ les enfants au quotidien
+ pour l'école,
+ les sorties,
+ les loisirs
+ et les voyages.
+
+ <br><br>
+
+ Un accessoire pratique
+ inspiré des univers préférés
+ des enfants et fans de pop culture.
+
+ </p>
+
+ <!-- BADGES -->
+ <div style="
+ display:flex;
+ flex-wrap:wrap;
+ gap:12px;
+ margin-top:24px;
+ ">
+
+ <div style="
+ background:rgba(255,255,255,0.12);
+ border:1px solid rgba(255,255,255,0.16);
+ backdrop-filter:blur(6px);
+ padding:10px 16px;
+ border-radius:999px;
+ font-size:13px;
+ font-weight:800;
+ ">
+
+ Licence authentique
+
+ </div>
+
+ <div style="
+ background:rgba(255,255,255,0.12);
+ border:1px solid rgba(255,255,255,0.16);
+ backdrop-filter:blur(6px);
+ padding:10px 16px;
+ border-radius:999px;
+ font-size:13px;
+ font-weight:800;
+ ">
+
+ Idée cadeau rentrée
+
+ </div>
+
+ </div>
+
+ 
+
+  {{#si_licence}}
+  <a href="{{lien_licence}}" style="
+  display:inline-block;
+  margin-top:18px;
+  background:#ffffff;
+  color:#111827 !important;
+  padding:12px 22px;
+  border-radius:999px;
+  font-size:14px;
+  font-weight:900;
+  text-decoration:none;
+  ">
+    Voir tout l'univers {{licence}}
+  </a>
+  {{/si_licence}}
+</div>
+  </div>
+
+ </section>
+
+ <!-- =========================
+    POINTS CLÉS
+    ========================= -->
+ <section style="
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+ gap:18px;
+ margin-bottom:35px;
+ ">
+
+ <!-- ITEM -->
+ <div style="
+ background:#f8fafc;
+ border:1px solid #e2e8f0;
+ border-radius:20px;
+ padding:22px;
+ text-align:center;
+ box-shadow:0 6px 18px rgba(15,23,42,0.04);
+ transition:all 0.3s ease;
+ "
+ onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 30px rgba(15,23,42,0.08)';"
+ onmouseout="this.style.transform='translateY(0px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,0.04)';">
+
+ 
+
+ <div style="
+ margin-top:16px;
+ font-size:17px;
+ font-weight:900;
+ color:#0f172a;
+ ">
+
+ Usage quotidien
+
+ </div>
+
+ <div style="
+ margin-top:10px;
+ font-size:13px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Adapté à l'école,<br>
+ aux loisirs et aux sorties.
+
+ </div>
+
+ </div>
+
+ <!-- ITEM -->
+ <div style="
+ background:#f8fafc;
+ border:1px solid #e2e8f0;
+ border-radius:20px;
+ padding:22px;
+ text-align:center;
+ box-shadow:0 6px 18px rgba(15,23,42,0.04);
+ transition:all 0.3s ease;
+ "
+ onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 30px rgba(15,23,42,0.08)';"
+ onmouseout="this.style.transform='translateY(0px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,0.04)';">
+
+ 
+
+ <div style="
+ margin-top:16px;
+ font-size:17px;
+ font-weight:900;
+ color:#0f172a;
+ ">
+
+ Produit officiel
+
+ </div>
+
+ <div style="
+ margin-top:10px;
+ font-size:13px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Sous licence officielle<br>
+ avec finitions de qualité.
+
+ </div>
+
+ </div>
+
+ <!-- ITEM -->
+ <div style="
+ background:#f8fafc;
+ border:1px solid #e2e8f0;
+ border-radius:20px;
+ padding:22px;
+ text-align:center;
+ box-shadow:0 6px 18px rgba(15,23,42,0.04);
+ transition:all 0.3s ease;
+ "
+ onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 30px rgba(15,23,42,0.08)';"
+ onmouseout="this.style.transform='translateY(0px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,0.04)';">
+
+ 
+
+ <div style="
+ margin-top:16px;
+ font-size:17px;
+ font-weight:900;
+ color:#0f172a;
+ ">
+
+ Livraison rapide
+
+ </div>
+
+ <div style="
+ margin-top:10px;
+ font-size:13px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Expédition rapide<br>
+ depuis la France.
+
+ </div>
+
+ </div>
+
+ </section>
+
+ <!-- =========================
+    CONFORT & PRATICITÉ
+    ========================= -->
+ <section style="
+ margin-bottom:35px;
+ background:#eff6ff;
+ border:1px solid #bfdbfe;
+ border-radius:24px;
+ padding:28px;
+ box-shadow:0 8px 20px rgba(37,99,235,0.06);
+ ">
+
+ <div style="
+ display:inline-block;
+ background:#1d4ed8;
+ color:white;
+ padding:8px 16px;
+ border-radius:999px;
+ font-size:12px;
+ font-weight:900;
+ letter-spacing:1px;
+ text-transform:uppercase;
+ margin-bottom:20px;
+ ">
+
+ Confort & praticité
+
+ </div>
+
+ <div style="
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:18px;
+ ">
+
+ <div style="
+ background:white;
+ border-radius:18px;
+ padding:18px;
+ border:1px solid #dbeafe;
+ ">
+
+ <div style="
+ font-size:15px;
+ font-weight:900;
+ color:#1d4ed8;
+ ">
+
+ Compartiments pratiques
+
+ </div>
+
+ <div style="
+ margin-top:8px;
+ font-size:14px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Espace de rangement adapté
+ aux affaires scolaires
+ et accessoires du quotidien.
+
+ </div>
+
+ </div>
+
+ <div style="
+ background:white;
+ border-radius:18px;
+ padding:18px;
+ border:1px solid #dbeafe;
+ ">
+
+ <div style="
+ font-size:15px;
+ font-weight:900;
+ color:#1d4ed8;
+ ">
+
+ Bretelles ajustables
+
+ </div>
+
+ <div style="
+ margin-top:8px;
+ font-size:14px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Confort de port adapté
+ pour l'école,
+ les loisirs
+ et les déplacements.
+
+ </div>
+
+ </div>
+
+ <div style="
+ background:white;
+ border-radius:18px;
+ padding:18px;
+ border:1px solid #dbeafe;
+ ">
+
+ <div style="
+ font-size:15px;
+ font-weight:900;
+ color:#1d4ed8;
+ ">
+
+ Entretien facile
+
+ </div>
+
+ <div style="
+ margin-top:8px;
+ font-size:14px;
+ color:#475569;
+ line-height:1.8;
+ ">
+
+ Produit pensé
+ pour un usage quotidien
+ et un entretien simple.
+
+ </div>
+
+ </div>
+
+ </div>
+
+ </section>
+
+ <!-- =========================
+    FAQ
+    ========================= -->
+
+<div style="
+text-align:center;
+font-family:Arial,sans-serif;
+background:#fffbeb;
+border:2px solid #fcd34d;
+padding:28px 20px;
+border-radius:12px;
+margin:30px 0;
+box-shadow:0 4px 6px -1px rgba(251,191,36,0.1);
+">
+
+ <div style="
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:12px;
+ margin-bottom:18px;
+ ">
+
+ 
+
+ <h4 style="
+ margin:0;
+ color:#92400e;
+ font-size:16px;
+ text-transform:uppercase;
+ font-weight:800;
+ letter-spacing:1px;
+ ">
+
+ Optimisez votre livraison
+
+ </h4>
+
+ </div>
+
+ <p style="
+ margin:0 auto 22px auto;
+ max-width:650px;
+ font-size:14px;
+ color:#78350f;
+ line-height:1.7;
+ ">
+
+ Pour un traitement plus rapide, nous vous conseillons de passer des commandes <strong>distinctes</strong> pour les articles "En Stock" et "Livraison sous 5 à 7 jours ouvrés".
+
+ </p>
+
+ <div style="
+ max-width:550px;
+ margin:0 auto;
+ text-align:left;
+ ">
+
+ <div style="
+ display:flex;
+ align-items:flex-start;
+ gap:12px;
+ margin-bottom:16px;
+ ">
+
+ 
+
+ <p style="
+ margin:0;
+ font-size:14px;
+ color:#78350f;
+ line-height:1.7;
+ ">
+
+ Les produits <strong>en stock</strong> sont expédiés le jour même si votre commande est validée avant 11h du lundi au vendredi. À défaut, l'envoi est effectué sous 24h ou au premier jour ouvrable.
+
+ </p>
+
+ </div>
+
+ <div style="
+ display:flex;
+ align-items:flex-start;
+ gap:12px;
+ ">
+
+ 
+
+ <p style="
+ margin:0;
+ font-size:14px;
+ color:#78350f;
+ line-height:1.7;
+ ">
+
+ Les produits <strong>"Livraison sous 5 à 7 jours ouvrés"</strong> sont expédiés sous 24h et livrés à domicile en remise contre signature.<strong>Livraison offerte, sans minimum d'achat.</strong>
+
+ </p>
+
+ </div>
+
+ </div>
+
+ <div style="
+ margin:24px auto;
+ width:40px;
+ height:2px;
+ background:#fcd34d;
+ "></div>
+
+ <p style="
+ margin:0;
+ font-size:13px;
+ color:#92400e;
+ font-style:italic;
+ line-height:1.5;
+ ">
+
+ <strong>À noter :</strong> en cas de commande mixte, vos produits seront expédiés séparément et pourront avoir des délais de livraison différents.
+
+ </p>
+
+</div>
+</div>
