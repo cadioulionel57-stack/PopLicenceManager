@@ -119,40 +119,129 @@ class GenerateurFicheHtml:
         Met en forme le texte ecrit sur le produit : chaque
         paragraphe recoit sa propre balise et son espacement.
 
-        Une ligne vide separe deux paragraphes. Le texte sort
-        aere, jamais en pave compact.
+        Une ligne vide separe deux paragraphes. Un titre
+        s'ecrit entre deux doubles diese : ## Mon titre ##.
+        Une ligne qui commence par un tiret devient un point
+        de liste. Les deux sont reconnus meme au milieu d'une
+        ligne, donc un texte colle d'un seul tenant sort aussi
+        bien mis en page qu'un texte aere.
         """
 
         if not texte:
             return ""
 
-        morceaux = [
-            bloc.strip()
-            for bloc in re.split(r"\n\s*\n", str(texte))
-            if bloc.strip()
-        ]
+        style_titre = (
+            "margin:26px 0 10px 0;"
+            "font-size:18px;"
+            "color:#0f172a !important;"
+            "font-weight:900;"
+        )
 
-        if not morceaux:
-            return ""
+        style_para = (
+            "margin:0 0 16px 0;"
+            "font-size:15px;"
+            "line-height:1.9;"
+            "color:#475569 !important;"
+        )
+
+        style_liste = (
+            "margin:0 0 16px 0;"
+            "padding-left:18px;"
+            "font-size:15px;"
+            "line-height:2;"
+            "color:#475569 !important;"
+        )
 
         sortie = []
 
-        for bloc in morceaux:
+        def _ajouter_texte(morceau):
+            """
+            Decoupe un morceau de texte en paragraphes et en
+            listes, puis les ajoute a la sortie.
 
-            # Un simple retour a la ligne reste un retour a la
-            # ligne a l'interieur du paragraphe.
-            bloc = bloc.replace("\n", "<br>")
+            Une ligne qui commence par un tiret devient un
+            point de liste. Le tiret est reconnu meme au
+            milieu d'une ligne, donc une liste collee d'un
+            seul tenant ressort quand meme en liste.
+            """
 
-            sortie.append(
-                "<p style=\"\n"
-                "        margin:0 0 16px 0;\n"
-                "        font-size:15px;\n"
-                "        line-height:1.9;\n"
-                "        color:#475569 !important;\n"
-                "        \">\n"
-                f"            {bloc}\n"
-                "        </p>"
-            )
+            for bloc in re.split(r"\n\s*\n", morceau):
+
+                if not bloc.strip():
+                    continue
+
+                # Un bloc qui contient des tirets en debut de
+                # ligne, ou " - " au fil du texte, est une liste.
+                puces = [
+                    point.strip()
+                    for point in re.split(r"(?:^|\s)-\s+", bloc)
+                    if point.strip()
+                ]
+
+                # Deux tirets au minimum : un tiret isole au
+                # fil d'une phrase ne doit pas faire une liste.
+                est_liste = (
+                    len(re.findall(r"(?:^|\s)-\s+", bloc)) >= 2
+                )
+
+                if est_liste:
+
+                    # Ce qui precede le premier tiret reste du
+                    # texte normal.
+                    avant = re.split(r"(?:^|\s)-\s+", bloc)[0].strip()
+
+                    if avant:
+                        sortie.append(
+                            "<p style=\"" + style_para + "\">"
+                            + avant
+                            + "</p>"
+                        )
+                        puces = puces[1:]
+
+                    if puces:
+                        sortie.append(
+                            "<ul style=\"" + style_liste + "\">"
+                            + "".join(
+                                "<li>" + point.replace("\n", " ") + "</li>"
+                                for point in puces
+                            )
+                            + "</ul>"
+                        )
+
+                    continue
+
+                lignes = [
+                    ligne.strip()
+                    for ligne in bloc.split("\n")
+                    if ligne.strip()
+                ]
+
+                if not lignes:
+                    continue
+
+                sortie.append(
+                    "<p style=\"" + style_para + "\">"
+                    + "<br>".join(lignes)
+                    + "</p>"
+                )
+
+        # Les titres encadres : ## Mon titre ##
+        parties = re.split(r"##\s*(.+?)\s*##", str(texte))
+
+        for rang, partie in enumerate(parties):
+
+            if not partie or not partie.strip():
+                continue
+
+            # Les rangs impairs sont les titres captures.
+            if rang % 2 == 1:
+                sortie.append(
+                    "<h3 style=\"" + style_titre + "\">"
+                    + partie.strip()
+                    + "</h3>"
+                )
+            else:
+                _ajouter_texte(partie)
 
         return "\n        ".join(sortie)
 
