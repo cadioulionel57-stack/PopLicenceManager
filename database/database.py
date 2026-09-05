@@ -53,8 +53,28 @@ class Database:
 
         self.cursor = self.conn.cursor()
 
-        # WAL : les lectures ne bloquent plus les ecritures.
-        self.cursor.execute("PRAGMA journal_mode = WAL")
+        # PAS DE MODE WAL.
+        #
+        # En mode WAL, SQLite n'ecrit pas directement dans
+        # poplicence.db : il ecrit dans un fichier compagnon
+        # poplicence.db-wal, pose a cote, et ne reverse le
+        # contenu dans la base qu'a certains moments.
+        #
+        # Sur un poste unique ce detail est invisible. Mais
+        # cette base voyage entre le local et la maison par
+        # copie de fichier : le script d'envoi copiait
+        # poplicence.db seul, et le travail de la journee,
+        # reste dans le fichier compagnon, ne partait pas.
+        # Une journee entiere de fiches produit a ete perdue
+        # ainsi.
+        #
+        # Le mode DELETE ci-dessous ecrit tout dans le
+        # fichier principal. Il n'y a plus de fichier
+        # compagnon, donc plus rien a oublier de copier.
+        # Le gain de vitesse du WAL n'a aucun interet ici :
+        # le logiciel n'est utilise que par une personne a
+        # la fois.
+        self.cursor.execute("PRAGMA journal_mode = DELETE")
 
         self.cursor.execute("PRAGMA busy_timeout = 30000")
 

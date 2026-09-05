@@ -476,12 +476,104 @@ class ProductManager:
             )
         )
 
+    # Toutes les tables qui portent une ligne rattachee a un
+    # produit. Quand une fiche est reellement supprimee, ces
+    # lignes doivent partir avec elle, sinon la base se
+    # remplit de restes invisibles.
+    TABLES_LIEES = [
+        "achats_fournisseurs_lignes",
+        "bundles_composants",
+        "documents_produits",
+        "images_produits",
+        "lignes_achats",
+        "lignes_commandes",
+        "mouvements_stock",
+        "produits_attributs",
+        "produits_canaux",
+        "produits_categories_canaux",
+        "produits_marges",
+        "produits_prix_marche",
+        "produits_variations",
+        "sav",
+        "stocks",
+        "ventes",
+    ]
+
     def supprimer(self, identifiant):
+        """
+        Supprime une fiche produit.
+
+        DEUX CAS, ET UNE SEULE RAISON DE LES DISTINGUER.
+
+        - La fiche n'a JAMAIS ete envoyee vers WiziShop :
+          elle n'existe nulle part ailleurs, on l'efface
+          pour de bon, avec toutes les lignes qui en
+          dependent.
+
+        - La fiche EST DEJA en ligne sur WiziShop : on la
+          marque inactive au lieu de l'effacer. Sans cela on
+          perdrait le lien avec le produit publie, qui
+          resterait sur le site sans que le logiciel puisse
+          encore le mettre a jour ou le depublier.
+
+        Avant cette correction, TOUTES les fiches etaient
+        seulement marquees inactives : elles disparaissaient
+        des ecrans mais restaient en base, et ressortaient
+        dans les traitements de masse. Des fiches de test
+        supprimees des mois plus tot revenaient ainsi
+        polluer les corrections.
+        """
+
+        produit = self.db.lire_un(
+            """
+            SELECT id_wizishop
+            FROM produits
+            WHERE id = ?
+            """,
+            (identifiant,)
+        )
+
+        if produit is None:
+            return
+
+        id_wizishop = produit["id_wizishop"]
+
+        deja_en_ligne = (
+            id_wizishop is not None
+            and str(id_wizishop).strip() != ""
+        )
+
+        if deja_en_ligne:
+
+            self.db.executer(
+                """
+                UPDATE produits
+                SET actif = 0
+                WHERE id = ?
+                """,
+                (identifiant,)
+            )
+
+            return
+
+        # Fiche jamais publiee : suppression reelle.
+        #
+        # On efface d'abord les lignes rattachees, puis la
+        # fiche elle-meme. Une table absente de la base
+        # n'interrompt pas l'operation.
+        for table in self.TABLES_LIEES:
+
+            try:
+                self.db.executer(
+                    f"DELETE FROM {table} WHERE produit_id = ?",
+                    (identifiant,)
+                )
+            except Exception:
+                pass
 
         self.db.executer(
             """
-            UPDATE produits
-            SET actif = 0
+            DELETE FROM produits
             WHERE id = ?
             """,
             (identifiant,)
