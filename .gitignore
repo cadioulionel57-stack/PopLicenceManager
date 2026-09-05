@@ -10,3 +10,5 @@ database/*.bak
 .venv_ancien/
 .venv*/
 config_api.json
+
+database/*.db.*
