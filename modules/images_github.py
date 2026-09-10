@@ -12,11 +12,18 @@ renvoyee est alors la meme que la fois precedente, donc WiziShop n'a
 rien de neuf a telecharger et ne peut pas creer de doublon dans le
 gestionnaire d'images.
 
+07/09/2026 : WIZISHOP NE PREND PAS LE FORMAT WEBP. Une image .webp
+etait deposee sur GitHub, envoyee a WiziShop, et silencieusement
+ignoree : la fiche arrivait sans photo. Les WebP sont desormais
+CONVERTIES EN JPG avant depot, et le nom de fichier suit (.jpg).
+Les autres formats passent inchanges.
+
 Utilisation en ligne de commande, depuis C:\\PopLicenceManager :
     python -m modules.images_github test
 """
 
 import base64
+import io
 import json
 import re
 import unicodedata
@@ -29,6 +36,9 @@ API = "https://api.github.com/repos/{depot}/contents/{chemin}"
 BRUT = "https://raw.githubusercontent.com/{depot}/main/{chemin}"
 
 EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+
+# Formats que WiziShop refuse et qu'il faut convertir en JPG.
+A_CONVERTIR = (".webp",)
 
 
 def _config():
@@ -54,22 +64,62 @@ def slug(texte):
 
 
 def extension(url):
+    """
+    Extension du fichier a deposer.
+
+    Une source .webp ressort en .jpg : le fichier sera converti
+    avant depot, donc son nom doit deja porter la bonne extension.
+    """
     for ext in EXTENSIONS:
         if url.lower().split("?")[0].endswith(ext):
-            return ".jpg" if ext == ".jpeg" else ext
+            if ext == ".jpeg":
+                return ".jpg"
+            if ext in A_CONVERTIR:
+                return ".jpg"
+            return ext
     return ".jpg"
+
+
+def _source_a_convertir(url_source):
+    base = url_source.lower().split("?")[0]
+    return any(base.endswith(ext) for ext in A_CONVERTIR)
+
+
+def _convertir_en_jpg(contenu):
+    """
+    Convertit le contenu binaire d'une image en JPG.
+
+    Le fond transparent d'une WebP devient blanc : sans cela, la
+    conversion echoue ou produit un fond noir sur les visuels
+    detoures des fournisseurs.
+    """
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(contenu))
+
+    if image.mode in ("RGBA", "LA", "P"):
+        image = image.convert("RGBA")
+        fond = Image.new("RGB", image.size, (255, 255, 255))
+        fond.paste(image, mask=image.split()[-1])
+        image = fond
+    else:
+        image = image.convert("RGB")
+
+    sortie = io.BytesIO()
+    image.save(sortie, format="JPEG", quality=90, optimize=True)
+    return sortie.getvalue()
 
 
 def _telecharger(url):
     requete = urllib.request.Request(
-        url, headers={"User-Agent": "PopLicenceManager"}
+        url,
+        headers={"User-Agent": "PopLicenceManager"},
     )
     with urllib.request.urlopen(requete, timeout=60) as reponse:
         return reponse.read()
 
 
 def _sha_existant(jeton, depot, chemin):
-    """Renvoie le sha du fichier s'il est deja en ligne, sinon None."""
     requete = urllib.request.Request(
         API.format(depot=depot, chemin=chemin),
         headers={
@@ -79,8 +129,8 @@ def _sha_existant(jeton, depot, chemin):
         },
     )
     try:
-        with urllib.request.urlopen(requete, timeout=30) as reponse:
-            return json.loads(reponse.read())["sha"]
+        with urllib.request.urlopen(requete, timeout=60) as reponse:
+            return json.loads(reponse.read()).get("sha")
     except urllib.error.HTTPError as erreur:
         if erreur.code == 404:
             return None
@@ -96,6 +146,9 @@ def deposer(url_source, nom_fichier, remplacer=False):
     renvoie simplement son adresse. WiziShop recoit alors la meme
     adresse qu'avant et ne cree aucun doublon.
 
+    Une source WebP est convertie en JPG avant depot : WiziShop
+    ignore les WebP et la fiche arriverait sans photo.
+
     Passer remplacer=True pour forcer le remplacement (photo
     changee chez le fournisseur).
     """
@@ -108,6 +161,9 @@ def deposer(url_source, nom_fichier, remplacer=False):
         return BRUT.format(depot=depot, chemin=chemin)
 
     contenu = _telecharger(url_source)
+
+    if _source_a_convertir(url_source):
+        contenu = _convertir_en_jpg(contenu)
 
     corps = {
         "message": f"image {nom_fichier}",
@@ -128,42 +184,23 @@ def deposer(url_source, nom_fichier, remplacer=False):
             "User-Agent": "PopLicenceManager",
         },
     )
+
     with urllib.request.urlopen(requete, timeout=120):
         pass
 
     return BRUT.format(depot=depot, chemin=chemin)
 
 
-def deja_en_ligne(nom_fichier):
-    """Dit si le fichier est deja sur le depot."""
-    jeton, depot = _config()
-    return _sha_existant(jeton, depot, f"produits/{nom_fichier}") is not None
-
-
-def urls_lisibles(nom_produit, urls, remplacer=False):
-    """
-    Prend le nom du produit et ses URL fournisseur,
-    renvoie la liste des URL GitHub renommees.
-    """
-    base = slug(nom_produit)
-    resultat = []
-    for rang, url in enumerate(urls, start=1):
-        if not url:
-            continue
-        nom = f"{base}-{rang}{extension(url)}"
-        resultat.append(deposer(url, nom, remplacer=remplacer))
-    return resultat
-
-
 if __name__ == "__main__":
+
     import sys
 
     if len(sys.argv) > 1 and sys.argv[1] == "test":
-        source = (
-            "https://s3.eu-central-1.amazonaws.com/"
-            "images.cerdagroup.net/big/2900002967.jpg"
-        )
-        print("Depot en cours...")
-        print(deposer(source, "pyjama-long-polaire-bluey-enfant-1.jpg"))
-    else:
-        print(__doc__)
+        jeton, depot = _config()
+        print("Depot :", depot)
+        print("Jeton :", "present" if jeton else "ABSENT")
+        try:
+            from PIL import Image  # noqa: F401
+            print("Pillow : present (conversion WebP -> JPG active)")
+        except ImportError:
+            print("Pillow : ABSENT — les WebP ne pourront pas etre converties")
