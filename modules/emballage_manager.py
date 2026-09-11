@@ -159,38 +159,36 @@ class EmballageManager:
         produit donné, triés du plus petit au plus grand
         (par volume extérieur croissant).
 
-        DEUX RÈGLES SELON LE TYPE D'EMBALLAGE.
-
-        Emballage RIGIDE (carton, sac kraft) : chacune de
-        ses trois dimensions extérieures doit être
-        supérieure ou égale à la dimension correspondante du
-        produit, plus la marge de sécurité (1 cm par défaut,
-        pour la fermeture et le calage).
+        TROIS REGLES.
 
         Emballage SOUPLE (pochette plastique) : la pochette
-        n'a pas de troisième dimension réelle, elle se
-        referme autour du produit. On ne compare donc que
-        ses DEUX dimensions, en ajoutant l'épaisseur du
-        produit à chacune — car la pochette consomme de la
-        largeur en se refermant sur un article épais.
+        se referme autour du produit. On ne compare que ses
+        DEUX dimensions, en ajoutant la MOITIE de l'epaisseur
+        du produit a chacune — une pochette souple ne
+        consomme pas toute l'epaisseur en se refermant. Sans
+        cet assouplissement, un set gants et bonnet de
+        22 x 18 x 4 cm etait ecarte de la pochette 24 x 35.
 
-        Sans cette distinction, un t-shirt, un pantalon ou
-        un manteau plié de plus d'un centimètre d'épaisseur
-        était systématiquement écarté des pochettes, et le
-        logiciel imposait un carton. Le coût d'emballage
-        était alors surévalué de plus de 50 centimes par
-        produit, ce qui faussait tous les prix de vente.
+        Emballage RIGIDE, dimension la plus longue : la
+        marge de securite n'est PAS exigee. Un article de
+        60 cm entre dans un carton de 60 cm ; c'est la
+        largeur et la hauteur qui demandent du calage, pas
+        la longueur.
+
+        Emballage RIGIDE, deux autres dimensions : la marge
+        de securite s'applique normalement (1 cm par defaut,
+        pour la fermeture et le calage).
 
         L'ORIENTATION DU PRODUIT EST LIBRE : les dimensions
-        du produit et celles de l'emballage sont triées de
-        la plus grande à la plus petite avant d'être
-        comparées — comme lorsqu'on tourne un objet dans la
+        du produit et celles de l'emballage sont triees de
+        la plus grande a la plus petite avant d'etre
+        comparees — comme lorsqu'on tourne un objet dans la
         main pour le glisser dans un carton.
 
         Renvoie une liste vide si aucun emballage ne
-        convient — dans ce cas, la création du produit doit
-        être bloquée côté interface, avec une alerte
-        invitant à ajouter un nouvel emballage à la grille.
+        convient — dans ce cas, la creation du produit doit
+        etre bloquee cote interface, avec une alerte
+        invitant a ajouter un nouvel emballage a la grille.
         """
 
         tous_les_emballages = self.tous()
@@ -208,7 +206,7 @@ class EmballageManager:
             reverse=True
         )
 
-        epaisseur_produit = dimensions_produit[2]
+        demi_epaisseur = dimensions_produit[2] / 2.0
 
         for emballage in tous_les_emballages:
 
@@ -239,27 +237,32 @@ class EmballageManager:
 
             if souple:
 
-                # Pochette : deux dimensions utiles, et
-                # l'epaisseur du produit vient s'ajouter aux
-                # deux car la pochette se referme autour.
+                # Pochette : deux dimensions utiles, et la
+                # moitie de l'epaisseur du produit vient
+                # s'ajouter aux deux.
                 for rang in (0, 1):
 
                     cote_emballage = dimensions_emballage[rang]
                     cote_produit = dimensions_produit[rang]
 
-                    if cote_emballage < cote_produit + epaisseur_produit:
+                    if cote_emballage < cote_produit + demi_epaisseur:
                         convient = False
                         break
 
             else:
 
-                # Carton : les trois dimensions comptent, et
-                # il faut la marge de fermeture et de calage.
-                for cote_emballage, cote_produit in zip(
-                    dimensions_emballage, dimensions_produit
-                ):
+                # Carton : les trois dimensions comptent.
+                for rang in (0, 1, 2):
 
-                    if cote_emballage < cote_produit + marge_cm:
+                    cote_emballage = dimensions_emballage[rang]
+                    cote_produit = dimensions_produit[rang]
+
+                    # Pas de marge exigee sur la plus grande
+                    # dimension : un article de 60 cm entre
+                    # dans un carton de 60 cm.
+                    marge = 0 if rang == 0 else marge_cm
+
+                    if cote_emballage < cote_produit + marge:
                         convient = False
                         break
 

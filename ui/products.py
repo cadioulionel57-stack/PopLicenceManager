@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import Qt
 
 
 class ProductsPage(ListPage):
@@ -161,7 +162,18 @@ class ProductsPage(ListPage):
             policeType.setBold(True)
             itemType.setFont(policeType)
 
-            self.table.setItem(ligne, 0, QTableWidgetItem(str(produit["id"])))
+            itemId = QTableWidgetItem(str(produit["id"]))
+
+            # La reference fournisseur n'a pas de colonne dans le
+            # tableau, mais elle est rattachee a la ligne pour que
+            # la recherche puisse la trouver : c'est le seul code
+            # imprime sur les colis a la reception.
+            itemId.setData(
+                Qt.UserRole,
+                (produit["reference_fournisseur"] or "").lower(),
+            )
+
+            self.table.setItem(ligne, 0, itemId)
             self.table.setItem(ligne, 1, itemType)
 
             valeurs = [
@@ -526,6 +538,20 @@ class ProductsPage(ListPage):
                 if item is not None and texte in item.text().lower():
                     correspond_texte = True
                     break
+
+            # Reference fournisseur : elle n'est pas affichee dans
+            # le tableau mais reste cherchable, pour retrouver une
+            # fiche a partir du code imprime sur le colis.
+            if not correspond_texte and texte != "":
+
+                itemId = self.table.item(ligne, 0)
+
+                if itemId is not None:
+
+                    reference = itemId.data(Qt.UserRole) or ""
+
+                    if texte in reference:
+                        correspond_texte = True
 
             correspond_type = True
 
